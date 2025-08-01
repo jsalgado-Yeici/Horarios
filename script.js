@@ -2,8 +2,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getFirestore, collection, doc, addDoc, onSnapshot, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-scheduler-app-v2';
+// --- Tus claves de Firebase ya están aquí ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCEcsfD6lNBJN3_VaZObUOZfDi7UFDU7Q",
+  authDomain: "planificador-horarios.firebaseapp.com",
+  projectId: "planificador-horarios",
+  storageBucket: "planificador-horarios.appspot.com",
+  messagingSenderId: "625559113082",
+  appId: "1:625559113082:web:836fb0b09be2a60cf2dac3"
+};
+// --- Fin de la configuración ---
+
+
+const appId = 'default-scheduler-app-v2'; // Puedes dejar esto como está
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -453,11 +464,8 @@ window.addEventListener('DOMContentLoaded', () => {
     (async () => {
         if (!auth.currentUser) {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Since this is for GitHub Pages, we don't have __initial_auth_token
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Authentication failed:", error);
                 showNotification("Error de Autenticación", "No se pudo conectar con el servidor.");
@@ -465,6 +473,3 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     })();
 });
-</script>
-</body>
-</html>
