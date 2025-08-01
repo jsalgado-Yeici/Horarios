@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, onSnapshot, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 // --- Tus claves de Firebase ya están aquí ---
 const firebaseConfig = {
@@ -13,8 +13,7 @@ const firebaseConfig = {
 };
 // --- Fin de la configuración ---
 
-
-const appId = 'default-scheduler-app-v2'; // Puedes dejar esto como está
+const appId = 'default-scheduler-app-v2';
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -464,7 +463,6 @@ window.addEventListener('DOMContentLoaded', () => {
     (async () => {
         if (!auth.currentUser) {
             try {
-                // Since this is for GitHub Pages, we don't have __initial_auth_token
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("Authentication failed:", error);
