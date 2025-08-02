@@ -1,6 +1,5 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, doc, addDoc, onSnapshot, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+// This script uses the older, namespaced syntax (e.g., firebase.auth()) which is compatible with the compat libraries.
+// This is often more stable for simple projects deployed on platforms like GitHub Pages.
 
 // --- Tus claves de Firebase ya están aquí ---
 const firebaseConfig = {
@@ -13,13 +12,13 @@ const firebaseConfig = {
 };
 // --- Fin de la configuración ---
 
-const appId = 'default-scheduler-app-v2';
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-let userId = null;
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
 
-const getCollectionRef = name => collection(db, `artifacts/${appId}/public/data/${name}`);
+const appId = 'default-scheduler-app-v2';
+const getCollectionRef = name => db.collection(`artifacts/${appId}/public/data/${name}`);
 const teachersCol = getCollectionRef('teachers'), subjectsCol = getCollectionRef('subjects'), groupsCol = getCollectionRef('groups'), scheduleCol = getCollectionRef('schedule');
 
 let localState = { teachers: [], subjects: [], groups: [], schedule: [] };
@@ -57,26 +56,26 @@ function startApp() {
     generateTimeOptions();
     setupEventListeners();
     
-    onSnapshot(teachersCol, s => {
+    teachersCol.onSnapshot(s => {
         localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSimpleList(localState.teachers, dom.teachersList, teachersCol);
         populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente');
         populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes');
         updateWorkloadSummary();
     });
-    onSnapshot(subjectsCol, s => {
+    subjectsCol.onSnapshot(s => {
         localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSimpleList(localState.subjects, dom.subjectsList, subjectsCol);
         populateSelect(dom.subjectSelect, localState.subjects, 'Seleccionar Materia');
     });
-    onSnapshot(groupsCol, s => {
+    groupsCol.onSnapshot(s => {
         localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSimpleList(localState.groups, dom.groupsList, groupsCol);
         populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo');
         populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos');
         updateWorkloadSummary();
     });
-    onSnapshot(scheduleCol, s => {
+    scheduleCol.onSnapshot(s => {
         localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderScheduleGrid();
         runPedagogicalAnalysis();
@@ -102,7 +101,7 @@ function setupEventListeners() {
 async function addItem(collectionRef, data, inputElement) {
     if (!inputElement.value.trim()) return;
     try {
-        await addDoc(collectionRef, data);
+        await collectionRef.add(data);
         inputElement.value = '';
     } catch (error) {
         showNotification("Error de Guardado", "No se pudo agregar el elemento.");
@@ -133,7 +132,7 @@ function renderSimpleList(items, listDiv, collectionRef) {
         deleteBtn.onclick = async () => {
             if (window.confirm('¿Eliminar este elemento?')) {
                 try {
-                    await deleteDoc(doc(db, collectionRef.path, item.id));
+                    await collectionRef.doc(item.id).delete();
                 } catch (e) {
                     showNotification("Error", "No se pudo eliminar.");
                 }
@@ -176,10 +175,10 @@ async function saveClass() {
 
     try {
         if (editingId) {
-            await updateDoc(doc(db, scheduleCol.path, editingId), classData);
+            await scheduleCol.doc(editingId).update(classData);
             showNotification("Éxito", "Clase actualizada correctamente.", false);
         } else {
-            await addDoc(scheduleCol, classData);
+            await scheduleCol.add(classData);
             showNotification("Éxito", "Clase agregada correctamente.", false);
         }
         resetForm();
@@ -281,7 +280,7 @@ function editClass(classData) {
 async function deleteClass(classId) {
     if (window.confirm('¿Estás seguro de que quieres eliminar esta clase?')) {
         try {
-            await deleteDoc(doc(db, scheduleCol.path, classId));
+            await scheduleCol.doc(classId).delete();
             showNotification("Éxito", "Clase eliminada.", false);
         } catch (error) {
             showNotification("Error", "No se pudo eliminar la clase.");
@@ -342,7 +341,9 @@ function runPedagogicalAnalysis() {
 function renderAlerts(alerts) {
     dom.alertsList.innerHTML = '';
     if (alerts.length === 0) {
-        dom.alertsList.appendChild(dom.noAlertsMessage);
+        if (dom.noAlertsMessage) {
+            dom.alertsList.appendChild(dom.noAlertsMessage);
+        }
         return;
     }
 
@@ -404,9 +405,9 @@ function processCSV(event, collectionRef) {
         const names = lines.slice(1).map(line => line.trim()).filter(Boolean);
         if (names.length === 0) return;
 
-        const batch = writeBatch(db);
+        const batch = db.batch();
         names.forEach(name => {
-            const newDocRef = doc(collectionRef);
+            const newDocRef = collectionRef.doc();
             batch.set(newDocRef, { name });
         });
 
@@ -453,7 +454,7 @@ function exportToCSV() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, user => {
+    auth.onAuthStateChanged(user => {
         if (user && !userId) {
             userId = user.uid;
             startApp();
@@ -463,7 +464,7 @@ window.addEventListener('DOMContentLoaded', () => {
     (async () => {
         if (!auth.currentUser) {
             try {
-                await signInAnonymously(auth);
+                await auth.signInAnonymously();
             } catch (error) {
                 console.error("Authentication failed:", error);
                 showNotification("Error de Autenticación", "No se pudo conectar con el servidor.");
