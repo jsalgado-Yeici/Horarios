@@ -124,6 +124,7 @@ const modal = {
         document.getElementById('modal-save-btn').onclick = () => saveSubject(subject ? subject.id : null);
     },
     showEditForm(item, type) {
+        const collection = type === 'Docente' ? teachersCol : groupsCol;
         const formHtml = `
             <h2 class="text-2xl font-semibold mb-4">Editar ${type}</h2>
             <input type="text" id="modal-edit-name" class="w-full p-2 border rounded-lg" value="${item.name}">
@@ -133,7 +134,7 @@ const modal = {
             </div>`;
         this.show(formHtml);
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-save-btn').onclick = () => saveEditedItem(item.id, type);
+        document.getElementById('modal-save-btn').onclick = () => saveEditedItem(item.id, collection);
     }
 };
 
@@ -172,7 +173,7 @@ function startApp() {
 
     // Suscripciones a Firestore
     onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente'); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
-    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); });
+    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateSubjectFilter(); });
     onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
     onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
@@ -193,8 +194,198 @@ function setupEventListeners() {
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
 }
 
-// ... (Resto de funciones actualizadas)
-// ... (El código completo se proporciona a continuación)
+async function addItem(collectionRef, data, inputElement, type) {
+    if (!inputElement.value.trim()) return;
+    try {
+        await addDoc(collectionRef, data);
+        notification.show(`${type} "${data.name}" agregado.`);
+        inputElement.value = '';
+    } catch (error) {
+        notification.show(`No se pudo agregar el ${type.toLowerCase()}.`, true);
+    }
+}
+
+async function addGroup() {
+    const prefix = dom.groupPrefixSelect.value;
+    const number = dom.groupNumberInput.value;
+    if (!number) return notification.show("Introduce un número de grupo.", true);
+    
+    // Asignar cuatrimestre basado en el número
+    let trimester = 1;
+    if (number >= 100 && number < 200) trimester = 1;
+    else if (number >= 200 && number < 300) trimester = 2;
+    else if (number >= 300 && number < 400) trimester = 3;
+    else if (number >= 400 && number < 500) trimester = 4;
+    else if (number >= 500 && number < 600) trimester = 5;
+    else if (number >= 600 && number < 700) trimester = 6;
+    else if (number >= 700 && number < 800) trimester = 7;
+    else if (number >= 800 && number < 900) trimester = 8;
+    else if (number >= 900 && number < 1000) trimester = 9;
+
+    const groupData = {
+        name: `${prefix}-${number}`,
+        trimester: trimester
+    };
+
+    try {
+        await addDoc(groupsCol, groupData);
+        dom.groupNumberInput.value = '';
+        notification.show(`Grupo "${groupData.name}" agregado.`);
+    } catch (error) {
+        notification.show("No se pudo agregar el grupo.", true);
+    }
+}
+
+// --- Renderizado de Paneles de Gestión ---
+function createManagementItem(item, collection, type) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'management-item';
+    itemDiv.innerHTML = `
+        <span>${item.name}</span>
+        <div class="actions">
+            <button class="edit-btn" title="Editar">✏️</button>
+            <button class="delete-btn" title="Eliminar">🗑️</button>
+        </div>
+    `;
+    itemDiv.querySelector('.edit-btn').onclick = () => {
+        if (type === 'Materia') {
+            modal.showSubjectForm(item);
+        } else {
+            modal.showEditForm(item, type);
+        }
+    };
+    itemDiv.querySelector('.delete-btn').onclick = () => {
+        modal.confirm(`¿Eliminar ${type}?`, `Borrar "<b>${item.name}</b>".`, async () => {
+            try {
+                await deleteDoc(doc(collection, item.id));
+                notification.show(`"${item.name}" eliminado.`);
+            } catch (e) {
+                notification.show("Error al eliminar.", true);
+            }
+        });
+    };
+    return itemDiv;
+}
+
+function renderTeachersList() {
+    dom.teachersList.innerHTML = '';
+    localState.teachers.forEach(teacher => {
+        dom.teachersList.appendChild(createManagementItem(teacher, teachersCol, 'Docente'));
+    });
+}
+
+function renderSubjectsByTrimester() {
+    dom.subjectsByTrimester.innerHTML = '';
+    for (let i = 1; i <= 9; i++) {
+        const column = document.createElement('div');
+        column.className = 'trimester-column space-y-2';
+        column.innerHTML = `<h3>Cuatri ${i}</h3>`;
+        const subjectsInTrimester = localState.subjects.filter(s => s.trimester == i);
+        if (subjectsInTrimester.length > 0) {
+            subjectsInTrimester.forEach(subject => {
+                column.appendChild(createManagementItem(subject, subjectsCol, 'Materia'));
+            });
+        } else {
+            column.innerHTML += `<p class="text-xs text-gray-400">Sin materias</p>`;
+        }
+        dom.subjectsByTrimester.appendChild(column);
+    }
+}
+
+function renderGroupsByTrimester() {
+    dom.groupsByTrimester.innerHTML = '';
+     for (let i = 1; i <= 9; i++) {
+        const groupsInTrimester = localState.groups.filter(g => g.trimester == i);
+        if (groupsInTrimester.length > 0) {
+            const block = document.createElement('div');
+            block.className = 'group-trimester-block';
+            block.innerHTML = `<h3>Cuatrimestre ${i}</h3>`;
+            const list = document.createElement('div');
+            list.className = 'space-y-2';
+            groupsInTrimester.forEach(group => {
+                list.appendChild(createManagementItem(group, groupsCol, 'Grupo'));
+            });
+            block.appendChild(list);
+            dom.groupsByTrimester.appendChild(block);
+        }
+    }
+}
+
+// --- Lógica de Formularios y Edición ---
+async function saveSubject(subjectId = null) {
+    const subjectData = {
+        name: document.getElementById('modal-subject-name').value,
+        trimester: parseInt(document.getElementById('modal-subject-trimester').value)
+    };
+    if (!subjectData.name) return notification.show("El nombre no puede estar vacío.", true);
+    
+    try {
+        if (subjectId) {
+            await updateDoc(doc(subjectsCol, subjectId), subjectData);
+            notification.show("Materia actualizada.");
+        } else {
+            await addDoc(subjectsCol, subjectData);
+            notification.show("Materia agregada.");
+        }
+        modal.hide();
+    } catch (error) {
+        notification.show("Error al guardar la materia.", true);
+    }
+}
+
+async function saveEditedItem(itemId, collection) {
+    const newName = document.getElementById('modal-edit-name').value;
+    if (!newName.trim()) return notification.show("El nombre no puede estar vacío.", true);
+    try {
+        await updateDoc(doc(collection, itemId), { name: newName });
+        notification.show("Elemento actualizado.");
+        modal.hide();
+    } catch (error) {
+        notification.show("Error al actualizar.", true);
+    }
+}
+
+function populateSubjectFilter() {
+    const selectedGroupId = dom.filterGroup.value;
+    const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
+    
+    let subjectsToShow = localState.subjects;
+    if (selectedGroup) {
+        subjectsToShow = localState.subjects.filter(s => s.trimester == selectedGroup.trimester);
+    }
+    
+    populateSelect(dom.subjectSelect, subjectsToShow, 'Seleccionar Materia');
+}
+
+// ... (El resto de funciones como presets, drag-and-drop, etc., se mantienen igual)
+
+// --- Lógica de Administración ---
+async function advanceAllGroups() {
+    modal.confirm("¿Avanzar Cuatrimestre?", 
+    "Esta acción incrementará en 1 el cuatrimestre de TODOS los grupos. Los grupos del 9º cuatrimestre serán eliminados. <b>Esta acción es irreversible.</b>",
+    async () => {
+        const batch = writeBatch(db);
+        let movedCount = 0;
+        let deletedCount = 0;
+
+        localState.groups.forEach(group => {
+            if (group.trimester >= 9) {
+                batch.delete(doc(groupsCol, group.id));
+                deletedCount++;
+            } else {
+                batch.update(doc(groupsCol, group.id), { trimester: group.trimester + 1 });
+                movedCount++;
+            }
+        });
+
+        try {
+            await batch.commit();
+            notification.show(`${movedCount} grupos avanzados, ${deletedCount} grupos eliminados.`);
+        } catch (error) {
+            notification.show("Error al avanzar los cuatrimestres.", true);
+        }
+    });
+}
 
 // --- AUTENTICACIÓN Y ARRANQUE ---
 onAuthStateChanged(auth, (user) => {
@@ -215,3 +406,156 @@ onAuthStateChanged(auth, (user) => {
         startApp();
     }
 })();
+
+// El resto de las funciones (saveClass, checkConflict, renderScheduleGrid, etc.) 
+// se mantienen igual que en la versión anterior. Las incluyo aquí para que el archivo esté completo.
+
+async function saveClass() {
+    const classData = {
+        teacherId: dom.teacherSelect.value,
+        subjectId: dom.subjectSelect.value,
+        groupId: dom.groupSelect.value,
+        day: dom.daySelect.value,
+        startTime: parseInt(dom.timeSelect.value),
+        duration: parseInt(dom.durationInput.value)
+    };
+
+    if (!classData.teacherId || !classData.subjectId || !classData.groupId) {
+        return notification.show("Por favor, selecciona todos los campos.", true);
+    }
+
+    const editingId = dom.editingClassId.value;
+    if (checkConflict(classData, editingId)) {
+        return notification.show("Conflicto de horario detectado.", true);
+    }
+
+    try {
+        if (editingId) {
+            await updateDoc(doc(scheduleCol, editingId), classData);
+            notification.show("Clase actualizada.");
+        } else {
+            await addDoc(scheduleCol, classData);
+            notification.show("Clase guardada.");
+        }
+        resetForm();
+    } catch (error) {
+        notification.show("Error al guardar la clase.", true);
+    }
+}
+
+function checkConflict(newClass, ignoreId = null) {
+    const newStart = newClass.startTime;
+    const newEnd = newStart + newClass.duration;
+
+    return localState.schedule.some(existingClass => {
+        if (existingClass.id === ignoreId || existingClass.day !== newClass.day) {
+            return false;
+        }
+        if (existingClass.teacherId === newClass.teacherId || existingClass.groupId === newClass.groupId) {
+            const existingStart = existingClass.startTime;
+            const existingEnd = existingStart + existingClass.duration;
+            return newStart < existingEnd && newEnd > existingStart;
+        }
+        return false;
+    });
+}
+
+function renderScheduleGrid() {
+    dom.scheduleGrid.innerHTML = '';
+    
+    dom.scheduleGrid.appendChild(document.createElement('div'));
+    days.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'grid-header';
+        header.textContent = day;
+        dom.scheduleGrid.appendChild(header);
+    });
+    timeSlots.forEach(time => {
+        const timeSlot = document.createElement('div');
+        timeSlot.className = 'grid-time-slot';
+        timeSlot.textContent = `${time}:00`;
+        dom.scheduleGrid.appendChild(timeSlot);
+        days.forEach(day => {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.day = day;
+            cell.dataset.hour = time;
+            cell.addEventListener('dragover', handleDragOver);
+            cell.addEventListener('drop', handleDrop);
+            dom.scheduleGrid.appendChild(cell);
+        });
+    });
+
+    const filteredSchedule = localState.schedule.filter(c => {
+        const teacherFilter = dom.filterTeacher.value;
+        const groupFilter = dom.filterGroup.value;
+        const teacherMatch = !teacherFilter || c.teacherId === teacherFilter;
+        const groupMatch = !groupFilter || c.groupId === groupFilter;
+        return teacherMatch && groupMatch;
+    });
+
+    days.forEach((day, dayIndex) => {
+        const dayEvents = filteredSchedule.filter(e => e.day === day);
+
+        dayEvents.forEach(c => {
+            const teacher = localState.teachers.find(t => t.id === c.teacherId);
+            const subject = localState.subjects.find(s => s.id === c.subjectId);
+            const group = localState.groups.find(g => g.id === c.groupId);
+            if (!teacher || !subject || !group) return;
+
+            const timeIndex = timeSlots.indexOf(c.startTime);
+            if (timeIndex === -1) return;
+
+            const overlaps = dayEvents.filter(e => {
+                const cEnd = c.startTime + c.duration;
+                const eEnd = e.startTime + e.duration;
+                return c.startTime < eEnd && cEnd > e.startTime;
+            });
+            
+            const totalOverlaps = overlaps.length;
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'schedule-item';
+            itemDiv.dataset.classId = c.id;
+            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
+            
+            const timeColumnWidth = 60;
+            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
+            const itemWidth = dayColumnWidth / totalOverlaps;
+
+            itemDiv.style.top = `${(timeIndex + 1) * 51}px`;
+            itemDiv.style.left = `${timeColumnWidth + (dayIndex * dayColumnWidth) + (overlapIndex * itemWidth)}px`;
+            itemDiv.style.width = `${itemWidth - 2}px`;
+            
+            const rowHeight = 50;
+            const rowGap = 1;
+            itemDiv.style.height = `${(c.duration * rowHeight) + ((c.duration - 1) * rowGap)}px`;
+
+            let subjectName = subject.name;
+            if (totalOverlaps > 1) {
+                itemDiv.style.fontSize = '0.65rem'; 
+                subjectName = getInitials(subject.name);
+            }
+
+            itemDiv.innerHTML = `
+                <div class="font-bold">${subjectName}</div>
+                <div>${teacher.name.split(' ')[0]}</div>
+                <div class="italic">${group.name}</div>
+                <div class="actions">
+                    <button title="Editar">✏️</button>
+                    <button title="Eliminar">🗑️</button>
+                </div>
+                <div class="resize-handle"></div>
+            `;
+            
+            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
+            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+            
+            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
+
+            dom.scheduleGrid.appendChild(itemDiv);
+        });
+    });
+}
