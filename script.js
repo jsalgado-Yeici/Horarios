@@ -323,6 +323,13 @@ function renderScheduleGrid() {
         itemDiv.style.gridColumn = dayIndex + 2;
         itemDiv.style.gridRow = `${timeIndex + 2} / span ${c.duration}`;
         
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Se calcula explícitamente la altura del elemento para que coincida con la duración.
+        const rowHeight = 50; // 50px de 'grid-auto-rows' en el CSS
+        const rowGap = 1;     // 1px de 'gap' en el CSS
+        itemDiv.style.height = `${(c.duration * rowHeight) + ((c.duration - 1) * rowGap)}px`;
+        // --- FIN DE LA CORRECCIÓN ---
+
         itemDiv.innerHTML = `
             <div class="font-bold">${subject.name}</div>
             <div>${teacher.name.split(' ')[0]}</div>
