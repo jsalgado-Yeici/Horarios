@@ -325,8 +325,8 @@ function renderScheduleGrid() {
         return teacherMatch && groupMatch;
     });
 
-    // --- NEW: Overlap Calculation and Rendering Logic ---
-    days.forEach(day => {
+    // --- Overlap Calculation and Rendering Logic ---
+    days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
 
         dayEvents.forEach(c => {
@@ -335,11 +335,9 @@ function renderScheduleGrid() {
             const group = localState.groups.find(g => g.id === c.groupId);
             if (!teacher || !subject || !group) return;
 
-            const dayIndex = days.indexOf(c.day);
             const timeIndex = timeSlots.indexOf(c.startTime);
-            if (dayIndex === -1 || timeIndex === -1) return;
+            if (timeIndex === -1) return;
 
-            // Find all other events that overlap with the current event 'c'
             const overlaps = dayEvents.filter(e => {
                 const cEnd = c.startTime + c.duration;
                 const eEnd = e.startTime + e.duration;
@@ -347,27 +345,26 @@ function renderScheduleGrid() {
             });
             
             const totalOverlaps = overlaps.length;
-            // Determine the horizontal position of the current event within its overlap group
             const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'schedule-item';
             itemDiv.style.backgroundColor = getSubjectColor(subject.id);
             
-            itemDiv.style.gridColumn = dayIndex + 2;
-            itemDiv.style.gridRow = `${timeIndex + 2} / span ${c.duration}`;
+            // --- POSITIONING CORRECTION ---
+            const timeColumnWidth = 60; // 60px from .schedule-grid columns
+            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
+            const itemWidth = dayColumnWidth / totalOverlaps;
+
+            itemDiv.style.top = `${(timeIndex + 1) * 51}px`; // 51 = 50px row height + 1px gap
+            itemDiv.style.left = `${timeColumnWidth + (dayIndex * dayColumnWidth) + (overlapIndex * itemWidth)}px`;
+            itemDiv.style.width = `${itemWidth - 2}px`; // -2px for a small gap
             
             const rowHeight = 50;
             const rowGap = 1;
             itemDiv.style.height = `${(c.duration * rowHeight) + ((c.duration - 1) * rowGap)}px`;
 
-            // Dynamically adjust width and horizontal position for overlaps
-            const width = 100 / totalOverlaps;
-            itemDiv.style.width = `calc(${width}% - 2px)`; // Subtract a small gap
-            itemDiv.style.left = `${overlapIndex * width}%`;
-
             let subjectName = subject.name;
-            // Use initials and smaller font for crowded slots
             if (totalOverlaps > 1) {
                 itemDiv.style.fontSize = '0.65rem'; 
                 subjectName = getInitials(subject.name);
