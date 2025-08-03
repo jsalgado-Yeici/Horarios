@@ -46,14 +46,13 @@ body {
     color: white;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible; /* Cambiado para que el handle sea visible */
     z-index: 10;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    transition: all 0.2s ease-in-out;
+    transition: box-shadow 0.2s ease-in-out; /* Transición más simple */
 }
 
 .schedule-item:hover {
-    transform: scale(1.02);
     z-index: 20; /* Asegura que el elemento sobre el que se pasa el cursor esté por encima de los demás */
 }
 
@@ -88,6 +87,24 @@ body {
     align-items: center;
     justify-content: center;
 }
+
+/* --- NUEVOS ESTILOS PARA REDIMENSIONAR --- */
+.resize-handle {
+    position: absolute;
+    bottom: -5px; /* Ligeramente fuera para que sea fácil de agarrar */
+    left: 0;
+    width: 100%;
+    height: 10px; /* Área de agarre más grande */
+    cursor: ns-resize; /* Cursor de redimensionamiento vertical */
+    z-index: 25;
+}
+
+.schedule-item.resizing {
+    opacity: 0.7;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: none; /* Desactiva transiciones durante el redimensionamiento */
+}
+
 
 /* Estilos para los íconos SVG dentro de las alertas */
 .alert-item svg {
