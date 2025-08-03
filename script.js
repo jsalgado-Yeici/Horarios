@@ -1,5 +1,4 @@
 // Paso 1: Importar las funciones necesarias desde los SDK de Firebase
-// Usamos la sintaxis de importación de módulos de ES6, que es posible gracias a type="module" en la etiqueta <script>
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { 
@@ -35,16 +34,17 @@ const teachersCol = getCollectionRef('teachers');
 const subjectsCol = getCollectionRef('subjects');
 const groupsCol = getCollectionRef('groups');
 const scheduleCol = getCollectionRef('schedule');
+const presetsCol = getCollectionRef('presets'); // NUEVA COLECCIÓN PARA PLANTILLAS
 
-let localState = { teachers: [], subjects: [], groups: [], schedule: [] };
+let localState = { teachers: [], subjects: [], groups: [], schedule: [], presets: [] }; // presets AÑADIDO
 const colorPalette = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 let colorIndex = 0;
 const assignedColors = {};
 const getSubjectColor = id => assignedColors[id] || (assignedColors[id] = colorPalette[colorIndex++ % colorPalette.length]);
-let dom = {}; // Objeto para guardar referencias al DOM
+let dom = {};
 let isAppStarted = false;
 
-// --- Funciones del Modal (Notificaciones y Confirmaciones) ---
+// --- Funciones del Modal ---
 const modal = {
     el: document.getElementById('modal'),
     icon: document.getElementById('modal-icon'),
@@ -72,40 +72,24 @@ const modal = {
         });
         this.el.classList.remove('hidden');
     },
-    hide() {
-        this.el.classList.add('hidden');
-    },
+    hide() { this.el.classList.add('hidden'); },
     notify(title, message, isError = true) {
-        this.show({
-            title, message, isError,
-            buttons: [{ text: 'Cerrar', class: 'bg-gray-600 text-white py-2 px-6 rounded-lg hover:bg-gray-700' }]
-        });
+        this.show({ title, message, isError, buttons: [{ text: 'Cerrar', class: 'bg-gray-600 text-white py-2 px-6 rounded-lg hover:bg-gray-700' }] });
     },
     confirm(title, message, onConfirm) {
-        this.show({
-            title, message, isError: true,
-            buttons: [
-                { text: 'Cancelar', class: 'bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600' },
-                { text: 'Confirmar', class: 'bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700', action: onConfirm }
-            ]
-        });
+        this.show({ title, message, isError: true, buttons: [
+            { text: 'Cancelar', class: 'bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600' },
+            { text: 'Confirmar', class: 'bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700', action: onConfirm }
+        ]});
     }
 };
 
-/**
- * NEW: Helper function to get initials from a multi-word string.
- * @param {string} name - The full name of the subject.
- * @returns {string} The initials or the original name if it's a single word.
- */
 function getInitials(name) {
     if (!name || typeof name !== 'string') return '';
     const words = name.trim().split(/\s+/);
-    if (words.length > 1) {
-        return words.map(word => word[0]).join('').toUpperCase();
-    }
+    if (words.length > 1) return words.map(word => word[0]).join('').toUpperCase();
     return name;
 }
-
 
 // --- Lógica principal de la aplicación ---
 function startApp() {
@@ -116,7 +100,7 @@ function startApp() {
     dom = {
         teacherName: document.getElementById('teacher-name'), addTeacherBtn: document.getElementById('add-teacher-btn'), teachersList: document.getElementById('teachers-list'),
         subjectName: document.getElementById('subject-name'), addSubjectBtn: document.getElementById('add-subject-btn'), subjectsList: document.getElementById('subjects-list'),
-        groupName: document.getElementById('group-name'), addGroupBtn: document.getElementById('add-group-btn'), groupsList: document.getElementById('groups-list'),
+        groupPrefixSelect: document.getElementById('group-prefix-select'), groupNumberInput: document.getElementById('group-number-input'), addGroupBtn: document.getElementById('add-group-btn'), groupsList: document.getElementById('groups-list'),
         teacherSelect: document.getElementById('teacher-select'), subjectSelect: document.getElementById('subject-select'), groupSelect: document.getElementById('group-select'),
         daySelect: document.getElementById('day-select'), timeSelect: document.getElementById('time-select'), durationInput: document.getElementById('duration-input'),
         saveClassBtn: document.getElementById('save-class-btn'), cancelEditBtn: document.getElementById('cancel-edit-btn'),
@@ -127,43 +111,56 @@ function startApp() {
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
         importTeachersBtn: document.getElementById('import-teachers-btn'), importSubjectsBtn: document.getElementById('import-subjects-btn'), importGroupsBtn: document.getElementById('import-groups-btn'),
         csvFileInput: document.getElementById('csv-file-input'), exportCsvBtn: document.getElementById('export-csv-btn'),
+        // NUEVOS ELEMENTOS DOM PARA PLANTILLAS
+        presetTeacherSelect: document.getElementById('preset-teacher-select'),
+        presetSubjectSelect: document.getElementById('preset-subject-select'),
+        presetGroupSelect: document.getElementById('preset-group-select'),
+        savePresetBtn: document.getElementById('save-preset-btn'),
+        presetsList: document.getElementById('presets-list'),
     };
 
     generateTimeOptions();
     setupEventListeners();
 
     // Suscripciones a Firestore
-    onSnapshot(teachersCol, snapshot => {
-        localState.teachers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    onSnapshot(teachersCol, s => {
+        localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSimpleList(localState.teachers, dom.teachersList, teachersCol);
         populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente');
         populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes');
+        populateSelect(dom.presetTeacherSelect, localState.teachers, 'Seleccionar Docente para Plantilla');
         updateWorkloadSummary();
     });
-    onSnapshot(subjectsCol, snapshot => {
-        localState.subjects = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    onSnapshot(subjectsCol, s => {
+        localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSimpleList(localState.subjects, dom.subjectsList, subjectsCol);
         populateSelect(dom.subjectSelect, localState.subjects, 'Seleccionar Materia');
+        populateSelect(dom.presetSubjectSelect, localState.subjects, 'Seleccionar Materia para Plantilla');
     });
-    onSnapshot(groupsCol, snapshot => {
-        localState.groups = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    onSnapshot(groupsCol, s => {
+        localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSimpleList(localState.groups, dom.groupsList, groupsCol);
         populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo');
         populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos');
+        populateSelect(dom.presetGroupSelect, localState.groups, 'Seleccionar Grupo para Plantilla');
         updateWorkloadSummary();
     });
-    onSnapshot(scheduleCol, snapshot => {
-        localState.schedule = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    onSnapshot(scheduleCol, s => {
+        localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderScheduleGrid();
         runPedagogicalAnalysis();
         updateWorkloadSummary();
+    });
+    onSnapshot(presetsCol, s => { // NUEVA SUSCRIPCIÓN PARA PLANTILLAS
+        localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderPresetsList();
     });
 }
 
 function setupEventListeners() {
     dom.addTeacherBtn.onclick = () => addItem(teachersCol, { name: dom.teacherName.value }, dom.teacherName);
     dom.addSubjectBtn.onclick = () => addItem(subjectsCol, { name: dom.subjectName.value }, dom.subjectName);
-    dom.addGroupBtn.onclick = () => addItem(groupsCol, { name: dom.groupName.value }, dom.groupName);
+    dom.addGroupBtn.onclick = addGroup; // Llama a la nueva función para grupos
     dom.saveClassBtn.onclick = saveClass;
     dom.cancelEditBtn.onclick = resetForm;
     dom.filterTeacher.onchange = renderScheduleGrid;
@@ -172,6 +169,24 @@ function setupEventListeners() {
     dom.importTeachersBtn.onclick = () => handleImportClick(teachersCol);
     dom.importSubjectsBtn.onclick = () => handleImportClick(subjectsCol);
     dom.importGroupsBtn.onclick = () => handleImportClick(groupsCol);
+    dom.savePresetBtn.onclick = savePreset; // NUEVO EVENT LISTENER
+}
+
+// NUEVA FUNCIÓN PARA AÑADIR GRUPOS
+async function addGroup() {
+    const prefix = dom.groupPrefixSelect.value;
+    const number = dom.groupNumberInput.value;
+    if (!number) {
+        modal.notify("Campo Incompleto", "Por favor, introduce un número de grupo.");
+        return;
+    }
+    const groupName = `${prefix}-${number}`;
+    try {
+        await addDoc(groupsCol, { name: groupName });
+        dom.groupNumberInput.value = '';
+    } catch (error) {
+        modal.notify("Error de Guardado", "No se pudo agregar el grupo.");
+    }
 }
 
 async function addItem(collectionRef, data, inputElement) {
@@ -206,6 +221,81 @@ function renderSimpleList(items, listDiv, collectionRef) {
         listDiv.appendChild(itemDiv);
     });
 }
+
+// --- NUEVAS FUNCIONES PARA PLANTILLAS ---
+async function savePreset() {
+    const presetData = {
+        teacherId: dom.presetTeacherSelect.value,
+        subjectId: dom.presetSubjectSelect.value,
+        groupId: dom.presetGroupSelect.value,
+    };
+
+    if (!presetData.teacherId || !presetData.subjectId || !presetData.groupId) {
+        return modal.notify("Campos Incompletos", "Por favor, selecciona docente, materia y grupo para la plantilla.");
+    }
+
+    try {
+        await addDoc(presetsCol, presetData);
+        modal.notify("Éxito", "Plantilla guardada correctamente.", false);
+        // Limpiar selectores de plantillas
+        dom.presetTeacherSelect.value = '';
+        dom.presetSubjectSelect.value = '';
+        dom.presetGroupSelect.value = '';
+    } catch (error) {
+        modal.notify("Error de Guardado", "No se pudo guardar la plantilla.");
+    }
+}
+
+function renderPresetsList() {
+    dom.presetsList.innerHTML = '';
+    if (localState.presets.length === 0) {
+        dom.presetsList.innerHTML = '<p class="text-gray-500 text-sm">No hay plantillas guardadas.</p>';
+        return;
+    }
+
+    localState.presets.forEach(preset => {
+        const teacher = localState.teachers.find(t => t.id === preset.teacherId);
+        const subject = localState.subjects.find(s => s.id === preset.subjectId);
+        const group = localState.groups.find(g => g.id === preset.groupId);
+
+        if (!teacher || !subject || !group) return; // No renderizar si falta algún dato
+
+        const presetDiv = document.createElement('div');
+        presetDiv.className = 'preset-item';
+        presetDiv.onclick = () => applyPreset(preset);
+
+        presetDiv.innerHTML = `
+            <div class="preset-item-info">
+                <span class="subject">${subject.name}</span>
+                <span class="details">${teacher.name} / ${group.name}</span>
+            </div>
+            <button class="text-red-500 font-bold px-2">&times;</button>
+        `;
+
+        presetDiv.querySelector('button').onclick = (e) => {
+            e.stopPropagation(); // Evita que se aplique la plantilla al borrar
+            modal.confirm('¿Eliminar Plantilla?', `Estás a punto de borrar esta plantilla.`, async () => {
+                try {
+                    await deleteDoc(doc(presetsCol, preset.id));
+                } catch (error) {
+                    modal.notify("Error", "No se pudo eliminar la plantilla.");
+                }
+            });
+        };
+        dom.presetsList.appendChild(presetDiv);
+    });
+}
+
+function applyPreset(preset) {
+    dom.teacherSelect.value = preset.teacherId;
+    dom.subjectSelect.value = preset.subjectId;
+    dom.groupSelect.value = preset.groupId;
+    modal.notify("Plantilla Aplicada", "Los datos se han cargado en el formulario. Solo falta elegir día y hora.", false);
+    window.scrollTo({ top: dom.formTitle.offsetTop - 20, behavior: 'smooth' });
+}
+
+// --- FIN DE NUEVAS FUNCIONES ---
+
 
 async function deleteClass(classId, classInfo) {
     modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>. ¿Continuar?`, async () => {
@@ -291,13 +381,9 @@ function checkConflict(newClass, ignoreId = null) {
     });
 }
 
-/**
- * UPDATED: Renders the entire schedule grid, including handling for overlapping events.
- */
 function renderScheduleGrid() {
     dom.scheduleGrid.innerHTML = '';
     
-    // Render background grid (headers, time labels, empty cells)
     dom.scheduleGrid.appendChild(document.createElement('div'));
     days.forEach(day => {
         const header = document.createElement('div');
@@ -325,7 +411,6 @@ function renderScheduleGrid() {
         return teacherMatch && groupMatch;
     });
 
-    // --- Overlap Calculation and Rendering Logic ---
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
 
@@ -351,14 +436,13 @@ function renderScheduleGrid() {
             itemDiv.className = 'schedule-item';
             itemDiv.style.backgroundColor = getSubjectColor(subject.id);
             
-            // --- POSITIONING CORRECTION ---
-            const timeColumnWidth = 60; // 60px from .schedule-grid columns
+            const timeColumnWidth = 60;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
             const itemWidth = dayColumnWidth / totalOverlaps;
 
-            itemDiv.style.top = `${(timeIndex + 1) * 51}px`; // 51 = 50px row height + 1px gap
+            itemDiv.style.top = `${(timeIndex + 1) * 51}px`;
             itemDiv.style.left = `${timeColumnWidth + (dayIndex * dayColumnWidth) + (overlapIndex * itemWidth)}px`;
-            itemDiv.style.width = `${itemWidth - 2}px`; // -2px for a small gap
+            itemDiv.style.width = `${itemWidth - 2}px`;
             
             const rowHeight = 50;
             const rowGap = 1;
@@ -519,7 +603,7 @@ function processCSV(event, collectionRef) {
 
         const batch = writeBatch(db);
         names.forEach(name => {
-            const newDocRef = doc(collectionRef); // Creates a new doc with a random ID
+            const newDocRef = doc(collectionRef); 
             batch.set(newDocRef, { name });
         });
 
