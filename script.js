@@ -125,6 +125,36 @@ const modal = {
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('modal-save-btn').onclick = () => saveSubject(subject ? subject.id : null);
     },
+    // NUEVA FUNCIÓN: Modal para editar grupos
+    showGroupForm(group) {
+        const title = 'Editar Grupo';
+        let trimesterOptions = '';
+        for (let i = 1; i <= 9; i++) {
+            trimesterOptions += `<option value="${i}" ${group.trimester == i ? 'selected' : ''}>Cuatrimestre ${i}</option>`;
+        }
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">${title}</h2>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nombre del Grupo</label>
+                    <input type="text" id="modal-group-name" class="mt-1 block w-full p-2 border rounded-lg" value="${group.name}">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cuatrimestre</label>
+                    <select id="modal-group-trimester" class="mt-1 block w-full p-2 border rounded-lg">
+                        <option value="0" ${!group.trimester || group.trimester === 0 ? 'selected' : ''}>Sin Asignar</option>
+                        ${trimesterOptions}
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-btn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700">Guardar</button>
+            </div>`;
+        this.show(formHtml);
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-btn').onclick = () => saveGroup(group.id);
+    },
     showEditForm(item, type) {
         const collection = type === 'Docente' ? teachersCol : groupsCol;
         const formHtml = `
@@ -178,7 +208,9 @@ function startApp() {
         teacherName: document.getElementById('teacher-name'), addTeacherBtn: document.getElementById('add-teacher-btn'), teachersList: document.getElementById('teachers-list'),
         subjectsByTrimester: document.getElementById('subjects-by-trimester'), openSubjectModalBtn: document.getElementById('open-subject-modal-btn'),
         unassignedSubjectsContainer: document.getElementById('unassigned-subjects-container'),
-        groupPrefixSelect: document.getElementById('group-prefix-select'), groupNumberInput: document.getElementById('group-number-input'), addGroupBtn: document.getElementById('add-group-btn'), groupsByTrimester: document.getElementById('groups-by-trimester'),
+        groupPrefixSelect: document.getElementById('group-prefix-select'), groupNumberInput: document.getElementById('group-number-input'), 
+        groupTrimesterSelect: document.getElementById('group-trimester-select'), // CAMBIO: Añadido al DOM
+        addGroupBtn: document.getElementById('add-group-btn'), groupsByTrimester: document.getElementById('groups-by-trimester'),
         unassignedGroupsContainer: document.getElementById('unassigned-groups-container'),
         teacherSelect: document.getElementById('teacher-select'), subjectSelect: document.getElementById('subject-select'), groupSelect: document.getElementById('group-select'),
         daySelect: document.getElementById('day-select'), timeSelect: document.getElementById('time-select'), durationInput: document.getElementById('duration-input'),
@@ -230,6 +262,7 @@ async function addItem(collectionRef, data, inputElement, type) {
     }
 }
 
+// CAMBIO: La función ahora lee el cuatrimestre del nuevo selector
 async function addGroup() {
     const prefix = dom.groupPrefixSelect.value;
     const number = dom.groupNumberInput.value;
@@ -237,12 +270,13 @@ async function addGroup() {
     
     const groupData = {
         name: `${prefix}-${number}`,
-        trimester: 0 // Los grupos nuevos se crean sin cuatrimestre
+        trimester: parseInt(dom.groupTrimesterSelect.value) // Se lee el valor del cuatrimestre
     };
 
     try {
         await addDoc(groupsCol, groupData);
         dom.groupNumberInput.value = '';
+        dom.groupTrimesterSelect.value = 0; // Se resetea el selector
         notification.show(`Grupo "${groupData.name}" agregado.`);
     } catch (error) {
         notification.show("No se pudo agregar el grupo.", true);
@@ -267,10 +301,18 @@ function createManagementItem(item, collection, type, draggable = false) {
             <button class="delete-btn" title="Eliminar">🗑️</button>
         </div>
     `;
+    
+    // CAMBIO: Lógica de edición para abrir el modal correcto
     itemDiv.querySelector('.edit-btn').onclick = () => {
-        if (type === 'Materia') modal.showSubjectForm(item);
-        else modal.showEditForm(item, type);
+        if (type === 'Materia') {
+            modal.showSubjectForm(item);
+        } else if (type === 'Grupo') {
+            modal.showGroupForm(item); // Llama al nuevo modal de grupos
+        } else {
+            modal.showEditForm(item, type); // Modal genérico para docentes
+        }
     };
+    
     itemDiv.querySelector('.delete-btn').onclick = () => {
         modal.confirm(`¿Eliminar ${type}?`, `Borrar "<b>${item.name}</b>".`, async () => {
             try {
@@ -379,6 +421,24 @@ async function saveSubject(subjectId = null) {
         notification.show("Error al guardar la materia.", true);
     }
 }
+
+// NUEVA FUNCIÓN: Guarda los cambios del modal de grupo
+async function saveGroup(groupId) {
+    const groupData = {
+        name: document.getElementById('modal-group-name').value,
+        trimester: parseInt(document.getElementById('modal-group-trimester').value)
+    };
+    if (!groupData.name) return notification.show("El nombre no puede estar vacío.", true);
+    
+    try {
+        await updateDoc(doc(groupsCol, groupId), groupData);
+        notification.show("Grupo actualizado.");
+        modal.hide();
+    } catch (error) {
+        notification.show("Error al actualizar el grupo.", true);
+    }
+}
+
 
 async function saveEditedItem(itemId, collection) {
     const newName = document.getElementById('modal-edit-name').value;
