@@ -88,7 +88,7 @@ body {
     justify-content: center;
 }
 
-/* --- NUEVOS ESTILOS PARA REDIMENSIONAR --- */
+/* --- ESTILOS PARA REDIMENSIONAR --- */
 .resize-handle {
     position: absolute;
     bottom: -5px; /* Ligeramente fuera para que sea fácil de agarrar */
@@ -183,4 +183,54 @@ body {
 
 .notification-message {
     font-weight: 500;
+}
+
+/* --- NUEVOS ESTILOS PARA PANELES DE GESTIÓN --- */
+.management-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f9fafb;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #f3f4f6;
+}
+
+.management-item .actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.management-item:hover .actions {
+    opacity: 1;
+}
+
+.management-item .actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    padding: 2px;
+}
+.management-item .actions button:hover {
+    color: #4b5563;
+}
+
+.trimester-column h3 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.group-trimester-block h3 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    padding: 0.5rem;
+    background-color: #f9fafb;
+    border-radius: 6px;
 }
