@@ -319,6 +319,7 @@ function renderSubjectsByTrimester() {
     } else {
         dom.unassignedSubjectsContainer.innerHTML = `<p class="text-xs text-gray-400">Todas las materias están asignadas.</p>`;
     }
+    dom.unassignedSubjectsContainer.dataset.trimester = 0; // Para el drop
     dom.unassignedSubjectsContainer.addEventListener('dragover', handleManagementDragOver);
     dom.unassignedSubjectsContainer.addEventListener('drop', handleManagementDrop);
 }
@@ -352,6 +353,7 @@ function renderGroupsByTrimester() {
     } else {
         dom.unassignedGroupsContainer.innerHTML = `<p class="text-xs text-gray-400">Todos los grupos están asignados.</p>`;
     }
+    dom.unassignedGroupsContainer.dataset.trimester = 0; // Para el drop
     dom.unassignedGroupsContainer.addEventListener('dragover', handleManagementDragOver);
     dom.unassignedGroupsContainer.addEventListener('drop', handleManagementDrop);
 }
