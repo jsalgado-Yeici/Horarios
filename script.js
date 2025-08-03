@@ -679,7 +679,7 @@ async function deleteClass(classId, classInfo) {
     });
 }
 
-const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const timeSlots = [];
 function generateTimeOptions() {
     days.forEach(day => dom.daySelect.add(new Option(day, day)));
