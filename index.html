@@ -178,24 +178,29 @@
         </div>
     </div>
     
-    <div id="notification-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <!-- Modal de Notificaciones y Confirmaciones -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
-            <div id="notification-icon" class="mx-auto mb-4"></div>
-            <h3 id="notification-title" class="text-xl font-bold mb-2"></h3>
-            <p id="notification-message" class="text-gray-600"></p>
-            <button id="notification-close-btn" class="mt-6 bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700">Cerrar</button>
+            <div id="modal-icon" class="mx-auto mb-4"></div>
+            <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
+            <p id="modal-message" class="text-gray-600"></p>
+            <div id="modal-buttons" class="mt-6 flex justify-center gap-4">
+                 <!-- Los botones se agregarán aquí dinámicamente -->
+            </div>
         </div>
     </div>
 
-    <!-- Firebase SDK Scripts -->
+    <!-- Firebase SDK Scripts (versión compat) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
-    <!-- Your App's Script -->
+    <!-- Script de la aplicación con correcciones -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- Tus claves de Firebase ya están aquí ---
+            // --- Configuración de Firebase ---
+            // IMPORTANTE: Tu API Key está expuesta. Después de arreglar las restricciones,
+            // considera generar una nueva clave para mayor seguridad.
             const firebaseConfig = {
               apiKey: "AIzaSyCEcsfD6lNBJN3_VaZObUOZfDi7UFDU7Q",
               authDomain: "planificador-horarios.firebaseapp.com",
@@ -204,9 +209,8 @@
               messagingSenderId: "625559113082",
               appId: "1:625559113082:web:836fb0b09be2a60cf2dac3"
             };
-            // --- Fin de la configuración ---
 
-            // Initialize Firebase
+            // --- Inicialización de Firebase y variables globales ---
             firebase.initializeApp(firebaseConfig);
             const db = firebase.firestore();
             const auth = firebase.auth();
@@ -214,22 +218,74 @@
             const appId = 'default-scheduler-app-v2';
             const getCollectionRef = name => db.collection(`artifacts/${appId}/public/data/${name}`);
             const teachersCol = getCollectionRef('teachers'), subjectsCol = getCollectionRef('subjects'), groupsCol = getCollectionRef('groups'), scheduleCol = getCollectionRef('schedule');
-
+            
             let localState = { teachers: [], subjects: [], groups: [], schedule: [] };
             const colorPalette = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
             let colorIndex = 0;
             const assignedColors = {};
             const getSubjectColor = id => assignedColors[id] || (assignedColors[id] = colorPalette[colorIndex++ % colorPalette.length]);
-            let dom = {};
+            let dom = {}; // Objeto para guardar referencias al DOM
+            let isAppStarted = false; // Bandera para evitar doble inicialización
 
-            function showNotification(title, message, isError = true) {
-                dom.notificationTitle.textContent = title;
-                dom.notificationMessage.textContent = message;
-                dom.notificationIcon.innerHTML = isError ? `<svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` : `<svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
-                dom.notificationModal.classList.remove('hidden');
-            }
+            // --- Funciones del Modal (Notificaciones y Confirmaciones) ---
+            const modal = {
+                el: document.getElementById('modal'),
+                icon: document.getElementById('modal-icon'),
+                title: document.getElementById('modal-title'),
+                message: document.getElementById('modal-message'),
+                buttons: document.getElementById('modal-buttons'),
 
+                show(config) {
+                    this.title.textContent = config.title;
+                    this.message.innerHTML = config.message; // Usar innerHTML para permitir etiquetas como <b>
+                    this.icon.innerHTML = config.isError ? 
+                        `<svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` : 
+                        `<svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                    
+                    this.buttons.innerHTML = ''; // Limpiar botones
+                    config.buttons.forEach(btnConfig => {
+                        const button = document.createElement('button');
+                        button.textContent = btnConfig.text;
+                        button.className = btnConfig.class;
+                        button.onclick = () => {
+                            this.hide();
+                            if (btnConfig.action) btnConfig.action();
+                        };
+                        this.buttons.appendChild(button);
+                    });
+
+                    this.el.classList.remove('hidden');
+                },
+
+                hide() {
+                    this.el.classList.add('hidden');
+                },
+
+                notify(title, message, isError = true) {
+                    this.show({
+                        title, message, isError,
+                        buttons: [{ text: 'Cerrar', class: 'bg-gray-600 text-white py-2 px-6 rounded-lg hover:bg-gray-700' }]
+                    });
+                },
+
+                confirm(title, message, onConfirm) {
+                    this.show({
+                        title, message, isError: true,
+                        buttons: [
+                            { text: 'Cancelar', class: 'bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600' },
+                            { text: 'Confirmar', class: 'bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700', action: onConfirm }
+                        ]
+                    });
+                }
+            };
+
+            // --- Lógica Principal de la Aplicación ---
             function startApp() {
+                if (isAppStarted) return; // Prevenir reinicialización
+                isAppStarted = true;
+                console.log("App iniciada.");
+
+                // Mapeo de elementos del DOM
                 dom = {
                     teacherName: document.getElementById('teacher-name'), addTeacherBtn: document.getElementById('add-teacher-btn'), teachersList: document.getElementById('teachers-list'),
                     subjectName: document.getElementById('subject-name'), addSubjectBtn: document.getElementById('add-subject-btn'), subjectsList: document.getElementById('subjects-list'),
@@ -239,7 +295,6 @@
                     saveClassBtn: document.getElementById('save-class-btn'), cancelEditBtn: document.getElementById('cancel-edit-btn'),
                     formTitle: document.getElementById('form-title'), editingClassId: document.getElementById('editing-class-id'),
                     scheduleGrid: document.getElementById('schedule-grid'),
-                    notificationModal: document.getElementById('notification-modal'), notificationTitle: document.getElementById('notification-title'), notificationMessage: document.getElementById('notification-message'), notificationIcon: document.getElementById('notification-icon'), notificationCloseBtn: document.getElementById('notification-close-btn'),
                     filterTeacher: document.getElementById('filter-teacher'), filterGroup: document.getElementById('filter-group'),
                     alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
                     teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
@@ -250,6 +305,7 @@
                 generateTimeOptions();
                 setupEventListeners();
                 
+                // Suscripciones a Firestore
                 teachersCol.onSnapshot(s => {
                     localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() }));
                     renderSimpleList(localState.teachers, dom.teachersList, teachersCol);
@@ -283,7 +339,6 @@
                 dom.addGroupBtn.onclick = () => addItem(groupsCol, { name: dom.groupName.value }, dom.groupName);
                 dom.saveClassBtn.onclick = saveClass;
                 dom.cancelEditBtn.onclick = resetForm;
-                dom.notificationCloseBtn.onclick = () => dom.notificationModal.classList.add('hidden');
                 dom.filterTeacher.onchange = renderScheduleGrid;
                 dom.filterGroup.onchange = renderScheduleGrid;
                 dom.exportCsvBtn.onclick = exportToCSV;
@@ -298,10 +353,47 @@
                     await collectionRef.add(data);
                     inputElement.value = '';
                 } catch (error) {
-                    showNotification("Error de Guardado", "No se pudo agregar el elemento.");
+                    modal.notify("Error de Guardado", "No se pudo agregar el elemento.");
                 }
             }
+            
+            function renderSimpleList(items, listDiv, collectionRef) {
+                listDiv.innerHTML = '';
+                items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-lg';
+                    itemDiv.textContent = item.name;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '&times;';
+                    deleteBtn.className = 'text-red-500 font-bold px-2';
+                    deleteBtn.onclick = () => {
+                        modal.confirm('¿Eliminar elemento?', `Estás a punto de borrar "<b>${item.name}</b>". Esta acción no se puede deshacer.`, async () => {
+                            try {
+                                await collectionRef.doc(item.id).delete();
+                            } catch (e) {
+                                modal.notify("Error", "No se pudo eliminar.");
+                            }
+                        });
+                    };
+                    itemDiv.appendChild(deleteBtn);
+                    listDiv.appendChild(itemDiv);
+                });
+            }
 
+            async function deleteClass(classId, classInfo) {
+                 modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>. ¿Continuar?`, async () => {
+                    try {
+                        await scheduleCol.doc(classId).delete();
+                        modal.notify("Éxito", "Clase eliminada.", false);
+                    } catch (error) {
+                        modal.notify("Error", "No se pudo eliminar la clase.");
+                    }
+                });
+            }
+            
+            // ... (El resto de tus funciones como populateSelect, generateTimeOptions, saveClass, etc. no necesitan cambios)
+            // ... (Las he omitido aquí por brevedad, pero deben estar en tu archivo final)
+            // --- PEGAR AQUÍ EL RESTO DE LAS FUNCIONES SIN CAMBIOS ---
             function populateSelect(selectElement, items, placeholder) {
                 const currentValue = selectElement.value;
                 selectElement.innerHTML = `<option value="">${placeholder}</option>`;
@@ -312,29 +404,6 @@
                     selectElement.appendChild(option);
                 });
                 selectElement.value = currentValue;
-            }
-
-            function renderSimpleList(items, listDiv, collectionRef) {
-                listDiv.innerHTML = '';
-                items.forEach(item => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-lg';
-                    itemDiv.textContent = item.name;
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.innerHTML = '&times;';
-                    deleteBtn.className = 'text-red-500 font-bold';
-                    deleteBtn.onclick = async () => {
-                        if (window.confirm('¿Eliminar este elemento?')) {
-                            try {
-                                await collectionRef.doc(item.id).delete();
-                            } catch (e) {
-                                showNotification("Error", "No se pudo eliminar.");
-                            }
-                        }
-                    };
-                    itemDiv.appendChild(deleteBtn);
-                    listDiv.appendChild(itemDiv);
-                });
             }
 
             const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -359,25 +428,25 @@
                 };
 
                 if (!classData.teacherId || !classData.subjectId || !classData.groupId) {
-                    return showNotification("Campos Incompletos", "Por favor, selecciona docente, materia y grupo.");
+                    return modal.notify("Campos Incompletos", "Por favor, selecciona docente, materia y grupo.");
                 }
                 
                 const editingId = dom.editingClassId.value;
                 if (checkConflict(classData, editingId)) {
-                    return showNotification("Conflicto de Horario", "El docente o el grupo ya tienen una clase en este rango de tiempo.");
+                    return modal.notify("Conflicto de Horario", "El docente o el grupo ya tienen una clase en este rango de tiempo.");
                 }
 
                 try {
                     if (editingId) {
                         await scheduleCol.doc(editingId).update(classData);
-                        showNotification("Éxito", "Clase actualizada correctamente.", false);
+                        modal.notify("Éxito", "Clase actualizada correctamente.", false);
                     } else {
                         await scheduleCol.add(classData);
-                        showNotification("Éxito", "Clase agregada correctamente.", false);
+                        modal.notify("Éxito", "Clase agregada correctamente.", false);
                     }
                     resetForm();
                 } catch (error) {
-                    showNotification("Error de Guardado", "No se pudo guardar la clase.");
+                    modal.notify("Error de Guardado", "No se pudo guardar la clase.");
                 }
             }
 
@@ -442,7 +511,7 @@
                     
                     itemDiv.innerHTML = `
                         <div class="font-bold">${subject.name}</div>
-                        <div>${teacher.name}</div>
+                        <div>${teacher.name.split(' ')[0]}</div>
                         <div class="italic">${group.name}</div>
                         <div class="actions">
                             <button title="Editar">✏️</button>
@@ -451,8 +520,8 @@
                     `;
                     
                     const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
-                    editBtn.onclick = () => editClass(c);
-                    deleteBtn.onclick = () => deleteClass(c.id);
+                    editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+                    deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
 
                     dom.scheduleGrid.appendChild(itemDiv);
                 });
@@ -471,48 +540,37 @@
                 window.scrollTo({ top: dom.formTitle.offsetTop - 20, behavior: 'smooth' });
             }
 
-            async function deleteClass(classId) {
-                if (window.confirm('¿Estás seguro de que quieres eliminar esta clase?')) {
-                    try {
-                        await scheduleCol.doc(classId).delete();
-                        showNotification("Éxito", "Clase eliminada.", false);
-                    } catch (error) {
-                        showNotification("Error", "No se pudo eliminar la clase.");
-                    }
-                }
-            }
-
             function resetForm() {
                 dom.formTitle.textContent = "Agregar Nueva Clase";
-                dom.teacherSelect.value = "";
-                dom.subjectSelect.value = "";
-                dom.groupSelect.value = "";
-                dom.daySelect.value = "Lunes";
-                dom.timeSelect.value = "7";
-                dom.durationInput.value = "1";
-                dom.editingClassId.value = "";
-                dom.cancelEditBtn.classList.add('hidden');
+                document.getElementById('teacher-select').value = "";
+                document.getElementById('subject-select').value = "";
+                document.getElementById('group-select').value = "";
+                document.getElementById('day-select').value = "Lunes";
+                document.getElementById('time-select').value = "7";
+                document.getElementById('duration-input').value = "1";
+                document.getElementById('editing-class-id').value = "";
+                document.getElementById('cancel-edit-btn').classList.add('hidden');
             }
 
             function runPedagogicalAnalysis() {
                 const alerts = [];
-                const englishSubject = localState.subjects.find(s => s.name.toLowerCase() === 'inglés');
-                const extracurricularSubject = localState.subjects.find(s => s.name.toLowerCase() === 'actividad extracurricular');
+                const englishSubject = localState.subjects.find(s => s.name.toLowerCase().includes('inglés'));
+                const extracurricularSubject = localState.subjects.find(s => s.name.toLowerCase().includes('extracurricular'));
 
                 localState.groups.forEach(group => {
                     const groupSchedule = localState.schedule.filter(c => c.groupId === group.id);
 
                     if (englishSubject) {
-                        const englishClasses = groupSchedule.filter(c => c.subjectId === englishSubject.id).length;
+                        const englishClasses = groupSchedule.filter(c => c.subjectId === englishSubject.id).reduce((sum, c) => sum + c.duration, 0);
                         if (englishClasses < 3) {
-                            alerts.push({ type: 'warning', message: `El grupo <b>${group.name}</b> tiene menos de 3 clases de Inglés por semana.` });
+                            alerts.push({ type: 'warning', message: `El grupo <b>${group.name}</b> tiene menos de 3 horas de Inglés.` });
                         }
                     }
 
                     if (extracurricularSubject) {
                         const extraClasses = groupSchedule.filter(c => c.subjectId === extracurricularSubject.id).length;
                         if (extraClasses < 1) {
-                            alerts.push({ type: 'info', message: `El grupo <b>${group.name}</b> no tiene actividades extracurriculares asignadas.` });
+                            alerts.push({ type: 'info', message: `El grupo <b>${group.name}</b> no tiene Actividad Extracurricular.` });
                         }
                     }
 
@@ -535,9 +593,7 @@
             function renderAlerts(alerts) {
                 dom.alertsList.innerHTML = '';
                 if (alerts.length === 0) {
-                    if (dom.noAlertsMessage) {
-                        dom.alertsList.appendChild(dom.noAlertsMessage);
-                    }
+                    dom.alertsList.innerHTML = '<li class="text-gray-500">No hay alertas por el momento.</li>';
                     return;
                 }
 
@@ -593,7 +649,7 @@
                     const text = e.target.result;
                     const lines = text.split(/\r\n|\n/);
                     if (lines.length < 2 || lines[0].trim().toLowerCase() !== 'name') {
-                        return showNotification("Error de Formato", "El archivo CSV debe tener una columna con el encabezado 'name'.");
+                        return modal.notify("Error de Formato", "El archivo CSV debe tener una columna con el encabezado 'name'.");
                     }
 
                     const names = lines.slice(1).map(line => line.trim()).filter(Boolean);
@@ -607,9 +663,9 @@
 
                     try {
                         await batch.commit();
-                        showNotification("Éxito", `${names.length} elementos importados correctamente.`, false);
+                        modal.notify("Éxito", `${names.length} elementos importados correctamente.`, false);
                     } catch (error) {
-                        showNotification("Error de Importación", "No se pudieron guardar los datos.");
+                        modal.notify("Error de Importación", "No se pudieron guardar los datos.");
                     }
                 };
                 reader.readAsText(file);
@@ -646,28 +702,36 @@
                 link.click();
                 document.body.removeChild(link);
             }
+            // --- FIN DE LAS FUNCIONES SIN CAMBIOS ---
 
-            // --- AUTHENTICATION AND APP START ---
+            // --- AUTENTICACIÓN Y ARRANQUE DE LA APP (CORREGIDO) ---
             auth.onAuthStateChanged(user => {
-                if (user && !userId) {
-                    userId = user.uid;
+                if (user) {
+                    // Si hay un usuario, iniciar la aplicación.
+                    console.log("Usuario autenticado:", user.uid);
                     startApp();
                 }
             });
 
+            // Intentar iniciar sesión anónimamente al cargar la página.
             (async () => {
                 if (!auth.currentUser) {
+                    console.log("No hay usuario actual. Intentando signInAnonymously...");
                     try {
                         await auth.signInAnonymously();
                     } catch (error) {
-                        console.error("Authentication failed:", error);
-                        showNotification("Error de Autenticación", "No se pudo conectar con el servidor.");
+                        console.error("Fallo la autenticación anónima:", error);
+                        modal.notify(
+                            "Error Crítico de Conexión", 
+                            `No se pudo conectar con Firebase. Causa probable: <b>La API Key no tiene permisos para este dominio.</b> Por favor, revisa la configuración en la Google Cloud Console. <br><small>Código: ${error.code}</small>`
+                        );
                     }
+                } else {
+                    // Si ya hay un usuario (de una sesión anterior), iniciar la app directamente.
+                    startApp();
                 }
             })();
         });
     </script>
 </body>
 </html>
-
-
