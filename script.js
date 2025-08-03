@@ -197,19 +197,18 @@ function getInitials(name) {
     return name;
 }
 
-// +++ CAMBIO: FUNCIÓN CLAVE AÑADIDA +++
-// Rellena un elemento <select> con opciones de un array de datos.
 function populateSelect(selectElement, dataArray, placeholderText) {
-    selectElement.innerHTML = ''; // Limpia opciones anteriores
+    const currentValue = selectElement.value;
+    selectElement.innerHTML = '';
     
-    // Añade la opción inicial (placeholder)
     const placeholderOption = new Option(placeholderText, '');
     selectElement.add(placeholderOption);
 
-    // Añade los datos del array
     dataArray.forEach(item => {
         selectElement.add(new Option(item.name, item.id));
     });
+    
+    selectElement.value = currentValue;
 }
 
 
@@ -258,10 +257,11 @@ function setupEventListeners() {
     dom.saveClassBtn.onclick = saveClass;
     dom.cancelEditBtn.onclick = resetForm;
     dom.filterTeacher.onchange = renderScheduleGrid;
-    dom.filterGroup.onchange = () => {
-        populateSubjectFilter();
-        renderScheduleGrid();
-    };
+    dom.filterGroup.onchange = renderScheduleGrid;
+    
+    // CAMBIO: Añadido event listener para filtrar materias al cambiar el grupo en el formulario
+    dom.groupSelect.onchange = populateSubjectFilter;
+
     dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
 }
@@ -464,12 +464,15 @@ async function saveEditedItem(itemId, collection) {
     }
 }
 
+// CAMBIO: La función ahora filtra las materias según el cuatrimestre del grupo seleccionado
 function populateSubjectFilter() {
     const selectedGroupId = dom.groupSelect.value;
     const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
     
     let subjectsToShow = localState.subjects;
+    // Si se seleccionó un grupo y este tiene un cuatrimestre asignado...
     if (selectedGroup && selectedGroup.trimester > 0) {
+        // ...mostrar solo las materias de ese cuatrimestre.
         subjectsToShow = localState.subjects.filter(s => s.trimester == selectedGroup.trimester);
     }
     
@@ -755,22 +758,22 @@ function renderScheduleGrid() {
             if (!teacher || !subject || !group) return;
             const timeIndex = timeSlots.indexOf(c.startTime);
             if (timeIndex === -1) return;
-            const overlaps = dayEvents.filter(e => (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
-            const totalOverlaps = overlaps.length;
-            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
+            const overlaps = dayEvents.filter(e => e.id !== c.id && (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
+            const totalOverlaps = overlaps.length + 1;
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).findIndex(i => i.id > c.id) + 1;
             const itemDiv = document.createElement('div');
             itemDiv.className = 'schedule-item';
             itemDiv.dataset.classId = c.id;
             itemDiv.style.backgroundColor = getSubjectColor(subject.id);
             const timeColumnWidth = 60;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
-            const itemWidth = dayColumnWidth / totalOverlaps;
-            itemDiv.style.top = `${(timeIndex + 1) * 51}px`;
-            itemDiv.style.left = `${timeColumnWidth + (dayIndex * dayColumnWidth) + (overlapIndex * itemWidth)}px`;
-            itemDiv.style.width = `${itemWidth - 2}px`;
+            const itemWidth = (dayColumnWidth / totalOverlaps);
+            itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
+            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * (dayColumnWidth)) + (overlapIndex * itemWidth)}px`;
+            itemDiv.style.width = `${itemWidth - 3}px`;
             itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
             let subjectName = subject.name;
-            if (totalOverlaps > 1) { itemDiv.style.fontSize = '0.65rem'; subjectName = getInitials(subject.name); }
+            if (totalOverlaps > 2) { itemDiv.style.fontSize = '0.65rem'; subjectName = getInitials(subject.name); }
             itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
             const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
             editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
@@ -784,8 +787,12 @@ function renderScheduleGrid() {
 function editClass(classData) {
     dom.formTitle.textContent = "Editando Clase";
     dom.teacherSelect.value = classData.teacherId;
-    dom.subjectSelect.value = classData.subjectId;
     dom.groupSelect.value = classData.groupId;
+    
+    // CAMBIO: Llama a populateSubjectFilter para asegurar que las materias correctas estén cargadas
+    populateSubjectFilter();
+    
+    dom.subjectSelect.value = classData.subjectId;
     dom.daySelect.value = classData.day;
     dom.timeSelect.value = classData.startTime;
     dom.durationInput.value = classData.duration;
@@ -796,17 +803,85 @@ function editClass(classData) {
 
 function resetForm() {
     dom.formTitle.textContent = "Agregar Nueva Clase";
-    dom.teacherSelect.value = ""; dom.subjectSelect.value = ""; dom.groupSelect.value = "";
+    [dom.teacherSelect, dom.subjectSelect, dom.groupSelect].forEach(s => s.value = "");
     dom.daySelect.value = "Lunes"; dom.timeSelect.value = "7"; dom.durationInput.value = "1";
     dom.editingClassId.value = ""; dom.cancelEditBtn.classList.add('hidden');
+    populateSubjectFilter(); // Resetea el filtro de materias
 }
 
-function runPedagogicalAnalysis() { /* ... Lógica de análisis ... */ }
-function renderAlerts(alerts) { /* ... Lógica de renderizado de alertas ... */ }
-function updateWorkloadSummary() { /* ... Lógica de resumen de carga horaria ... */ }
-function handleImportClick(collectionRef) { /* ... Lógica de importación ... */ }
-function processCSV(event, collectionRef) { /* ... Lógica de procesado de CSV ... */ }
-function exportToCSV() { /* ... Lógica de exportación ... */ }
+// CAMBIO: Lógica de análisis implementada
+function runPedagogicalAnalysis() {
+    const alerts = [];
+    // 1. Verificar materias faltantes en grupos
+    localState.groups.forEach(group => {
+        if (!group.trimester || group.trimester === 0) return; // Ignorar grupos sin cuatrimestre
+
+        const requiredSubjects = localState.subjects.filter(s => s.trimester == group.trimester);
+        const scheduledSubjects = localState.schedule
+            .filter(c => c.groupId === group.id)
+            .map(c => c.subjectId);
+        
+        requiredSubjects.forEach(subject => {
+            if (!scheduledSubjects.includes(subject.id)) {
+                alerts.push({
+                    type: 'warning',
+                    message: `Al grupo <b>${group.name}</b> le falta la materia <i>${subject.name}</i>.`
+                });
+            }
+        });
+    });
+
+    renderAlerts(alerts);
+}
+
+// CAMBIO: Lógica de renderizado de alertas implementada
+function renderAlerts(alerts) {
+    dom.alertsList.innerHTML = '';
+    if (alerts.length === 0) {
+        dom.noAlertsMessage.classList.remove('hidden');
+        return;
+    }
+    
+    dom.noAlertsMessage.classList.add('hidden');
+    alerts.forEach(alert => {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-2 text-sm p-2 rounded-md bg-yellow-50 border border-yellow-200';
+        li.innerHTML = `
+            <svg class="w-5 h-5 text-yellow-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.636-1.223 2.443-1.223 3.08 0l6.273 12.088c.635 1.223-.27 2.713-1.54 2.713H3.524c-1.27 0-2.175-1.49-1.54-2.713L8.257 3.099zM9 13a1 1 0 112 0 1 1 0 01-2 0zm1-6a1 1 0 00-1 1v3a1 1 0 002 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+            <span>${alert.message}</span>
+        `;
+        dom.alertsList.appendChild(li);
+    });
+}
+
+// CAMBIO: Lógica de carga horaria implementada
+function updateWorkloadSummary() {
+    const teacherWorkload = {};
+    const groupWorkload = {};
+
+    localState.schedule.forEach(c => {
+        teacherWorkload[c.teacherId] = (teacherWorkload[c.teacherId] || 0) + c.duration;
+        groupWorkload[c.groupId] = (groupWorkload[c.groupId] || 0) + c.duration;
+    });
+
+    dom.teacherWorkload.innerHTML = '<h4 class="font-semibold text-gray-700">Docentes</h4>';
+    localState.teachers.forEach(t => {
+        const hours = teacherWorkload[t.id] || 0;
+        const p = document.createElement('p');
+        p.className = `text-sm ${hours > 20 ? 'text-red-600 font-bold' : 'text-gray-600'}`;
+        p.textContent = `${t.name}: ${hours} hrs`;
+        dom.teacherWorkload.appendChild(p);
+    });
+
+    dom.groupWorkload.innerHTML = '<h4 class="font-semibold text-gray-700">Grupos</h4>';
+    localState.groups.forEach(g => {
+        const hours = groupWorkload[g.id] || 0;
+        const p = document.createElement('p');
+        p.className = 'text-sm text-gray-600';
+        p.textContent = `${g.name}: ${hours} hrs`;
+        dom.groupWorkload.appendChild(p);
+    });
+}
 
 // --- AUTENTICACIÓN Y ARRANQUE ---
 onAuthStateChanged(auth, (user) => {
