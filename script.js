@@ -112,7 +112,7 @@ const modal = {
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Cuatrimestre</label>
                     <select id="modal-subject-trimester" class="mt-1 block w-full p-2 border rounded-lg">
-                        <option value="0">Sin Asignar</option>
+                        <option value="0" ${isEditing && (!subject.trimester || subject.trimester === 0) ? 'selected' : ''}>Sin Asignar</option>
                         ${trimesterOptions}
                     </select>
                 </div>
@@ -319,6 +319,8 @@ function renderSubjectsByTrimester() {
     } else {
         dom.unassignedSubjectsContainer.innerHTML = `<p class="text-xs text-gray-400">Todas las materias están asignadas.</p>`;
     }
+    dom.unassignedSubjectsContainer.addEventListener('dragover', handleManagementDragOver);
+    dom.unassignedSubjectsContainer.addEventListener('drop', handleManagementDrop);
 }
 
 function renderGroupsByTrimester() {
@@ -350,6 +352,8 @@ function renderGroupsByTrimester() {
     } else {
         dom.unassignedGroupsContainer.innerHTML = `<p class="text-xs text-gray-400">Todos los grupos están asignados.</p>`;
     }
+    dom.unassignedGroupsContainer.addEventListener('dragover', handleManagementDragOver);
+    dom.unassignedGroupsContainer.addEventListener('drop', handleManagementDrop);
 }
 
 // --- Lógica de Formularios y Edición ---
@@ -387,7 +391,7 @@ async function saveEditedItem(itemId, collection) {
 }
 
 function populateSubjectFilter() {
-    const selectedGroupId = dom.groupSelect.value; // CORREGIDO: Usar el selector del formulario principal
+    const selectedGroupId = dom.groupSelect.value;
     const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
     
     let subjectsToShow = localState.subjects;
@@ -484,32 +488,109 @@ function handleManagementDragEnd(e) {
 }
 function handleManagementDragOver(e) {
     e.preventDefault();
-    const targetColumn = e.target.closest('.trimester-column');
+    const targetColumn = e.target.closest('.trimester-column, #unassigned-subjects-container, #unassigned-groups-container');
     if (targetColumn) {
-        document.querySelectorAll('.trimester-column.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
+        document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
         targetColumn.classList.add('droppable-hover');
     }
 }
 async function handleManagementDrop(e) {
     e.preventDefault();
-    document.querySelectorAll('.trimester-column.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
-    const targetColumn = e.target.closest('.trimester-column');
-    if (!targetColumn) return;
+    document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
+    const target = e.target.closest('.trimester-column, #unassigned-subjects-container, #unassigned-groups-container');
+    if (!target) return;
 
     const data = JSON.parse(e.dataTransfer.getData('application/json'));
-    const newTrimester = parseInt(targetColumn.dataset.trimester);
+    const newTrimester = parseInt(target.dataset.trimester || 0);
     const collection = data.type === 'Materia' ? subjectsCol : groupsCol;
 
     try {
         await updateDoc(doc(collection, data.id), { trimester: newTrimester });
-        notification.show(`${data.type} asignado al cuatrimestre ${newTrimester}.`);
+        notification.show(`${data.type} asignado al cuatrimestre ${newTrimester || 'Sin Asignar'}.`);
     } catch (error) {
         notification.show("Error al asignar el cuatrimestre.", true);
     }
 }
 
-// ... (El resto de funciones se mantienen igual)
-// ... (Se incluyen aquí para que el archivo esté completo)
+// --- Lógica de Redimensionamiento de Clases ---
+let resizingClass = null;
+let initialY = 0;
+let initialDuration = 0;
+
+function handleResizeStart(e, classData) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingClass = classData;
+    initialY = e.clientY;
+    initialDuration = classData.duration;
+    document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`)?.classList.add('resizing');
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+}
+
+function handleResizeMove(e) {
+    if (!resizingClass) return;
+    const deltaY = e.clientY - initialY;
+    const rowHeight = 51; // 50px height + 1px gap
+    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
+    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
+    if (classElement) {
+        classElement.style.height = `${(newDuration * 50) + ((newDuration - 1) * 1)}px`;
+    }
+}
+
+async function handleResizeEnd(e) {
+    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
+    classElement?.classList.remove('resizing');
+    const deltaY = e.clientY - initialY;
+    const rowHeight = 51;
+    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
+    if (newDuration !== resizingClass.duration) {
+        const updatedData = { ...resizingClass, duration: newDuration };
+        if (!checkConflict(updatedData, resizingClass.id)) {
+            try {
+                await updateDoc(doc(scheduleCol, resizingClass.id), { duration: newDuration });
+                notification.show("Duración actualizada.");
+            } catch {
+                notification.show("Error al actualizar.", true);
+            }
+        } else {
+            notification.show("Conflicto al redimensionar.", true);
+            if (classElement) classElement.style.height = `${(initialDuration * 50) + ((initialDuration - 1) * 1)}px`;
+        }
+    }
+    resizingClass = null;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+}
+
+// --- Lógica de Administración ---
+async function advanceAllGroups() {
+    modal.confirm("¿Avanzar Cuatrimestre?", 
+    "Esta acción incrementará en 1 el cuatrimestre de TODOS los grupos. Los grupos del 9º cuatrimestre serán eliminados. <b>Esta acción es irreversible.</b>",
+    async () => {
+        const batch = writeBatch(db);
+        let movedCount = 0;
+        let deletedCount = 0;
+        localState.groups.forEach(group => {
+            if (group.trimester >= 9) {
+                batch.delete(doc(groupsCol, group.id));
+                deletedCount++;
+            } else if (group.trimester > 0) { // Solo avanza los que ya están asignados
+                batch.update(doc(groupsCol, group.id), { trimester: group.trimester + 1 });
+                movedCount++;
+            }
+        });
+        try {
+            await batch.commit();
+            notification.show(`${movedCount} grupos avanzados, ${deletedCount} grupos eliminados.`);
+        } catch (error) {
+            notification.show("Error al avanzar los cuatrimestres.", true);
+        }
+    });
+}
+
+// --- Funciones de la Aplicación (Restantes) ---
 async function deleteClass(classId, classInfo) {
     modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>.`, async () => {
         try {
@@ -519,18 +600,6 @@ async function deleteClass(classId, classInfo) {
             notification.show("Error al eliminar la clase.", true);
         }
     });
-}
-
-function populateSelect(selectElement, items, placeholder) {
-    const currentValue = selectElement.value;
-    selectElement.innerHTML = `<option value="">${placeholder}</option>`;
-    items.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.id;
-        option.textContent = item.name;
-        selectElement.appendChild(option);
-    });
-    selectElement.value = currentValue;
 }
 
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
