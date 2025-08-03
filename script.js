@@ -9,8 +9,7 @@ import {
     updateDoc, 
     deleteDoc, 
     onSnapshot,
-    writeBatch,
-    runTransaction
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // Paso 2: Configuración de Firebase
@@ -112,7 +111,10 @@ const modal = {
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Cuatrimestre</label>
-                    <select id="modal-subject-trimester" class="mt-1 block w-full p-2 border rounded-lg">${trimesterOptions}</select>
+                    <select id="modal-subject-trimester" class="mt-1 block w-full p-2 border rounded-lg">
+                        <option value="0">Sin Asignar</option>
+                        ${trimesterOptions}
+                    </select>
                 </div>
             </div>
             <div class="mt-6 flex gap-4">
@@ -175,7 +177,9 @@ function startApp() {
     dom = {
         teacherName: document.getElementById('teacher-name'), addTeacherBtn: document.getElementById('add-teacher-btn'), teachersList: document.getElementById('teachers-list'),
         subjectsByTrimester: document.getElementById('subjects-by-trimester'), openSubjectModalBtn: document.getElementById('open-subject-modal-btn'),
+        unassignedSubjectsContainer: document.getElementById('unassigned-subjects-container'),
         groupPrefixSelect: document.getElementById('group-prefix-select'), groupNumberInput: document.getElementById('group-number-input'), addGroupBtn: document.getElementById('add-group-btn'), groupsByTrimester: document.getElementById('groups-by-trimester'),
+        unassignedGroupsContainer: document.getElementById('unassigned-groups-container'),
         teacherSelect: document.getElementById('teacher-select'), subjectSelect: document.getElementById('subject-select'), groupSelect: document.getElementById('group-select'),
         daySelect: document.getElementById('day-select'), timeSelect: document.getElementById('time-select'), durationInput: document.getElementById('duration-input'),
         saveClassBtn: document.getElementById('save-class-btn'), cancelEditBtn: document.getElementById('cancel-edit-btn'),
@@ -231,20 +235,9 @@ async function addGroup() {
     const number = dom.groupNumberInput.value;
     if (!number) return notification.show("Introduce un número de grupo.", true);
     
-    let trimester = 1;
-    if (number >= 100 && number < 200) trimester = 1;
-    else if (number >= 200 && number < 300) trimester = 2;
-    else if (number >= 300 && number < 400) trimester = 3;
-    else if (number >= 400 && number < 500) trimester = 4;
-    else if (number >= 500 && number < 600) trimester = 5;
-    else if (number >= 600 && number < 700) trimester = 6;
-    else if (number >= 700 && number < 800) trimester = 7;
-    else if (number >= 800 && number < 900) trimester = 8;
-    else if (number >= 900 && number < 1000) trimester = 9;
-
     const groupData = {
         name: `${prefix}-${number}`,
-        trimester: trimester
+        trimester: 0 // Los grupos nuevos se crean sin cuatrimestre
     };
 
     try {
@@ -257,9 +250,16 @@ async function addGroup() {
 }
 
 // --- Renderizado de Paneles de Gestión ---
-function createManagementItem(item, collection, type) {
+function createManagementItem(item, collection, type, draggable = false) {
     const itemDiv = document.createElement('div');
     itemDiv.className = 'management-item';
+    if (draggable) {
+        itemDiv.draggable = true;
+        itemDiv.dataset.id = item.id;
+        itemDiv.dataset.type = type;
+        itemDiv.addEventListener('dragstart', handleManagementDragStart);
+        itemDiv.addEventListener('dragend', handleManagementDragEnd);
+    }
     itemDiv.innerHTML = `
         <span>${item.name}</span>
         <div class="actions">
@@ -268,11 +268,8 @@ function createManagementItem(item, collection, type) {
         </div>
     `;
     itemDiv.querySelector('.edit-btn').onclick = () => {
-        if (type === 'Materia') {
-            modal.showSubjectForm(item);
-        } else {
-            modal.showEditForm(item, type);
-        }
+        if (type === 'Materia') modal.showSubjectForm(item);
+        else modal.showEditForm(item, type);
     };
     itemDiv.querySelector('.delete-btn').onclick = () => {
         modal.confirm(`¿Eliminar ${type}?`, `Borrar "<b>${item.name}</b>".`, async () => {
@@ -296,38 +293,62 @@ function renderTeachersList() {
 
 function renderSubjectsByTrimester() {
     dom.subjectsByTrimester.innerHTML = '';
+    dom.unassignedSubjectsContainer.innerHTML = '';
     for (let i = 1; i <= 9; i++) {
         const column = document.createElement('div');
         column.className = 'trimester-column space-y-2';
+        column.dataset.trimester = i;
         column.innerHTML = `<h3>Cuatri ${i}</h3>`;
         const subjectsInTrimester = localState.subjects.filter(s => s.trimester == i);
         if (subjectsInTrimester.length > 0) {
             subjectsInTrimester.forEach(subject => {
-                column.appendChild(createManagementItem(subject, subjectsCol, 'Materia'));
+                column.appendChild(createManagementItem(subject, subjectsCol, 'Materia', true));
             });
         } else {
-            column.innerHTML += `<p class="text-xs text-gray-400">Sin materias</p>`;
+            column.innerHTML += `<p class="text-xs text-gray-400">Arrastra materias aquí</p>`;
         }
+        column.addEventListener('dragover', handleManagementDragOver);
+        column.addEventListener('drop', handleManagementDrop);
         dom.subjectsByTrimester.appendChild(column);
+    }
+    const unassignedSubjects = localState.subjects.filter(s => !s.trimester || s.trimester === 0);
+    if (unassignedSubjects.length > 0) {
+        unassignedSubjects.forEach(subject => {
+            dom.unassignedSubjectsContainer.appendChild(createManagementItem(subject, subjectsCol, 'Materia', true));
+        });
+    } else {
+        dom.unassignedSubjectsContainer.innerHTML = `<p class="text-xs text-gray-400">Todas las materias están asignadas.</p>`;
     }
 }
 
 function renderGroupsByTrimester() {
     dom.groupsByTrimester.innerHTML = '';
+    dom.unassignedGroupsContainer.innerHTML = '';
      for (let i = 1; i <= 9; i++) {
         const groupsInTrimester = localState.groups.filter(g => g.trimester == i);
         if (groupsInTrimester.length > 0) {
             const block = document.createElement('div');
-            block.className = 'group-trimester-block';
+            block.className = 'group-trimester-block trimester-column'; // Reutiliza la clase para el drop
+            block.dataset.trimester = i;
             block.innerHTML = `<h3>Cuatrimestre ${i}</h3>`;
             const list = document.createElement('div');
             list.className = 'space-y-2';
             groupsInTrimester.forEach(group => {
-                list.appendChild(createManagementItem(group, groupsCol, 'Grupo'));
+                list.appendChild(createManagementItem(group, groupsCol, 'Grupo', true));
             });
             block.appendChild(list);
+            block.addEventListener('dragover', handleManagementDragOver);
+            block.addEventListener('drop', handleManagementDrop);
             dom.groupsByTrimester.appendChild(block);
         }
+    }
+    const unassignedGroups = localState.groups.filter(g => !g.trimester || g.trimester === 0);
+    if (unassignedGroups.length > 0) {
+        unassignedGroups.forEach(group => {
+            dom.unassignedGroupsContainer.appendChild(createManagementItem(group, groupsCol, 'Grupo', true));
+        });
+    } else {
+        dom.unassignedGroupsContainer.innerHTML = `<p class="text-xs text-gray-400">Todos los grupos están asignados.</p>`;
     }
 }
 
@@ -366,11 +387,11 @@ async function saveEditedItem(itemId, collection) {
 }
 
 function populateSubjectFilter() {
-    const selectedGroupId = dom.filterGroup.value;
+    const selectedGroupId = dom.groupSelect.value; // CORREGIDO: Usar el selector del formulario principal
     const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
     
     let subjectsToShow = localState.subjects;
-    if (selectedGroup) {
+    if (selectedGroup && selectedGroup.trimester > 0) {
         subjectsToShow = localState.subjects.filter(s => s.trimester == selectedGroup.trimester);
     }
     
@@ -452,85 +473,43 @@ async function handleDrop(e) {
     try { await addDoc(scheduleCol, classData); notification.show("Clase agregada desde plantilla."); } catch (error) { notification.show("Error al agregar la clase.", true); }
 }
 
-// --- Lógica de Redimensionamiento de Clases ---
-let resizingClass = null;
-let initialY = 0;
-let initialDuration = 0;
-
-function handleResizeStart(e, classData) {
+// --- Lógica de Arrastrar y Soltar para Gestión ---
+function handleManagementDragStart(e) {
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify({id: e.target.dataset.id, type: e.target.dataset.type}));
+}
+function handleManagementDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+function handleManagementDragOver(e) {
     e.preventDefault();
-    e.stopPropagation();
-    resizingClass = classData;
-    initialY = e.clientY;
-    initialDuration = classData.duration;
-    document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`)?.classList.add('resizing');
-    document.addEventListener('mousemove', handleResizeMove);
-    document.addEventListener('mouseup', handleResizeEnd);
+    const targetColumn = e.target.closest('.trimester-column');
+    if (targetColumn) {
+        document.querySelectorAll('.trimester-column.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
+        targetColumn.classList.add('droppable-hover');
+    }
 }
+async function handleManagementDrop(e) {
+    e.preventDefault();
+    document.querySelectorAll('.trimester-column.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
+    const targetColumn = e.target.closest('.trimester-column');
+    if (!targetColumn) return;
 
-function handleResizeMove(e) {
-    if (!resizingClass) return;
-    const deltaY = e.clientY - initialY;
-    const rowHeight = 51; // 50px height + 1px gap
-    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
-    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
-    if (classElement) {
-        classElement.style.height = `${(newDuration * 50) + ((newDuration - 1) * 1)}px`;
+    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+    const newTrimester = parseInt(targetColumn.dataset.trimester);
+    const collection = data.type === 'Materia' ? subjectsCol : groupsCol;
+
+    try {
+        await updateDoc(doc(collection, data.id), { trimester: newTrimester });
+        notification.show(`${data.type} asignado al cuatrimestre ${newTrimester}.`);
+    } catch (error) {
+        notification.show("Error al asignar el cuatrimestre.", true);
     }
 }
 
-async function handleResizeEnd(e) {
-    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
-    classElement?.classList.remove('resizing');
-    const deltaY = e.clientY - initialY;
-    const rowHeight = 51;
-    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
-    if (newDuration !== resizingClass.duration) {
-        const updatedData = { ...resizingClass, duration: newDuration };
-        if (!checkConflict(updatedData, resizingClass.id)) {
-            try {
-                await updateDoc(doc(scheduleCol, resizingClass.id), { duration: newDuration });
-                notification.show("Duración actualizada.");
-            } catch {
-                notification.show("Error al actualizar.", true);
-            }
-        } else {
-            notification.show("Conflicto al redimensionar.", true);
-            if (classElement) classElement.style.height = `${(initialDuration * 50) + ((initialDuration - 1) * 1)}px`;
-        }
-    }
-    resizingClass = null;
-    document.removeEventListener('mousemove', handleResizeMove);
-    document.removeEventListener('mouseup', handleResizeEnd);
-}
-
-// --- Lógica de Administración ---
-async function advanceAllGroups() {
-    modal.confirm("¿Avanzar Cuatrimestre?", 
-    "Esta acción incrementará en 1 el cuatrimestre de TODOS los grupos. Los grupos del 9º cuatrimestre serán eliminados. <b>Esta acción es irreversible.</b>",
-    async () => {
-        const batch = writeBatch(db);
-        let movedCount = 0;
-        let deletedCount = 0;
-        localState.groups.forEach(group => {
-            if (group.trimester >= 9) {
-                batch.delete(doc(groupsCol, group.id));
-                deletedCount++;
-            } else {
-                batch.update(doc(groupsCol, group.id), { trimester: group.trimester + 1 });
-                movedCount++;
-            }
-        });
-        try {
-            await batch.commit();
-            notification.show(`${movedCount} grupos avanzados, ${deletedCount} grupos eliminados.`);
-        } catch (error) {
-            notification.show("Error al avanzar los cuatrimestres.", true);
-        }
-    });
-}
-
-// --- Funciones de la Aplicación (Restantes) ---
+// ... (El resto de funciones se mantienen igual)
+// ... (Se incluyen aquí para que el archivo esté completo)
 async function deleteClass(classId, classInfo) {
     modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>.`, async () => {
         try {
@@ -540,6 +519,18 @@ async function deleteClass(classId, classInfo) {
             notification.show("Error al eliminar la clase.", true);
         }
     });
+}
+
+function populateSelect(selectElement, items, placeholder) {
+    const currentValue = selectElement.value;
+    selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+    items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = item.name;
+        selectElement.appendChild(option);
+    });
+    selectElement.value = currentValue;
 }
 
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
