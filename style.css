@@ -32,8 +32,10 @@ body {
     color: #4b5563; 
 }
 
-/* Esta clase es solo para las celdas de fondo, no necesita estilos adicionales */
-.grid-cell { }
+/* Celda de fondo con un sutil efecto al pasar el cursor para indicar que se puede soltar un elemento */
+.grid-cell.droppable-hover {
+    background-color: #e0f2fe; /* Un azul claro */
+}
 
 /* Estilos para los elementos de clase que se superponen en la rejilla */
 .schedule-item {
@@ -92,7 +94,7 @@ body {
     min-width: 24px;
 }
 
-/* --- NUEVOS ESTILOS PARA LAS PLANTILLAS --- */
+/* --- ESTILOS PARA PLANTILLAS (PRESETS) --- */
 .preset-item {
     display: flex;
     justify-content: space-between;
@@ -100,13 +102,20 @@ body {
     background-color: #f9fafb;
     padding: 8px 12px;
     border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s;
+    cursor: grab; /* Indica que el elemento es arrastrable */
+    transition: background-color 0.2s, box-shadow 0.2s;
     border: 1px solid #e5e7eb;
 }
 
 .preset-item:hover {
     background-color: #f3f4f6;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.preset-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .preset-item-info {
@@ -124,3 +133,37 @@ body {
     color: #6b7280;
 }
 
+/* --- ESTILOS PARA NOTIFICACIONES EMERGENTES --- */
+.notification {
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification.success {
+    background-color: #10b981; /* Verde */
+}
+
+.notification.error {
+    background-color: #ef4444; /* Rojo */
+}
+
+.notification-icon {
+    flex-shrink: 0;
+}
+
+.notification-message {
+    font-weight: 500;
+}
