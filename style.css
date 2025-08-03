@@ -91,3 +91,36 @@ body {
 .alert-item svg {
     min-width: 24px;
 }
+
+/* --- NUEVOS ESTILOS PARA LAS PLANTILLAS --- */
+.preset-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f9fafb;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: 1px solid #e5e7eb;
+}
+
+.preset-item:hover {
+    background-color: #f3f4f6;
+}
+
+.preset-item-info {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.preset-item-info .subject {
+    font-weight: 600;
+}
+
+.preset-item-info .details {
+    color: #6b7280;
+}
+
