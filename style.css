@@ -194,6 +194,7 @@ body {
     padding: 6px 10px;
     border-radius: 6px;
     border: 1px solid #f3f4f6;
+    cursor: grab; /* Para arrastrar materias y grupos */
 }
 
 .management-item .actions {
@@ -218,6 +219,19 @@ body {
     color: #4b5563;
 }
 
+.trimester-column {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem;
+    min-height: 100px; /* Espacio para soltar elementos */
+}
+
+.trimester-column.droppable-hover {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+}
+
+
 .trimester-column h3 {
     font-weight: 600;
     margin-bottom: 0.5rem;
@@ -233,4 +247,10 @@ body {
     padding: 0.5rem;
     background-color: #f9fafb;
     border-radius: 6px;
+}
+
+.management-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
