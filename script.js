@@ -44,7 +44,7 @@ const getSubjectColor = id => assignedColors[id] || (assignedColors[id] = colorP
 let dom = {}; // Objeto para guardar referencias al DOM
 let isAppStarted = false;
 
-// --- Lógica del Modal (Notificaciones y Confirmaciones) ---
+// --- Funciones del Modal (Notificaciones y Confirmaciones) ---
 const modal = {
     el: document.getElementById('modal'),
     icon: document.getElementById('modal-icon'),
@@ -91,6 +91,21 @@ const modal = {
         });
     }
 };
+
+/**
+ * NEW: Helper function to get initials from a multi-word string.
+ * @param {string} name - The full name of the subject.
+ * @returns {string} The initials or the original name if it's a single word.
+ */
+function getInitials(name) {
+    if (!name || typeof name !== 'string') return '';
+    const words = name.trim().split(/\s+/);
+    if (words.length > 1) {
+        return words.map(word => word[0]).join('').toUpperCase();
+    }
+    return name;
+}
+
 
 // --- Lógica principal de la aplicación ---
 function startApp() {
@@ -276,9 +291,13 @@ function checkConflict(newClass, ignoreId = null) {
     });
 }
 
+/**
+ * UPDATED: Renders the entire schedule grid, including handling for overlapping events.
+ */
 function renderScheduleGrid() {
     dom.scheduleGrid.innerHTML = '';
     
+    // Render background grid (headers, time labels, empty cells)
     dom.scheduleGrid.appendChild(document.createElement('div'));
     days.forEach(day => {
         const header = document.createElement('div');
@@ -306,45 +325,70 @@ function renderScheduleGrid() {
         return teacherMatch && groupMatch;
     });
 
-    filteredSchedule.forEach(c => {
-        const teacher = localState.teachers.find(t => t.id === c.teacherId);
-        const subject = localState.subjects.find(s => s.id === c.subjectId);
-        const group = localState.groups.find(g => g.id === c.groupId);
-        if (!teacher || !subject || !group) return;
+    // --- NEW: Overlap Calculation and Rendering Logic ---
+    days.forEach(day => {
+        const dayEvents = filteredSchedule.filter(e => e.day === day);
 
-        const dayIndex = days.indexOf(c.day);
-        const timeIndex = timeSlots.indexOf(c.startTime);
-        if (dayIndex === -1 || timeIndex === -1) return;
+        dayEvents.forEach(c => {
+            const teacher = localState.teachers.find(t => t.id === c.teacherId);
+            const subject = localState.subjects.find(s => s.id === c.subjectId);
+            const group = localState.groups.find(g => g.id === c.groupId);
+            if (!teacher || !subject || !group) return;
 
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'schedule-item';
-        itemDiv.style.backgroundColor = getSubjectColor(subject.id);
-        
-        itemDiv.style.gridColumn = dayIndex + 2;
-        itemDiv.style.gridRow = `${timeIndex + 2} / span ${c.duration}`;
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se calcula explícitamente la altura del elemento para que coincida con la duración.
-        const rowHeight = 50; // 50px de 'grid-auto-rows' en el CSS
-        const rowGap = 1;     // 1px de 'gap' en el CSS
-        itemDiv.style.height = `${(c.duration * rowHeight) + ((c.duration - 1) * rowGap)}px`;
-        // --- FIN DE LA CORRECCIÓN ---
+            const dayIndex = days.indexOf(c.day);
+            const timeIndex = timeSlots.indexOf(c.startTime);
+            if (dayIndex === -1 || timeIndex === -1) return;
 
-        itemDiv.innerHTML = `
-            <div class="font-bold">${subject.name}</div>
-            <div>${teacher.name.split(' ')[0]}</div>
-            <div class="italic">${group.name}</div>
-            <div class="actions">
-                <button title="Editar">✏️</button>
-                <button title="Eliminar">🗑️</button>
-            </div>
-        `;
-        
-        const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
-        editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
-        deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+            // Find all other events that overlap with the current event 'c'
+            const overlaps = dayEvents.filter(e => {
+                const cEnd = c.startTime + c.duration;
+                const eEnd = e.startTime + e.duration;
+                return c.startTime < eEnd && cEnd > e.startTime;
+            });
+            
+            const totalOverlaps = overlaps.length;
+            // Determine the horizontal position of the current event within its overlap group
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
 
-        dom.scheduleGrid.appendChild(itemDiv);
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'schedule-item';
+            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
+            
+            itemDiv.style.gridColumn = dayIndex + 2;
+            itemDiv.style.gridRow = `${timeIndex + 2} / span ${c.duration}`;
+            
+            const rowHeight = 50;
+            const rowGap = 1;
+            itemDiv.style.height = `${(c.duration * rowHeight) + ((c.duration - 1) * rowGap)}px`;
+
+            // Dynamically adjust width and horizontal position for overlaps
+            const width = 100 / totalOverlaps;
+            itemDiv.style.width = `calc(${width}% - 2px)`; // Subtract a small gap
+            itemDiv.style.left = `${overlapIndex * width}%`;
+
+            let subjectName = subject.name;
+            // Use initials and smaller font for crowded slots
+            if (totalOverlaps > 1) {
+                itemDiv.style.fontSize = '0.65rem'; 
+                subjectName = getInitials(subject.name);
+            }
+
+            itemDiv.innerHTML = `
+                <div class="font-bold">${subjectName}</div>
+                <div>${teacher.name.split(' ')[0]}</div>
+                <div class="italic">${group.name}</div>
+                <div class="actions">
+                    <button title="Editar">✏️</button>
+                    <button title="Eliminar">🗑️</button>
+                </div>
+            `;
+            
+            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
+            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+
+            dom.scheduleGrid.appendChild(itemDiv);
+        });
     });
 }
 
