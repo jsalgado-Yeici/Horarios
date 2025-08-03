@@ -125,7 +125,6 @@ const modal = {
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('modal-save-btn').onclick = () => saveSubject(subject ? subject.id : null);
     },
-    // NUEVA FUNCIÓN: Modal para editar grupos
     showGroupForm(group) {
         const title = 'Editar Grupo';
         let trimesterOptions = '';
@@ -198,6 +197,22 @@ function getInitials(name) {
     return name;
 }
 
+// +++ CAMBIO: FUNCIÓN CLAVE AÑADIDA +++
+// Rellena un elemento <select> con opciones de un array de datos.
+function populateSelect(selectElement, dataArray, placeholderText) {
+    selectElement.innerHTML = ''; // Limpia opciones anteriores
+    
+    // Añade la opción inicial (placeholder)
+    const placeholderOption = new Option(placeholderText, '');
+    selectElement.add(placeholderOption);
+
+    // Añade los datos del array
+    dataArray.forEach(item => {
+        selectElement.add(new Option(item.name, item.id));
+    });
+}
+
+
 // --- Lógica principal de la aplicación ---
 function startApp() {
     if (isAppStarted) return;
@@ -209,7 +224,7 @@ function startApp() {
         subjectsByTrimester: document.getElementById('subjects-by-trimester'), openSubjectModalBtn: document.getElementById('open-subject-modal-btn'),
         unassignedSubjectsContainer: document.getElementById('unassigned-subjects-container'),
         groupPrefixSelect: document.getElementById('group-prefix-select'), groupNumberInput: document.getElementById('group-number-input'), 
-        groupTrimesterSelect: document.getElementById('group-trimester-select'), // CAMBIO: Añadido al DOM
+        groupTrimesterSelect: document.getElementById('group-trimester-select'),
         addGroupBtn: document.getElementById('add-group-btn'), groupsByTrimester: document.getElementById('groups-by-trimester'),
         unassignedGroupsContainer: document.getElementById('unassigned-groups-container'),
         teacherSelect: document.getElementById('teacher-select'), subjectSelect: document.getElementById('subject-select'), groupSelect: document.getElementById('group-select'),
@@ -262,7 +277,6 @@ async function addItem(collectionRef, data, inputElement, type) {
     }
 }
 
-// CAMBIO: La función ahora lee el cuatrimestre del nuevo selector
 async function addGroup() {
     const prefix = dom.groupPrefixSelect.value;
     const number = dom.groupNumberInput.value;
@@ -270,13 +284,13 @@ async function addGroup() {
     
     const groupData = {
         name: `${prefix}-${number}`,
-        trimester: parseInt(dom.groupTrimesterSelect.value) // Se lee el valor del cuatrimestre
+        trimester: parseInt(dom.groupTrimesterSelect.value)
     };
 
     try {
         await addDoc(groupsCol, groupData);
         dom.groupNumberInput.value = '';
-        dom.groupTrimesterSelect.value = 0; // Se resetea el selector
+        dom.groupTrimesterSelect.value = 0;
         notification.show(`Grupo "${groupData.name}" agregado.`);
     } catch (error) {
         notification.show("No se pudo agregar el grupo.", true);
@@ -302,14 +316,13 @@ function createManagementItem(item, collection, type, draggable = false) {
         </div>
     `;
     
-    // CAMBIO: Lógica de edición para abrir el modal correcto
     itemDiv.querySelector('.edit-btn').onclick = () => {
         if (type === 'Materia') {
             modal.showSubjectForm(item);
         } else if (type === 'Grupo') {
-            modal.showGroupForm(item); // Llama al nuevo modal de grupos
+            modal.showGroupForm(item);
         } else {
-            modal.showEditForm(item, type); // Modal genérico para docentes
+            modal.showEditForm(item, type);
         }
     };
     
@@ -361,7 +374,7 @@ function renderSubjectsByTrimester() {
     } else {
         dom.unassignedSubjectsContainer.innerHTML = `<p class="text-xs text-gray-400">Todas las materias están asignadas.</p>`;
     }
-    dom.unassignedSubjectsContainer.dataset.trimester = 0; // Para el drop
+    dom.unassignedSubjectsContainer.dataset.trimester = 0;
     dom.unassignedSubjectsContainer.addEventListener('dragover', handleManagementDragOver);
     dom.unassignedSubjectsContainer.addEventListener('drop', handleManagementDrop);
 }
@@ -373,7 +386,7 @@ function renderGroupsByTrimester() {
         const groupsInTrimester = localState.groups.filter(g => g.trimester == i);
         if (groupsInTrimester.length > 0) {
             const block = document.createElement('div');
-            block.className = 'group-trimester-block trimester-column'; // Reutiliza la clase para el drop
+            block.className = 'group-trimester-block trimester-column';
             block.dataset.trimester = i;
             block.innerHTML = `<h3>Cuatrimestre ${i}</h3>`;
             const list = document.createElement('div');
@@ -395,7 +408,7 @@ function renderGroupsByTrimester() {
     } else {
         dom.unassignedGroupsContainer.innerHTML = `<p class="text-xs text-gray-400">Todos los grupos están asignados.</p>`;
     }
-    dom.unassignedGroupsContainer.dataset.trimester = 0; // Para el drop
+    dom.unassignedGroupsContainer.dataset.trimester = 0;
     dom.unassignedGroupsContainer.addEventListener('dragover', handleManagementDragOver);
     dom.unassignedGroupsContainer.addEventListener('drop', handleManagementDrop);
 }
@@ -422,7 +435,6 @@ async function saveSubject(subjectId = null) {
     }
 }
 
-// NUEVA FUNCIÓN: Guarda los cambios del modal de grupo
 async function saveGroup(groupId) {
     const groupData = {
         name: document.getElementById('modal-group-name').value,
@@ -593,7 +605,7 @@ function handleResizeStart(e, classData) {
 function handleResizeMove(e) {
     if (!resizingClass) return;
     const deltaY = e.clientY - initialY;
-    const rowHeight = 51; // 50px height + 1px gap
+    const rowHeight = 51;
     const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
     const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
     if (classElement) {
@@ -638,7 +650,7 @@ async function advanceAllGroups() {
             if (group.trimester >= 9) {
                 batch.delete(doc(groupsCol, group.id));
                 deletedCount++;
-            } else if (group.trimester > 0) { // Solo avanza los que ya están asignados
+            } else if (group.trimester > 0) {
                 batch.update(doc(groupsCol, group.id), { trimester: group.trimester + 1 });
                 movedCount++;
             }
