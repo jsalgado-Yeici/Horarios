@@ -14,6 +14,7 @@
             grid-auto-rows: 50px; /* Height of each hour slot */
             gap: 1px;
             background-color: #e5e7eb; /* grid line color */
+            position: relative; /* Needed for overlaying items if we were using absolute positioning */
         }
         .grid-header, .grid-time-slot, .grid-cell {
             background-color: white;
@@ -27,9 +28,7 @@
         .grid-cell { position: relative; }
 
         .schedule-item {
-            position: absolute;
-            left: 2px;
-            right: 2px;
+            /* position: absolute;  <-- BUG FIX: Removed this line. Items are now direct grid children. */
             padding: 4px;
             border-radius: 6px;
             font-size: 0.75rem;
@@ -40,6 +39,7 @@
             z-index: 10;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             transition: all 0.2s ease-in-out;
+            margin: 1px; /* Small margin to not overlap grid lines */
         }
         .schedule-item:hover {
             transform: scale(1.02);
@@ -136,7 +136,9 @@
                     </div>
                 </div>
             </div>
-            <div id="schedule-grid" class="schedule-grid"></div>
+            <div id="schedule-grid" class="schedule-grid">
+                <!-- El contenido del horario se genera aquí -->
+            </div>
         </div>
 
         <!-- Paneles de Herramientas -->
@@ -199,10 +201,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- Configuración de Firebase ---
-            // IMPORTANTE: Tu API Key está expuesta. Después de arreglar las restricciones,
-            // considera generar una nueva clave para mayor seguridad.
             const firebaseConfig = {
-              apiKey: "AIzaSyA5jnDVPPYhSuN7D6qzcETKWW3kzkqV1zs",
+              apiKey: "AIzaSyA5jnDVPPYhSuN7D6qzcETKWW3kzkqV1zs", // Updated API Key
               authDomain: "planificador-horarios.firebaseapp.com",
               projectId: "planificador-horarios",
               storageBucket: "planificador-horarios.appspot.com",
@@ -391,9 +391,6 @@
                 });
             }
             
-            // ... (El resto de tus funciones como populateSelect, generateTimeOptions, saveClass, etc. no necesitan cambios)
-            // ... (Las he omitido aquí por brevedad, pero deben estar en tu archivo final)
-            // --- PEGAR AQUÍ EL RESTO DE LAS FUNCIONES SIN CAMBIOS ---
             function populateSelect(selectElement, items, placeholder) {
                 const currentValue = selectElement.value;
                 selectElement.innerHTML = `<option value="">${placeholder}</option>`;
@@ -469,8 +466,9 @@
 
             function renderScheduleGrid() {
                 dom.scheduleGrid.innerHTML = '';
-                // Headers and Cells
-                dom.scheduleGrid.appendChild(document.createElement('div'));
+                
+                // Add headers and empty cells for the grid background
+                dom.scheduleGrid.appendChild(document.createElement('div')); // Top-left empty corner
                 days.forEach(day => {
                     const header = document.createElement('div');
                     header.className = 'grid-header';
@@ -482,9 +480,14 @@
                     timeSlot.className = 'grid-time-slot';
                     timeSlot.textContent = `${time}:00`;
                     dom.scheduleGrid.appendChild(timeSlot);
-                    days.forEach(() => dom.scheduleGrid.appendChild(document.createElement('div')));
+                    days.forEach(day => {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell'; // This class makes the background grid visible
+                        dom.scheduleGrid.appendChild(cell);
+                    });
                 });
 
+                // Filter and render the actual class items on top of the grid
                 const filteredSchedule = localState.schedule.filter(c => {
                     const teacherFilter = dom.filterTeacher.value;
                     const groupFilter = dom.filterGroup.value;
@@ -492,6 +495,9 @@
                     const groupMatch = !groupFilter || c.groupId === groupFilter;
                     return teacherMatch && groupMatch;
                 });
+
+                const gridContainer = document.createElement('div');
+                gridContainer.style.display = "contents"; // This makes the container behave as if it's not there
 
                 filteredSchedule.forEach(c => {
                     const teacher = localState.teachers.find(t => t.id === c.teacherId);
@@ -523,8 +529,9 @@
                     editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
                     deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
 
-                    dom.scheduleGrid.appendChild(itemDiv);
+                    gridContainer.appendChild(itemDiv);
                 });
+                dom.scheduleGrid.appendChild(gridContainer);
             }
 
             function editClass(classData) {
@@ -734,5 +741,4 @@
         });
     </script>
 </body>
-</html>
-
+</ht
