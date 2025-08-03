@@ -89,17 +89,13 @@
 
         <!-- Paneles de Herramientas y Plantillas -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- NUEVO PANEL DE PLANTILLAS -->
+            <!-- PANEL DE PLANTILLAS MODIFICADO -->
             <div class="bg-white p-6 rounded-xl shadow-md">
                 <h2 class="text-2xl font-semibold mb-4">Plantillas de Clases</h2>
-                <p class="text-sm text-gray-500 mb-4">Crea combinaciones frecuentes para agregarlas rápidamente al horario.</p>
-                <div class="space-y-3 mb-4">
-                    <select id="preset-teacher-select" class="w-full p-2 border rounded-lg" title="Seleccionar Docente"></select>
-                    <select id="preset-subject-select" class="w-full p-2 border rounded-lg" title="Seleccionar Materia"></select>
-                    <select id="preset-group-select" class="w-full p-2 border rounded-lg" title="Seleccionar Grupo"></select>
-                </div>
-                <button id="save-preset-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700 mb-4">Guardar Plantilla</button>
-                <div id="presets-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                <p class="text-sm text-gray-500 mb-4">Arrastra una plantilla al horario para agregar una clase de 1 hora.</p>
+                <div id="presets-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                <!-- El formulario para crear plantillas se ha movido a un modal para simplificar la UI -->
+                <button id="open-preset-modal-btn" class="mt-4 w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Crear Nueva Plantilla</button>
             </div>
 
             <!-- Panel de Análisis y Alertas -->
@@ -139,15 +135,15 @@
         </div>
     </div>
     
-    <!-- Modal de Notificaciones y Confirmaciones -->
+    <!-- CONTENEDOR PARA NOTIFICACIONES EMERGENTES -->
+    <div id="notification-container" class="fixed bottom-5 right-5 z-50 space-y-3">
+        <!-- Las notificaciones se agregarán aquí dinámicamente -->
+    </div>
+
+    <!-- MODAL (AHORA SOLO PARA CONFIRMACIONES Y CREAR PLANTILLAS) -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
-            <div id="modal-icon" class="mx-auto mb-4"></div>
-            <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
-            <p id="modal-message" class="text-gray-600"></p>
-            <div id="modal-buttons" class="mt-6 flex justify-center gap-4">
-                 <!-- Los botones se agregarán aquí dinámicamente -->
-            </div>
+        <div id="modal-content" class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
+            <!-- El contenido del modal (confirmación o formulario) se insertará aquí -->
         </div>
     </div>
 
