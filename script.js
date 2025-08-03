@@ -135,6 +135,27 @@ const modal = {
         this.show(formHtml);
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('modal-save-btn').onclick = () => saveEditedItem(item.id, collection);
+    },
+    showPresetForm() {
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">Crear Plantilla</h2>
+            <div class="space-y-3 mb-4 text-left">
+                <select id="modal-preset-teacher" class="w-full p-2 border rounded-lg"></select>
+                <select id="modal-preset-subject" class="w-full p-2 border rounded-lg"></select>
+                <select id="modal-preset-group" class="w-full p-2 border rounded-lg"></select>
+            </div>
+            <div class="flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-preset-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Guardar</button>
+            </div>`;
+        this.show(formHtml);
+        
+        populateSelect(document.getElementById('modal-preset-teacher'), localState.teachers, 'Seleccionar Docente');
+        populateSelect(document.getElementById('modal-preset-subject'), localState.subjects, 'Seleccionar Materia');
+        populateSelect(document.getElementById('modal-preset-group'), localState.groups, 'Seleccionar Grupo');
+
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-preset-btn').onclick = savePreset;
     }
 };
 
@@ -210,7 +231,6 @@ async function addGroup() {
     const number = dom.groupNumberInput.value;
     if (!number) return notification.show("Introduce un número de grupo.", true);
     
-    // Asignar cuatrimestre basado en el número
     let trimester = 1;
     if (number >= 100 && number < 200) trimester = 1;
     else if (number >= 200 && number < 300) trimester = 2;
@@ -357,7 +377,132 @@ function populateSubjectFilter() {
     populateSelect(dom.subjectSelect, subjectsToShow, 'Seleccionar Materia');
 }
 
-// ... (El resto de funciones como presets, drag-and-drop, etc., se mantienen igual)
+// --- Lógica de Plantillas (Presets) y Drag-n-Drop ---
+async function savePreset() {
+    const presetData = {
+        teacherId: document.getElementById('modal-preset-teacher').value,
+        subjectId: document.getElementById('modal-preset-subject').value,
+        groupId: document.getElementById('modal-preset-group').value,
+    };
+    if (!presetData.teacherId || !presetData.subjectId || !presetData.groupId) {
+        return notification.show("Selecciona todos los campos para la plantilla.", true);
+    }
+    try {
+        await addDoc(presetsCol, presetData);
+        notification.show("Plantilla guardada.");
+        modal.hide();
+    } catch (error) {
+        notification.show("No se pudo guardar la plantilla.", true);
+    }
+}
+
+function renderPresetsList() {
+    dom.presetsList.innerHTML = '';
+    if (localState.presets.length === 0) {
+        dom.presetsList.innerHTML = '<p class="text-gray-500 text-sm">No hay plantillas guardadas.</p>';
+        return;
+    }
+    localState.presets.forEach(preset => {
+        const teacher = localState.teachers.find(t => t.id === preset.teacherId);
+        const subject = localState.subjects.find(s => s.id === preset.subjectId);
+        const group = localState.groups.find(g => g.id === preset.groupId);
+        if (!teacher || !subject || !group) return;
+
+        const presetDiv = document.createElement('div');
+        presetDiv.className = 'preset-item';
+        presetDiv.draggable = true;
+        presetDiv.dataset.presetId = preset.id;
+        presetDiv.innerHTML = `
+            <div class="preset-item-info">
+                <span class="subject">${subject.name}</span>
+                <span class="details">${teacher.name} / ${group.name}</span>
+            </div>
+            <button class="text-red-500 font-bold px-2">&times;</button>
+        `;
+        presetDiv.addEventListener('dragstart', handleDragStart);
+        presetDiv.addEventListener('dragend', handleDragEnd);
+        presetDiv.querySelector('button').onclick = (e) => {
+            e.stopPropagation();
+            modal.confirm('¿Eliminar Plantilla?', `Estás a punto de borrar esta plantilla.`, async () => {
+                try {
+                    await deleteDoc(doc(presetsCol, preset.id));
+                    notification.show("Plantilla eliminada.");
+                } catch (error) {
+                    notification.show("Error al eliminar la plantilla.", true);
+                }
+            });
+        };
+        dom.presetsList.appendChild(presetDiv);
+    });
+}
+
+function handleDragStart(e) { e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', e.target.dataset.presetId); }
+function handleDragEnd(e) { e.target.classList.remove('dragging'); }
+function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const cell = e.target.closest('.grid-cell'); if (cell) { document.querySelectorAll('.grid-cell.droppable-hover').forEach(c => c.classList.remove('droppable-hover')); cell.classList.add('droppable-hover'); } }
+async function handleDrop(e) {
+    e.preventDefault();
+    document.querySelectorAll('.grid-cell.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
+    const cell = e.target.closest('.grid-cell');
+    if (!cell) return;
+    const presetId = e.dataTransfer.getData('text/plain');
+    const preset = localState.presets.find(p => p.id === presetId);
+    if (!preset) return;
+    const classData = { teacherId: preset.teacherId, subjectId: preset.subjectId, groupId: preset.groupId, day: cell.dataset.day, startTime: parseInt(cell.dataset.hour), duration: 1 };
+    if (checkConflict(classData)) return notification.show("Conflicto de horario al soltar la plantilla.", true);
+    try { await addDoc(scheduleCol, classData); notification.show("Clase agregada desde plantilla."); } catch (error) { notification.show("Error al agregar la clase.", true); }
+}
+
+// --- Lógica de Redimensionamiento de Clases ---
+let resizingClass = null;
+let initialY = 0;
+let initialDuration = 0;
+
+function handleResizeStart(e, classData) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingClass = classData;
+    initialY = e.clientY;
+    initialDuration = classData.duration;
+    document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`)?.classList.add('resizing');
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+}
+
+function handleResizeMove(e) {
+    if (!resizingClass) return;
+    const deltaY = e.clientY - initialY;
+    const rowHeight = 51; // 50px height + 1px gap
+    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
+    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
+    if (classElement) {
+        classElement.style.height = `${(newDuration * 50) + ((newDuration - 1) * 1)}px`;
+    }
+}
+
+async function handleResizeEnd(e) {
+    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
+    classElement?.classList.remove('resizing');
+    const deltaY = e.clientY - initialY;
+    const rowHeight = 51;
+    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
+    if (newDuration !== resizingClass.duration) {
+        const updatedData = { ...resizingClass, duration: newDuration };
+        if (!checkConflict(updatedData, resizingClass.id)) {
+            try {
+                await updateDoc(doc(scheduleCol, resizingClass.id), { duration: newDuration });
+                notification.show("Duración actualizada.");
+            } catch {
+                notification.show("Error al actualizar.", true);
+            }
+        } else {
+            notification.show("Conflicto al redimensionar.", true);
+            if (classElement) classElement.style.height = `${(initialDuration * 50) + ((initialDuration - 1) * 1)}px`;
+        }
+    }
+    resizingClass = null;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+}
 
 // --- Lógica de Administración ---
 async function advanceAllGroups() {
@@ -367,7 +512,6 @@ async function advanceAllGroups() {
         const batch = writeBatch(db);
         let movedCount = 0;
         let deletedCount = 0;
-
         localState.groups.forEach(group => {
             if (group.trimester >= 9) {
                 batch.delete(doc(groupsCol, group.id));
@@ -377,7 +521,6 @@ async function advanceAllGroups() {
                 movedCount++;
             }
         });
-
         try {
             await batch.commit();
             notification.show(`${movedCount} grupos avanzados, ${deletedCount} grupos eliminados.`);
@@ -386,6 +529,150 @@ async function advanceAllGroups() {
         }
     });
 }
+
+// --- Funciones de la Aplicación (Restantes) ---
+async function deleteClass(classId, classInfo) {
+    modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>.`, async () => {
+        try {
+            await deleteDoc(doc(scheduleCol, classId));
+            notification.show("Clase eliminada.");
+        } catch (error) {
+            notification.show("Error al eliminar la clase.", true);
+        }
+    });
+}
+
+const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const timeSlots = [];
+function generateTimeOptions() {
+    days.forEach(day => dom.daySelect.add(new Option(day, day)));
+    for (let h = 7; h < 22; h++) {
+        timeSlots.push(h);
+        const time = `${String(h).padStart(2, '0')}:00`;
+        dom.timeSelect.add(new Option(time, h));
+    }
+}
+
+async function saveClass() {
+    const classData = {
+        teacherId: dom.teacherSelect.value,
+        subjectId: dom.subjectSelect.value,
+        groupId: dom.groupSelect.value,
+        day: dom.daySelect.value,
+        startTime: parseInt(dom.timeSelect.value),
+        duration: parseInt(dom.durationInput.value)
+    };
+    if (!classData.teacherId || !classData.subjectId || !classData.groupId) return notification.show("Por favor, selecciona todos los campos.", true);
+    const editingId = dom.editingClassId.value;
+    if (checkConflict(classData, editingId)) return notification.show("Conflicto de horario detectado.", true);
+    try {
+        if (editingId) {
+            await updateDoc(doc(scheduleCol, editingId), classData);
+            notification.show("Clase actualizada.");
+        } else {
+            await addDoc(scheduleCol, classData);
+            notification.show("Clase guardada.");
+        }
+        resetForm();
+    } catch (error) {
+        notification.show("Error al guardar la clase.", true);
+    }
+}
+
+function checkConflict(newClass, ignoreId = null) {
+    const newStart = newClass.startTime;
+    const newEnd = newStart + newClass.duration;
+    return localState.schedule.some(existingClass => {
+        if (existingClass.id === ignoreId || existingClass.day !== newClass.day) return false;
+        if (existingClass.teacherId === newClass.teacherId || existingClass.groupId === newClass.groupId) {
+            const existingStart = existingClass.startTime;
+            const existingEnd = existingStart + existingClass.duration;
+            return newStart < existingEnd && newEnd > existingStart;
+        }
+        return false;
+    });
+}
+
+function renderScheduleGrid() {
+    dom.scheduleGrid.innerHTML = '';
+    dom.scheduleGrid.appendChild(document.createElement('div'));
+    days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
+    timeSlots.forEach(time => {
+        const timeSlot = document.createElement('div');
+        timeSlot.className = 'grid-time-slot';
+        timeSlot.textContent = `${time}:00`;
+        dom.scheduleGrid.appendChild(timeSlot);
+        days.forEach(day => {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.day = day; cell.dataset.hour = time;
+            cell.addEventListener('dragover', handleDragOver);
+            cell.addEventListener('drop', handleDrop);
+            dom.scheduleGrid.appendChild(cell);
+        });
+    });
+    const filteredSchedule = localState.schedule.filter(c => (!dom.filterTeacher.value || c.teacherId === dom.filterTeacher.value) && (!dom.filterGroup.value || c.groupId === dom.filterGroup.value));
+    days.forEach((day, dayIndex) => {
+        const dayEvents = filteredSchedule.filter(e => e.day === day);
+        dayEvents.forEach(c => {
+            const teacher = localState.teachers.find(t => t.id === c.teacherId);
+            const subject = localState.subjects.find(s => s.id === c.subjectId);
+            const group = localState.groups.find(g => g.id === c.groupId);
+            if (!teacher || !subject || !group) return;
+            const timeIndex = timeSlots.indexOf(c.startTime);
+            if (timeIndex === -1) return;
+            const overlaps = dayEvents.filter(e => (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
+            const totalOverlaps = overlaps.length;
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'schedule-item';
+            itemDiv.dataset.classId = c.id;
+            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
+            const timeColumnWidth = 60;
+            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
+            const itemWidth = dayColumnWidth / totalOverlaps;
+            itemDiv.style.top = `${(timeIndex + 1) * 51}px`;
+            itemDiv.style.left = `${timeColumnWidth + (dayIndex * dayColumnWidth) + (overlapIndex * itemWidth)}px`;
+            itemDiv.style.width = `${itemWidth - 2}px`;
+            itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
+            let subjectName = subject.name;
+            if (totalOverlaps > 1) { itemDiv.style.fontSize = '0.65rem'; subjectName = getInitials(subject.name); }
+            itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
+            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
+            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
+            dom.scheduleGrid.appendChild(itemDiv);
+        });
+    });
+}
+
+function editClass(classData) {
+    dom.formTitle.textContent = "Editando Clase";
+    dom.teacherSelect.value = classData.teacherId;
+    dom.subjectSelect.value = classData.subjectId;
+    dom.groupSelect.value = classData.groupId;
+    dom.daySelect.value = classData.day;
+    dom.timeSelect.value = classData.startTime;
+    dom.durationInput.value = classData.duration;
+    dom.editingClassId.value = classData.id;
+    dom.cancelEditBtn.classList.remove('hidden');
+    window.scrollTo({ top: dom.formTitle.offsetTop - 20, behavior: 'smooth' });
+}
+
+function resetForm() {
+    dom.formTitle.textContent = "Agregar Nueva Clase";
+    dom.teacherSelect.value = ""; dom.subjectSelect.value = ""; dom.groupSelect.value = "";
+    dom.daySelect.value = "Lunes"; dom.timeSelect.value = "7"; dom.durationInput.value = "1";
+    dom.editingClassId.value = ""; dom.cancelEditBtn.classList.add('hidden');
+}
+
+function runPedagogicalAnalysis() { /* ... Lógica de análisis ... */ }
+function renderAlerts(alerts) { /* ... Lógica de renderizado de alertas ... */ }
+function updateWorkloadSummary() { /* ... Lógica de resumen de carga horaria ... */ }
+function handleImportClick(collectionRef) { /* ... Lógica de importación ... */ }
+function processCSV(event, collectionRef) { /* ... Lógica de procesado de CSV ... */ }
+function exportToCSV() { /* ... Lógica de exportación ... */ }
 
 // --- AUTENTICACIÓN Y ARRANQUE ---
 onAuthStateChanged(auth, (user) => {
@@ -406,156 +693,3 @@ onAuthStateChanged(auth, (user) => {
         startApp();
     }
 })();
-
-// El resto de las funciones (saveClass, checkConflict, renderScheduleGrid, etc.) 
-// se mantienen igual que en la versión anterior. Las incluyo aquí para que el archivo esté completo.
-
-async function saveClass() {
-    const classData = {
-        teacherId: dom.teacherSelect.value,
-        subjectId: dom.subjectSelect.value,
-        groupId: dom.groupSelect.value,
-        day: dom.daySelect.value,
-        startTime: parseInt(dom.timeSelect.value),
-        duration: parseInt(dom.durationInput.value)
-    };
-
-    if (!classData.teacherId || !classData.subjectId || !classData.groupId) {
-        return notification.show("Por favor, selecciona todos los campos.", true);
-    }
-
-    const editingId = dom.editingClassId.value;
-    if (checkConflict(classData, editingId)) {
-        return notification.show("Conflicto de horario detectado.", true);
-    }
-
-    try {
-        if (editingId) {
-            await updateDoc(doc(scheduleCol, editingId), classData);
-            notification.show("Clase actualizada.");
-        } else {
-            await addDoc(scheduleCol, classData);
-            notification.show("Clase guardada.");
-        }
-        resetForm();
-    } catch (error) {
-        notification.show("Error al guardar la clase.", true);
-    }
-}
-
-function checkConflict(newClass, ignoreId = null) {
-    const newStart = newClass.startTime;
-    const newEnd = newStart + newClass.duration;
-
-    return localState.schedule.some(existingClass => {
-        if (existingClass.id === ignoreId || existingClass.day !== newClass.day) {
-            return false;
-        }
-        if (existingClass.teacherId === newClass.teacherId || existingClass.groupId === newClass.groupId) {
-            const existingStart = existingClass.startTime;
-            const existingEnd = existingStart + existingClass.duration;
-            return newStart < existingEnd && newEnd > existingStart;
-        }
-        return false;
-    });
-}
-
-function renderScheduleGrid() {
-    dom.scheduleGrid.innerHTML = '';
-    
-    dom.scheduleGrid.appendChild(document.createElement('div'));
-    days.forEach(day => {
-        const header = document.createElement('div');
-        header.className = 'grid-header';
-        header.textContent = day;
-        dom.scheduleGrid.appendChild(header);
-    });
-    timeSlots.forEach(time => {
-        const timeSlot = document.createElement('div');
-        timeSlot.className = 'grid-time-slot';
-        timeSlot.textContent = `${time}:00`;
-        dom.scheduleGrid.appendChild(timeSlot);
-        days.forEach(day => {
-            const cell = document.createElement('div');
-            cell.className = 'grid-cell';
-            cell.dataset.day = day;
-            cell.dataset.hour = time;
-            cell.addEventListener('dragover', handleDragOver);
-            cell.addEventListener('drop', handleDrop);
-            dom.scheduleGrid.appendChild(cell);
-        });
-    });
-
-    const filteredSchedule = localState.schedule.filter(c => {
-        const teacherFilter = dom.filterTeacher.value;
-        const groupFilter = dom.filterGroup.value;
-        const teacherMatch = !teacherFilter || c.teacherId === teacherFilter;
-        const groupMatch = !groupFilter || c.groupId === groupFilter;
-        return teacherMatch && groupMatch;
-    });
-
-    days.forEach((day, dayIndex) => {
-        const dayEvents = filteredSchedule.filter(e => e.day === day);
-
-        dayEvents.forEach(c => {
-            const teacher = localState.teachers.find(t => t.id === c.teacherId);
-            const subject = localState.subjects.find(s => s.id === c.subjectId);
-            const group = localState.groups.find(g => g.id === c.groupId);
-            if (!teacher || !subject || !group) return;
-
-            const timeIndex = timeSlots.indexOf(c.startTime);
-            if (timeIndex === -1) return;
-
-            const overlaps = dayEvents.filter(e => {
-                const cEnd = c.startTime + c.duration;
-                const eEnd = e.startTime + e.duration;
-                return c.startTime < eEnd && cEnd > e.startTime;
-            });
-            
-            const totalOverlaps = overlaps.length;
-            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'schedule-item';
-            itemDiv.dataset.classId = c.id;
-            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
-            
-            const timeColumnWidth = 60;
-            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
-            const itemWidth = dayColumnWidth / totalOverlaps;
-
-            itemDiv.style.top = `${(timeIndex + 1) * 51}px`;
-            itemDiv.style.left = `${timeColumnWidth + (dayIndex * dayColumnWidth) + (overlapIndex * itemWidth)}px`;
-            itemDiv.style.width = `${itemWidth - 2}px`;
-            
-            const rowHeight = 50;
-            const rowGap = 1;
-            itemDiv.style.height = `${(c.duration * rowHeight) + ((c.duration - 1) * rowGap)}px`;
-
-            let subjectName = subject.name;
-            if (totalOverlaps > 1) {
-                itemDiv.style.fontSize = '0.65rem'; 
-                subjectName = getInitials(subject.name);
-            }
-
-            itemDiv.innerHTML = `
-                <div class="font-bold">${subjectName}</div>
-                <div>${teacher.name.split(' ')[0]}</div>
-                <div class="italic">${group.name}</div>
-                <div class="actions">
-                    <button title="Editar">✏️</button>
-                    <button title="Eliminar">🗑️</button>
-                </div>
-                <div class="resize-handle"></div>
-            `;
-            
-            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
-            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
-            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
-            
-            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
-
-            dom.scheduleGrid.appendChild(itemDiv);
-        });
-    });
-}
