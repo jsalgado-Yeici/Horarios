@@ -44,7 +44,7 @@ const getSubjectColor = id => assignedColors[id] || (assignedColors[id] = colorP
 let dom = {};
 let isAppStarted = false;
 
-// --- NUEVO SISTEMA DE NOTIFICACIONES EMERGENTES ---
+// --- Sistema de Notificaciones Emergentes ---
 const notification = {
     container: document.getElementById('notification-container'),
     
@@ -60,7 +60,6 @@ const notification = {
         
         this.container.appendChild(notif);
 
-        // Forzar reflow para que la animación funcione
         requestAnimationFrame(() => {
             notif.classList.add('show');
         });
@@ -72,7 +71,7 @@ const notification = {
     }
 };
 
-// --- Sistema de Modal (Ahora para confirmaciones y formularios) ---
+// --- Sistema de Modal (Confirmaciones y Formularios) ---
 const modal = {
     el: document.getElementById('modal'),
     content: document.getElementById('modal-content'),
@@ -119,7 +118,6 @@ const modal = {
             </div>`;
         this.show(formHtml);
         
-        // Poblar los selectores del modal
         populateSelect(document.getElementById('modal-preset-teacher'), localState.teachers, 'Seleccionar Docente');
         populateSelect(document.getElementById('modal-preset-subject'), localState.subjects, 'Seleccionar Materia');
         populateSelect(document.getElementById('modal-preset-group'), localState.groups, 'Seleccionar Grupo');
@@ -164,35 +162,11 @@ function startApp() {
     setupEventListeners();
 
     // Suscripciones a Firestore
-    onSnapshot(teachersCol, s => {
-        localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderSimpleList(localState.teachers, dom.teachersList, teachersCol);
-        populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente');
-        populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes');
-        updateWorkloadSummary();
-    });
-    onSnapshot(subjectsCol, s => {
-        localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderSimpleList(localState.subjects, dom.subjectsList, subjectsCol);
-        populateSelect(dom.subjectSelect, localState.subjects, 'Seleccionar Materia');
-    });
-    onSnapshot(groupsCol, s => {
-        localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderSimpleList(localState.groups, dom.groupsList, groupsCol);
-        populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo');
-        populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos');
-        updateWorkloadSummary();
-    });
-    onSnapshot(scheduleCol, s => {
-        localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderScheduleGrid();
-        runPedagogicalAnalysis();
-        updateWorkloadSummary();
-    });
-    onSnapshot(presetsCol, s => {
-        localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderPresetsList();
-    });
+    onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSimpleList(localState.teachers, dom.teachersList, teachersCol); populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente'); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
+    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSimpleList(localState.subjects, dom.subjectsList, subjectsCol); populateSelect(dom.subjectSelect, localState.subjects, 'Seleccionar Materia'); });
+    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSimpleList(localState.groups, dom.groupsList, groupsCol); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
+    onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
+    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
 }
 
 function setupEventListeners() {
@@ -295,8 +269,8 @@ function renderPresetsList() {
 
         const presetDiv = document.createElement('div');
         presetDiv.className = 'preset-item';
-        presetDiv.draggable = true; // Hacer el elemento arrastrable
-        presetDiv.dataset.presetId = preset.id; // Guardar el ID para el drop
+        presetDiv.draggable = true;
+        presetDiv.dataset.presetId = preset.id;
 
         presetDiv.innerHTML = `
             <div class="preset-item-info">
@@ -336,17 +310,16 @@ function handleDragEnd(e) {
 }
 
 function handleDragOver(e) {
-    e.preventDefault(); // Necesario para permitir el drop
+    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const cell = e.target.closest('.grid-cell');
     if (cell) {
-        // Limpiar hover previo
         document.querySelectorAll('.grid-cell.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
         cell.classList.add('droppable-hover');
     }
 }
 
-function handleDrop(e) {
+async function handleDrop(e) {
     e.preventDefault();
     document.querySelectorAll('.grid-cell.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
     
@@ -358,22 +331,89 @@ function handleDrop(e) {
     if (!preset) return;
 
     const classData = {
-        ...preset,
+        teacherId: preset.teacherId,
+        subjectId: preset.subjectId,
+        groupId: preset.groupId,
         day: cell.dataset.day,
         startTime: parseInt(cell.dataset.hour),
-        duration: 1 // Por defecto, las plantillas arrastradas duran 1 hora
+        duration: 1
     };
 
     if (checkConflict(classData)) {
         return notification.show("Conflicto de horario al soltar la plantilla.", true);
     }
     
-    addDoc(scheduleCol, classData)
-        .then(() => notification.show("Clase agregada desde plantilla."))
-        .catch(() => notification.show("Error al agregar la clase.", true));
+    try {
+        await addDoc(scheduleCol, classData);
+        notification.show("Clase agregada desde plantilla.");
+    } catch (error) {
+        notification.show("Error al agregar la clase.", true);
+    }
 }
 
-// ... (El resto de funciones se mantiene igual, con pequeños ajustes para usar el nuevo sistema de notificaciones)
+// --- Lógica de Redimensionamiento de Clases ---
+let resizingClass = null;
+let initialY = 0;
+let initialDuration = 0;
+
+function handleResizeStart(e, classData) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingClass = classData;
+    initialY = e.clientY;
+    initialDuration = classData.duration;
+    e.target.parentElement.classList.add('resizing');
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+}
+
+function handleResizeMove(e) {
+    if (!resizingClass) return;
+    const deltaY = e.clientY - initialY;
+    const rowHeight = 51; // 50px height + 1px gap
+    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
+    
+    // Actualización visual en tiempo real (opcional pero mejora la UX)
+    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
+    if (classElement) {
+        classElement.style.height = `${(newDuration * 50) + ((newDuration - 1) * 1)}px`;
+    }
+}
+
+async function handleResizeEnd(e) {
+    const classElement = document.querySelector(`.schedule-item[data-class-id="${resizingClass.id}"]`);
+    if (classElement) {
+        classElement.classList.remove('resizing');
+    }
+    
+    const deltaY = e.clientY - initialY;
+    const rowHeight = 51;
+    const newDuration = Math.max(1, initialDuration + Math.round(deltaY / rowHeight));
+
+    if (newDuration !== resizingClass.duration) {
+        const updatedData = { ...resizingClass, duration: newDuration };
+        if (!checkConflict(updatedData, resizingClass.id)) {
+            try {
+                await updateDoc(doc(scheduleCol, resizingClass.id), { duration: newDuration });
+                notification.show("Duración de la clase actualizada.");
+            } catch {
+                notification.show("Error al actualizar la duración.", true);
+            }
+        } else {
+            notification.show("Conflicto de horario al redimensionar.", true);
+            // Revertir el cambio visual si hay conflicto
+            if (classElement) {
+                 classElement.style.height = `${(initialDuration * 50) + ((initialDuration - 1) * 1)}px`;
+            }
+        }
+    }
+
+    resizingClass = null;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+}
+
+// --- Funciones de la Aplicación (Ajustadas) ---
 async function deleteClass(classId, classInfo) {
     modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>.`, async () => {
         try {
@@ -476,7 +516,7 @@ function renderScheduleGrid() {
         days.forEach(day => {
             const cell = document.createElement('div');
             cell.className = 'grid-cell';
-            cell.dataset.day = day; // Guardar datos para el drop
+            cell.dataset.day = day;
             cell.dataset.hour = time;
             cell.addEventListener('dragover', handleDragOver);
             cell.addEventListener('drop', handleDrop);
@@ -515,6 +555,7 @@ function renderScheduleGrid() {
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'schedule-item';
+            itemDiv.dataset.classId = c.id; // ID para la actualización visual
             itemDiv.style.backgroundColor = getSubjectColor(subject.id);
             
             const timeColumnWidth = 60;
@@ -543,11 +584,14 @@ function renderScheduleGrid() {
                     <button title="Editar">✏️</button>
                     <button title="Eliminar">🗑️</button>
                 </div>
+                <div class="resize-handle"></div>
             `;
             
             const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
             editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
             deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+            
+            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
 
             dom.scheduleGrid.appendChild(itemDiv);
         });
