@@ -6,6 +6,7 @@ body {
 /* Estructura de la rejilla del horario */
 .schedule-grid {
     display: grid;
+    /* CAMBIO: Se ajustó de repeat(6, 1fr) a repeat(5, 1fr) para 5 días */
     grid-template-columns: 60px repeat(5, 1fr); /* Columna para la hora + 5 días */
     grid-auto-rows: 50px; /* Altura de cada franja horaria */
     gap: 1px;
