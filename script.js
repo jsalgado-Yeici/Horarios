@@ -259,7 +259,6 @@ function setupEventListeners() {
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
     
-    // CAMBIO: Añadido event listener para filtrar materias al cambiar el grupo en el formulario
     dom.groupSelect.onchange = populateSubjectFilter;
 
     dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
@@ -464,15 +463,12 @@ async function saveEditedItem(itemId, collection) {
     }
 }
 
-// CAMBIO: La función ahora filtra las materias según el cuatrimestre del grupo seleccionado
 function populateSubjectFilter() {
     const selectedGroupId = dom.groupSelect.value;
     const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
     
     let subjectsToShow = localState.subjects;
-    // Si se seleccionó un grupo y este tiene un cuatrimestre asignado...
     if (selectedGroup && selectedGroup.trimester > 0) {
-        // ...mostrar solo las materias de ese cuatrimestre.
         subjectsToShow = localState.subjects.filter(s => s.trimester == selectedGroup.trimester);
     }
     
@@ -682,11 +678,15 @@ async function deleteClass(classId, classInfo) {
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const timeSlots = [];
 function generateTimeOptions() {
+    dom.daySelect.innerHTML = '';
     days.forEach(day => dom.daySelect.add(new Option(day, day)));
-    for (let h = 7; h < 22; h++) {
-        timeSlots.push(h);
-        const time = `${String(h).padStart(2, '0')}:00`;
-        dom.timeSelect.add(new Option(time, h));
+    
+    if(timeSlots.length === 0) {
+        for (let h = 7; h < 22; h++) {
+            timeSlots.push(h);
+            const time = `${String(h).padStart(2, '0')}:00`;
+            dom.timeSelect.add(new Option(time, h));
+        }
     }
 }
 
@@ -734,11 +734,14 @@ function renderScheduleGrid() {
     dom.scheduleGrid.innerHTML = '';
     dom.scheduleGrid.appendChild(document.createElement('div'));
     days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
+    
     timeSlots.forEach(time => {
         const timeSlot = document.createElement('div');
         timeSlot.className = 'grid-time-slot';
-        timeSlot.textContent = `${time}:00`;
+        // CAMBIO: Se ajusta el formato de la hora para mostrar el rango
+        timeSlot.textContent = `${time}h 00 - ${time + 1}h 00`;
         dom.scheduleGrid.appendChild(timeSlot);
+        
         days.forEach(day => {
             const cell = document.createElement('div');
             cell.className = 'grid-cell';
@@ -748,6 +751,7 @@ function renderScheduleGrid() {
             dom.scheduleGrid.appendChild(cell);
         });
     });
+
     const filteredSchedule = localState.schedule.filter(c => (!dom.filterTeacher.value || c.teacherId === dom.filterTeacher.value) && (!dom.filterGroup.value || c.groupId === dom.filterGroup.value));
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
@@ -765,7 +769,7 @@ function renderScheduleGrid() {
             itemDiv.className = 'schedule-item';
             itemDiv.dataset.classId = c.id;
             itemDiv.style.backgroundColor = getSubjectColor(subject.id);
-            const timeColumnWidth = 60;
+            const timeColumnWidth = 120; // Se ajusta este valor en el CSS también
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
             const itemWidth = (dayColumnWidth / totalOverlaps);
             itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
@@ -789,7 +793,6 @@ function editClass(classData) {
     dom.teacherSelect.value = classData.teacherId;
     dom.groupSelect.value = classData.groupId;
     
-    // CAMBIO: Llama a populateSubjectFilter para asegurar que las materias correctas estén cargadas
     populateSubjectFilter();
     
     dom.subjectSelect.value = classData.subjectId;
@@ -806,15 +809,13 @@ function resetForm() {
     [dom.teacherSelect, dom.subjectSelect, dom.groupSelect].forEach(s => s.value = "");
     dom.daySelect.value = "Lunes"; dom.timeSelect.value = "7"; dom.durationInput.value = "1";
     dom.editingClassId.value = ""; dom.cancelEditBtn.classList.add('hidden');
-    populateSubjectFilter(); // Resetea el filtro de materias
+    populateSubjectFilter();
 }
 
-// CAMBIO: Lógica de análisis implementada
 function runPedagogicalAnalysis() {
     const alerts = [];
-    // 1. Verificar materias faltantes en grupos
     localState.groups.forEach(group => {
-        if (!group.trimester || group.trimester === 0) return; // Ignorar grupos sin cuatrimestre
+        if (!group.trimester || group.trimester === 0) return;
 
         const requiredSubjects = localState.subjects.filter(s => s.trimester == group.trimester);
         const scheduledSubjects = localState.schedule
@@ -834,7 +835,6 @@ function runPedagogicalAnalysis() {
     renderAlerts(alerts);
 }
 
-// CAMBIO: Lógica de renderizado de alertas implementada
 function renderAlerts(alerts) {
     dom.alertsList.innerHTML = '';
     if (alerts.length === 0) {
@@ -854,7 +854,6 @@ function renderAlerts(alerts) {
     });
 }
 
-// CAMBIO: Lógica de carga horaria implementada
 function updateWorkloadSummary() {
     const teacherWorkload = {};
     const groupWorkload = {};
