@@ -6,7 +6,6 @@ body {
 /* Estructura de la rejilla del horario */
 .schedule-grid {
     display: grid;
-    /* CAMBIO: Se ajustó el ancho de la columna de la hora de 60px a 120px */
     grid-template-columns: 120px repeat(5, 1fr); /* Columna para la hora + 5 días */
     grid-auto-rows: 50px; /* Altura de cada franja horaria */
     gap: 1px;
@@ -21,6 +20,7 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 0.8rem;
+    text-align: center;
 }
 
 .grid-header { 
@@ -31,7 +31,7 @@ body {
 .grid-time-slot { 
     font-weight: 500; 
     color: #4b5563;
-    padding: 0 4px; /* Añade un poco de padding por si acaso */
+    padding: 0 4px;
 }
 
 /* Celda de fondo con un sutil efecto al pasar el cursor para indicar que se puede soltar un elemento */
@@ -41,21 +41,21 @@ body {
 
 /* Estilos para los elementos de clase que se superponen en la rejilla */
 .schedule-item {
-    position: absolute;  /* Posicionamiento absoluto para superponerse a la rejilla */
+    position: absolute;
     padding: 4px;
     border-radius: 6px;
     font-size: 0.75rem;
     color: white;
     display: flex;
     flex-direction: column;
-    overflow: visible; /* Cambiado para que el handle sea visible */
+    overflow: visible;
     z-index: 10;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    transition: box-shadow 0.2s ease-in-out; /* Transición más simple */
+    transition: box-shadow 0.2s ease-in-out;
 }
 
 .schedule-item:hover {
-    z-index: 20; /* Asegura que el elemento sobre el que se pasa el cursor esté por encima de los demás */
+    z-index: 20;
 }
 
 /* Contenedor para los botones de acción (editar, eliminar) */
@@ -65,16 +65,14 @@ body {
     right: 2px;
     display: flex;
     gap: 2px;
-    opacity: 0; /* Oculto por defecto */
+    opacity: 0;
     transition: opacity 0.2s;
 }
 
-/* Muestra los botones de acción al pasar el cursor sobre el elemento de la clase */
 .schedule-item:hover .actions {
     opacity: 1;
 }
 
-/* Estilos para los botones de acción individuales */
 .schedule-item .actions button {
     background-color: rgba(0,0,0,0.4);
     border-radius: 50%;
@@ -90,27 +88,46 @@ body {
     justify-content: center;
 }
 
+/* --- NUEVO ESTILO: Bloques de Horario Externo (Inglés) --- */
+.schedule-block {
+    position: absolute;
+    border-radius: 6px;
+    z-index: 5; /* Por debajo de las clases normales */
+    background-color: #d1d5db; /* Un gris claro */
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.2) 0,
+        rgba(255, 255, 255, 0.2) 10px,
+        transparent 10px,
+        transparent 20px
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #4b5563;
+    text-align: center;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
+
 /* --- ESTILOS PARA REDIMENSIONAR --- */
 .resize-handle {
     position: absolute;
-    bottom: -5px; /* Ligeramente fuera para que sea fácil de agarrar */
+    bottom: -5px;
     left: 0;
     width: 100%;
-    height: 10px; /* Área de agarre más grande */
-    cursor: ns-resize; /* Cursor de redimensionamiento vertical */
+    height: 10px;
+    cursor: ns-resize;
     z-index: 25;
 }
 
 .schedule-item.resizing {
     opacity: 0.7;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: none; /* Desactiva transiciones durante el redimensionamiento */
-}
-
-
-/* Estilos para los íconos SVG dentro de las alertas */
-.alert-item svg {
-    min-width: 24px;
+    transition: none;
 }
 
 /* --- ESTILOS PARA PLANTILLAS (PRESETS) --- */
@@ -121,7 +138,7 @@ body {
     background-color: #f9fafb;
     padding: 8px 12px;
     border-radius: 8px;
-    cursor: grab; /* Indica que el elemento es arrastrable */
+    cursor: grab;
     transition: background-color 0.2s, box-shadow 0.2s;
     border: 1px solid #e5e7eb;
 }
@@ -187,7 +204,7 @@ body {
     font-weight: 500;
 }
 
-/* --- NUEVOS ESTILOS PARA PANELES DE GESTIÓN --- */
+/* --- ESTILOS PARA PANELES DE GESTIÓN --- */
 .management-item {
     display: flex;
     justify-content: space-between;
@@ -196,7 +213,7 @@ body {
     padding: 6px 10px;
     border-radius: 6px;
     border: 1px solid #f3f4f6;
-    cursor: grab; /* Para arrastrar materias y grupos */
+    cursor: grab;
 }
 
 .management-item .actions {
@@ -225,7 +242,7 @@ body {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 0.75rem;
-    min-height: 100px; /* Espacio para soltar elementos */
+    min-height: 100px;
 }
 
 .trimester-column.droppable-hover {
