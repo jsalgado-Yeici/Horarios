@@ -596,7 +596,9 @@ function createManagementItem(item, collection, type, draggable = false) {
     };
     return itemDiv;
 }
-
+function sortByName(a, b) {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+}
 function renderTeachersList() {
     if(!dom.teachersList) return;
     dom.teachersList.innerHTML = '';
