@@ -88,7 +88,7 @@ body {
     justify-content: center;
 }
 
-/* --- NUEVO ESTILO: Bloques de Horario Externo (Inglés) --- */
+/* --- ESTILO: Bloques de Horario Externo (Inglés) --- */
 .schedule-block {
     position: absolute;
     border-radius: 6px;
@@ -272,4 +272,25 @@ body {
     opacity: 0.5;
     cursor: grabbing;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* --- NUEVOS ESTILOS PARA PANELES MINIMIZABLES --- */
+.collapse-icon {
+    transition: transform 0.3s ease;
+}
+
+.collapsible-content {
+    max-height: 1000px; /* Un valor alto para asegurar que se vea */
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 1;
+}
+
+.collapsed .collapsible-content {
+    max-height: 0;
+    opacity: 0;
+}
+
+.collapsed .collapse-icon {
+    transform: rotate(-90deg);
 }
