@@ -39,7 +39,7 @@ body {
     background-color: #e0f2fe; /* Un azul claro */
 }
 
-/* Estilos para los elementos de clase que se superponen en la rejilla */
+/* --- ESTILOS MEJORADOS PARA CLASES SUPERPUESTAS --- */
 .schedule-item {
     position: absolute;
     padding: 4px;
@@ -48,14 +48,18 @@ body {
     color: white;
     display: flex;
     flex-direction: column;
-    overflow: visible;
+    overflow: hidden; /* Oculta el texto que se desborda */
     z-index: 10;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    transition: box-shadow 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    border: 1px solid rgba(0,0,0,0.1);
+    transition: all 0.2s ease-in-out; /* Transición suave para todo */
 }
 
 .schedule-item:hover {
-    z-index: 20;
+    z-index: 20; /* Se pone al frente */
+    transform: scale(1.05); /* Se agranda un poco */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    overflow: visible; /* Muestra todo el contenido al pasar el cursor */
 }
 
 /* Contenedor para los botones de acción (editar, eliminar) */
@@ -274,7 +278,7 @@ body {
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* --- NUEVOS ESTILOS PARA PANELES MINIMIZABLES --- */
+/* --- ESTILOS PARA PANELES MINIMIZABLES --- */
 .collapse-icon {
     transition: transform 0.3s ease;
 }
