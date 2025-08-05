@@ -229,6 +229,7 @@ function startApp() {
         formTitle: document.getElementById('form-title'), editingClassId: document.getElementById('editing-class-id'),
         scheduleGrid: document.getElementById('schedule-grid'),
         filterTeacher: document.getElementById('filter-teacher'), filterGroup: document.getElementById('filter-group'),
+        filterTrimester: document.getElementById('filter-trimester'),
         alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
         advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
@@ -244,6 +245,7 @@ function startApp() {
     generateTimeOptions();
     setupEventListeners();
     populateBlockerForm();
+    populateTrimesterFilter();
 
     // Suscripciones a Firestore
     onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente'); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
@@ -262,13 +264,13 @@ function setupEventListeners() {
     dom.cancelEditBtn.onclick = resetForm;
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
+    dom.filterTrimester.onchange = renderScheduleGrid;
     dom.groupSelect.onchange = populateSubjectFilter;
-    dom.subjectSelect.onchange = populateGroupFilter; // NUEVO: Filtra grupos al cambiar materia
+    dom.subjectSelect.onchange = populateGroupFilter;
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
     dom.addBlockBtn.onclick = addBlock;
     dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
 
-    // Lógica para paneles minimizables
     document.querySelectorAll('.collapsible-header').forEach(header => {
         header.addEventListener('click', () => {
             header.parentElement.classList.toggle('collapsed');
@@ -321,11 +323,20 @@ function renderBlocksList() {
         dom.blocksList.innerHTML = '<p class="text-xs text-gray-400">No hay bloqueos activos.</p>';
         return;
     }
-    localState.blocks.forEach(block => {
+    [...localState.blocks].sort((a,b) => a.trimester - b.trimester || a.startTime - b.startTime).forEach(block => {
         const blockDiv = document.createElement('div');
         blockDiv.className = 'management-item';
+        
+        const affectedGroups = localState.groups
+            .filter(g => g.trimester === block.trimester)
+            .map(g => g.name)
+            .join(', ');
+
         blockDiv.innerHTML = `
-            <span>Cuatri ${block.trimester}: ${block.startTime}:00-${block.endTime}:00 (${block.days})</span>
+            <div>
+                <p class="font-semibold">Cuatri ${block.trimester}: ${block.startTime}:00-${block.endTime}:00 (${block.days})</p>
+                <p class="text-xs text-gray-500">Grupos: ${affectedGroups || 'Ninguno'}</p>
+            </div>
             <div class="actions">
                 <button class="delete-btn" title="Eliminar">🗑️</button>
             </div>
@@ -345,6 +356,14 @@ function renderBlocksList() {
 }
 
 // --- LÓGICA DE RENDERIZADO DEL HORARIO (ACTUALIZADA) ---
+
+function populateTrimesterFilter() {
+    dom.filterTrimester.innerHTML = '';
+    dom.filterTrimester.add(new Option('Todos los Cuatris', ''));
+    for (let i = 1; i <= 9; i++) {
+        dom.filterTrimester.add(new Option(`Cuatrimestre ${i}`, i));
+    }
+}
 
 function renderScheduleGrid() {
     if (!dom.scheduleGrid) return;
@@ -370,7 +389,21 @@ function renderScheduleGrid() {
 
     renderScheduleBlocks();
 
-    const filteredSchedule = localState.schedule.filter(c => (!dom.filterTeacher.value || c.teacherId === dom.filterTeacher.value) && (!dom.filterGroup.value || c.groupId === dom.filterGroup.value));
+    const selectedTeacher = dom.filterTeacher.value;
+    const selectedGroup = dom.filterGroup.value;
+    const selectedTrimester = dom.filterTrimester.value;
+
+    const filteredSchedule = localState.schedule.filter(c => {
+        const group = localState.groups.find(g => g.id === c.groupId);
+        if (!group) return false;
+
+        const teacherMatch = !selectedTeacher || c.teacherId === selectedTeacher;
+        const groupMatch = !selectedGroup || c.groupId === selectedGroup;
+        const trimesterMatch = !selectedTrimester || group.trimester == selectedTrimester;
+        
+        return teacherMatch && groupMatch && trimesterMatch;
+    });
+
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
         dayEvents.forEach(c => {
@@ -380,22 +413,32 @@ function renderScheduleGrid() {
             if (!teacher || !subject || !group) return;
             const timeIndex = timeSlots.indexOf(c.startTime);
             if (timeIndex === -1) return;
-            const overlaps = dayEvents.filter(e => e.id !== c.id && (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
-            const totalOverlaps = overlaps.length + 1;
-            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).findIndex(i => i.id > c.id) + 1;
+            
+            const overlaps = dayEvents.filter(e => (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
+            const totalOverlaps = overlaps.length;
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
+            
             const itemDiv = document.createElement('div');
             itemDiv.className = 'schedule-item';
             itemDiv.dataset.classId = c.id;
             itemDiv.style.backgroundColor = getSubjectColor(subject.id);
             const timeColumnWidth = 120;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
-            const itemWidth = (dayColumnWidth / totalOverlaps);
+            
+            const itemWidth = dayColumnWidth / totalOverlaps;
+            const itemLeft = (dayColumnWidth / totalOverlaps) * overlapIndex;
+
             itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
-            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * (dayColumnWidth)) + (overlapIndex * itemWidth)}px`;
-            itemDiv.style.width = `${itemWidth - 3}px`;
+            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * dayColumnWidth) + itemLeft}px`;
+            itemDiv.style.width = `${itemWidth - 2}px`;
             itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
+            
             let subjectName = subject.name;
-            if (totalOverlaps > 2) { itemDiv.style.fontSize = '0.65rem'; subjectName = getInitials(subject.name); }
+            if (totalOverlaps > 2) { 
+                itemDiv.style.fontSize = '0.65rem';
+                subjectName = getInitials(subject.name);
+            }
+            
             itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
             const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
             editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
@@ -409,14 +452,13 @@ function renderScheduleGrid() {
 
 function renderScheduleBlocks() {
     if (!dom.scheduleGrid) return;
-    const selectedGroupId = dom.filterGroup.value;
-    const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
-    
-    localState.blocks.forEach(block => {
-        if (selectedGroup && selectedGroup.trimester != block.trimester) {
-            return;
-        }
+    const selectedTrimester = dom.filterTrimester.value;
 
+    const filteredBlocks = localState.blocks.filter(block => {
+        return !selectedTrimester || block.trimester == selectedTrimester;
+    });
+
+    filteredBlocks.forEach(block => {
         const startHour = parseInt(block.startTime);
         const endHour = parseInt(block.endTime);
         const duration = endHour - startHour;
@@ -561,7 +603,6 @@ function createManagementItem(item, collection, type, draggable = false) {
     return itemDiv;
 }
 
-// Función de ordenamiento para nombres con números
 function sortByName(a, b) {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 }
@@ -961,7 +1002,7 @@ async function saveClass() {
 function editClass(classData) {
     dom.formTitle.textContent = "Editando Clase";
     dom.subjectSelect.value = classData.subjectId;
-    populateGroupFilter(); // Llama primero al filtro de grupos
+    populateGroupFilter();
     dom.groupSelect.value = classData.groupId;
     dom.teacherSelect.value = classData.teacherId;
     dom.daySelect.value = classData.day;
@@ -1035,14 +1076,13 @@ function updateWorkloadSummary() {
         groupWorkload[c.groupId] = (groupWorkload[c.groupId] || 0) + c.duration;
     });
 
-    // Sumar horas de los bloqueos de inglés a los grupos
     localState.blocks.forEach(block => {
         const affectedGroups = localState.groups.filter(g => g.trimester === block.trimester);
         const daysCount = block.days === 'L-V' ? 5 : 4;
-        const blockHours = (block.endTime - block.startTime) * daysCount;
+        const blockHoursPerDay = block.endTime - block.startTime;
         
         affectedGroups.forEach(group => {
-            groupWorkload[group.id] = (groupWorkload[group.id] || 0) + blockHours;
+            groupWorkload[group.id] = (groupWorkload[group.id] || 0) + (blockHoursPerDay * daysCount);
         });
     });
 
