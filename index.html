@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planificador de Horarios</title>
     
+    <!-- Librerías Externas -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Tu Hoja de Estilos Personalizada -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -18,7 +20,9 @@
             <p class="text-gray-600 mt-2"></p>
         </header>
 
+        <!-- Paneles de Gestión (NUEVA ESTRUCTURA) -->
         <div class="grid grid-cols-1 lg:grid-cols-6 gap-8 mb-8">
+            <!-- Panel de Docentes (Más pequeño) -->
             <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">Docentes</h2>
                 <div id="teachers-list" class="space-y-2 mb-4 max-h-96 overflow-y-auto"></div>
@@ -26,30 +30,38 @@
                 <button id="add-teacher-btn" class="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">Agregar</button>
             </div>
 
+            <!-- Panel de Materias (Más grande y por cuatrimestres) -->
             <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <h2 class="text-xl font-semibold">Materias por Cuatrimestre</h2>
                     <button id="open-subject-modal-btn" class="bg-indigo-100 text-indigo-700 text-sm font-semibold py-1 px-3 rounded-lg hover:bg-indigo-200">Nueva Materia</button>
                 </div>
                 <div id="subjects-by-trimester" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[28rem] overflow-y-auto pr-2">
-                    </div>
+                    <!-- Las columnas de cuatrimestres se generarán aquí -->
+                </div>
+                <!-- NUEVO CONTENEDOR PARA MATERIAS SIN ASIGNAR -->
                 <div class="mt-6">
                     <h3 class="font-semibold text-lg border-b pb-2 mb-3">Materias sin Asignar</h3>
                     <div id="unassigned-subjects-container" class="p-3 bg-gray-50 rounded-lg min-h-[6rem] space-y-2">
-                        </div>
+                        <!-- Las materias sin cuatrimestre aparecerán aquí -->
+                    </div>
                 </div>
             </div>
 
+            <!-- Panel de Grupos (Organizado por cuatrimestres) -->
             <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
                  <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <h2 class="text-xl font-semibold">Grupos por Cuatrimestre</h2>
                 </div>
                 <div id="groups-by-trimester" class="space-y-4 max-h-96 overflow-y-auto pr-2">
-                    </div>
+                    <!-- Los grupos por cuatrimestre se generarán aquí -->
+                </div>
+                 <!-- NUEVO CONTENEDOR PARA GRUPOS SIN ASIGNAR -->
                  <div class="mt-6">
                     <h3 class="font-semibold text-lg border-b pb-2 mb-3">Grupos sin Asignar</h3>
                     <div id="unassigned-groups-container" class="p-3 bg-gray-50 rounded-lg min-h-[4rem] space-y-2">
-                        </div>
+                        <!-- Los grupos sin cuatrimestre aparecerán aquí -->
+                    </div>
                 </div>
                  <div class="grid grid-cols-3 gap-2 mt-4">
                     <select id="group-prefix-select" class="col-span-1 p-2 border rounded-lg bg-gray-50">
@@ -74,6 +86,7 @@
             </div>
         </div>
 
+        <!-- Formulario de Asignación -->
         <div class="bg-white p-6 rounded-xl shadow-md mb-8">
             <h2 id="form-title" class="text-2xl font-semibold mb-4">Agregar/Editar Clase</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
@@ -91,6 +104,7 @@
             <input type="hidden" id="editing-class-id">
         </div>
 
+        <!-- Horario Visual -->
         <div class="bg-white p-4 md:p-6 rounded-xl shadow-md overflow-x-auto mb-8">
             <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                 <h2 class="text-2xl font-semibold">Horario Visual</h2>
@@ -106,29 +120,37 @@
                 </div>
             </div>
             <div id="schedule-grid" class="schedule-grid">
-                </div>
+                <!-- El contenido del horario se genera con JavaScript -->
+            </div>
         </div>
 
+        <!-- Paneles de Herramientas y Plantillas -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Plantillas de Clases</h2>
-                <p class="text-sm text-gray-500 mb-4">Arrastra una plantilla al horario para agregar una clase de 1 hora.</p>
-                <div id="presets-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
-                <button id="open-preset-modal-btn" class="mt-4 w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Crear Nueva Plantilla</button>
+            
+            <!-- NUEVO PANEL: Bloqueo por IA -->
+            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Bloqueo por Horarios Externos (IA)</h2>
+                <p class="text-sm text-gray-500 mb-4">Sube una imagen de un horario (ej. clases de inglés) y la IA extraerá los datos para bloquear esas horas para los cuatrimestres correspondientes.</p>
+                <div class="flex items-center gap-4 p-4 border-2 border-dashed rounded-lg">
+                    <input type="file" id="image-upload-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <button id="analyze-image-btn" class="bg-slate-700 text-white py-2 px-5 rounded-lg hover:bg-slate-800 disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center gap-2">
+                        <svg id="analyze-btn-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"></path></svg>
+                        <svg id="analyze-btn-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span id="analyze-btn-text">Analizar</span>
+                    </button>
+                </div>
+                <div id="ai-results-container" class="mt-4 space-y-2">
+                    <!-- Los resultados del análisis de la IA se mostrarán aquí -->
+                </div>
             </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Análisis y Alertas</h2>
-                <ul id="alerts-list" class="space-y-3 max-h-60 overflow-y-auto">
-                    <li id="no-alerts-message" class="text-gray-500">No hay alertas.</li>
-                </ul>
-            </div>
+            <!-- Panel de Administración -->
             <div class="bg-white p-6 rounded-xl shadow-md">
                 <h2 class="text-2xl font-semibold mb-4">Administración</h2>
                 <div class="space-y-4">
                      <div>
                         <h3 class="font-semibold text-lg">Avanzar Cuatrimestre</h3>
-                        <p class="text-sm text-gray-500 mb-2">Mueve todos los grupos al siguiente cuatrimestre. Esta acción no se puede deshacer.</p>
+                        <p class="text-sm text-gray-500 mb-2">Mueve todos los grupos al siguiente cuatrimestre.</p>
                         <button id="advance-trimester-btn" class="w-full bg-amber-500 text-white py-2 px-4 rounded-lg hover:bg-amber-600">Avanzar Grupos</button>
                     </div>
                     <div>
@@ -143,13 +165,17 @@
         </div>
     </div>
     
+    <!-- Contenedor para Notificaciones Emergentes -->
     <div id="notification-container" class="fixed bottom-5 right-5 z-50 space-y-3"></div>
 
+    <!-- Modal (Para confirmaciones y formularios) -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div id="modal-content" class="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full">
-            </div>
+            <!-- El contenido del modal se insertará aquí -->
+        </div>
     </div>
 
+    <!-- Tu Script Principal -->
     <script type="module" src="script.js"></script>
 
 </body>
