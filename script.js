@@ -233,8 +233,6 @@ function startApp() {
         filterTeacher: document.getElementById('filter-teacher'), filterGroup: document.getElementById('filter-group'),
         alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
-        openPresetModalBtn: document.getElementById('open-preset-modal-btn'),
-        presetsList: document.getElementById('presets-list'),
         advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
         // NUEVOS ELEMENTOS PARA LA IA
         imageUploadInput: document.getElementById('image-upload-input'),
@@ -253,7 +251,7 @@ function startApp() {
     onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateSubjectFilter(); });
     onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
-    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
+    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); /* No se renderiza nada */ });
     onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); });
 }
 
@@ -266,7 +264,6 @@ function setupEventListeners() {
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
     dom.groupSelect.onchange = populateSubjectFilter;
-    dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
     dom.analyzeImageBtn.onclick = analyzeImage;
 }
@@ -554,8 +551,6 @@ function checkConflict(newClass, ignoreId = null) {
 
 
 // --- Resto del código (funciones que ya tenías) ---
-// ... (El resto de las funciones como renderTeachersList, addGroup, saveClass, etc. van aquí)
-// Asegúrate de que todas las funciones desde aquí hasta el final estén presentes.
 
 async function addItem(collectionRef, data, inputElement, type) {
     if (!inputElement.value.trim()) return;
@@ -783,43 +778,7 @@ async function savePreset() {
 }
 
 function renderPresetsList() {
-    dom.presetsList.innerHTML = '';
-    if (localState.presets.length === 0) {
-        dom.presetsList.innerHTML = '<p class="text-gray-500 text-sm">No hay plantillas guardadas.</p>';
-        return;
-    }
-    localState.presets.forEach(preset => {
-        const teacher = localState.teachers.find(t => t.id === preset.teacherId);
-        const subject = localState.subjects.find(s => s.id === preset.subjectId);
-        const group = localState.groups.find(g => g.id === preset.groupId);
-        if (!teacher || !subject || !group) return;
-
-        const presetDiv = document.createElement('div');
-        presetDiv.className = 'preset-item';
-        presetDiv.draggable = true;
-        presetDiv.dataset.presetId = preset.id;
-        presetDiv.innerHTML = `
-            <div class="preset-item-info">
-                <span class="subject">${subject.name}</span>
-                <span class="details">${teacher.name} / ${group.name}</span>
-            </div>
-            <button class="text-red-500 font-bold px-2">&times;</button>
-        `;
-        presetDiv.addEventListener('dragstart', handleDragStart);
-        presetDiv.addEventListener('dragend', handleDragEnd);
-        presetDiv.querySelector('button').onclick = (e) => {
-            e.stopPropagation();
-            modal.confirm('¿Eliminar Plantilla?', `Estás a punto de borrar esta plantilla.`, async () => {
-                try {
-                    await deleteDoc(doc(presetsCol, preset.id));
-                    notification.show("Plantilla eliminada.");
-                } catch (error) {
-                    notification.show("Error al eliminar la plantilla.", true);
-                }
-            });
-        };
-        dom.presetsList.appendChild(presetDiv);
-    });
+    // Esta función ya no se usa activamente, pero se deja por si se reutiliza en el futuro.
 }
 
 function handleDragStart(e) { e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', e.target.dataset.presetId); }
