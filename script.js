@@ -34,9 +34,10 @@ const teachersCol = getCollectionRef('teachers');
 const subjectsCol = getCollectionRef('subjects');
 const groupsCol = getCollectionRef('groups');
 const scheduleCol = getCollectionRef('schedule');
-const blocksCol = getCollectionRef('blocks'); // Colección para los bloqueos
+const presetsCol = getCollectionRef('presets');
+const blocksCol = getCollectionRef('blocks');
 
-let localState = { teachers: [], subjects: [], groups: [], schedule: [], blocks: [] };
+let localState = { teachers: [], subjects: [], groups: [], schedule: [], presets: [], blocks: [] };
 const colorPalette = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 let colorIndex = 0;
 const assignedColors = {};
@@ -166,6 +167,27 @@ const modal = {
         this.show(formHtml);
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('modal-save-btn').onclick = () => saveEditedItem(item.id, collection);
+    },
+    showPresetForm() {
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">Crear Plantilla</h2>
+            <div class="space-y-3 mb-4 text-left">
+                <select id="modal-preset-teacher" class="w-full p-2 border rounded-lg"></select>
+                <select id="modal-preset-subject" class="w-full p-2 border rounded-lg"></select>
+                <select id="modal-preset-group" class="w-full p-2 border rounded-lg"></select>
+            </div>
+            <div class="flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-preset-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Guardar</button>
+            </div>`;
+        this.show(formHtml);
+        
+        populateSelect(document.getElementById('modal-preset-teacher'), localState.teachers, 'Seleccionar Docente');
+        populateSelect(document.getElementById('modal-preset-subject'), localState.subjects, 'Seleccionar Materia');
+        populateSelect(document.getElementById('modal-preset-group'), localState.groups, 'Seleccionar Grupo');
+
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-preset-btn').onclick = savePreset;
     }
 };
 
@@ -210,7 +232,8 @@ function startApp() {
         alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
         advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
-        // Elementos del formulario de bloqueo
+        openPresetModalBtn: document.getElementById('open-preset-modal-btn'),
+        presetsList: document.getElementById('presets-list'),
         blockTrimester: document.getElementById('block-trimester'),
         blockTime: document.getElementById('block-time'),
         blockDays: document.getElementById('block-days'),
@@ -225,9 +248,10 @@ function startApp() {
     // Suscripciones a Firestore
     onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente'); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
     onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateSubjectFilter(); });
-    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
+    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateGroupFilter(); updateWorkloadSummary(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
-    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); });
+    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
+    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); updateWorkloadSummary(); });
 }
 
 function setupEventListeners() {
@@ -239,19 +263,26 @@ function setupEventListeners() {
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
     dom.groupSelect.onchange = populateSubjectFilter;
+    dom.subjectSelect.onchange = populateGroupFilter; // NUEVO: Filtra grupos al cambiar materia
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
     dom.addBlockBtn.onclick = addBlock;
+    dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
+
+    // Lógica para paneles minimizables
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+        header.addEventListener('click', () => {
+            header.parentElement.classList.toggle('collapsed');
+        });
+    });
 }
 
 // --- LÓGICA DE BLOQUEO MANUAL ---
 
 function populateBlockerForm() {
-    // Rellenar cuatrimestres
     for (let i = 1; i <= 9; i++) {
         dom.blockTrimester.add(new Option(`Cuatrimestre ${i}`, i));
     }
-    // Rellenar bloques de 2 horas
-    for (let h = 7; h < 21; h++) { // Hasta las 20:00 para un bloque de 2h
+    for (let h = 7; h < 21; h++) {
         const timeText = `${h}:00 - ${h+2}:00`;
         dom.blockTime.add(new Option(timeText, h));
     }
@@ -265,7 +296,6 @@ async function addBlock() {
         days: dom.blockDays.value
     };
 
-    // Evitar duplicados
     const isDuplicate = localState.blocks.some(b => 
         b.trimester === blockData.trimester &&
         b.startTime === blockData.startTime &&
@@ -293,7 +323,7 @@ function renderBlocksList() {
     }
     localState.blocks.forEach(block => {
         const blockDiv = document.createElement('div');
-        blockDiv.className = 'management-item'; // Reutilizamos el estilo
+        blockDiv.className = 'management-item';
         blockDiv.innerHTML = `
             <span>Cuatri ${block.trimester}: ${block.startTime}:00-${block.endTime}:00 (${block.days})</span>
             <div class="actions">
@@ -407,7 +437,7 @@ function renderScheduleBlocks() {
             
             const blockDiv = document.createElement('div');
             blockDiv.className = 'schedule-block';
-            blockDiv.textContent = `Bloqueado (Cuatri ${block.trimester})`;
+            blockDiv.textContent = `Inglés (Cuatri ${block.trimester})`;
             
             const timeColumnWidth = 120;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
@@ -531,10 +561,15 @@ function createManagementItem(item, collection, type, draggable = false) {
     return itemDiv;
 }
 
+// Función de ordenamiento para nombres con números
+function sortByName(a, b) {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+}
+
 function renderTeachersList() {
     if(!dom.teachersList) return;
     dom.teachersList.innerHTML = '';
-    localState.teachers.forEach(teacher => {
+    [...localState.teachers].sort(sortByName).forEach(teacher => {
         dom.teachersList.appendChild(createManagementItem(teacher, teachersCol, 'Docente'));
     });
 }
@@ -543,12 +578,13 @@ function renderSubjectsByTrimester() {
     if(!dom.subjectsByTrimester || !dom.unassignedSubjectsContainer) return;
     dom.subjectsByTrimester.innerHTML = '';
     dom.unassignedSubjectsContainer.innerHTML = '';
+    const sortedSubjects = [...localState.subjects].sort(sortByName);
     for (let i = 1; i <= 9; i++) {
         const column = document.createElement('div');
         column.className = 'trimester-column space-y-2';
         column.dataset.trimester = i;
         column.innerHTML = `<h3>Cuatri ${i}</h3>`;
-        const subjectsInTrimester = localState.subjects.filter(s => s.trimester == i);
+        const subjectsInTrimester = sortedSubjects.filter(s => s.trimester == i);
         if (subjectsInTrimester.length > 0) {
             subjectsInTrimester.forEach(subject => {
                 column.appendChild(createManagementItem(subject, subjectsCol, 'Materia', true));
@@ -560,7 +596,7 @@ function renderSubjectsByTrimester() {
         column.addEventListener('drop', handleManagementDrop);
         dom.subjectsByTrimester.appendChild(column);
     }
-    const unassignedSubjects = localState.subjects.filter(s => !s.trimester || s.trimester === 0);
+    const unassignedSubjects = sortedSubjects.filter(s => !s.trimester || s.trimester === 0);
     if (unassignedSubjects.length > 0) {
         unassignedSubjects.forEach(subject => {
             dom.unassignedSubjectsContainer.appendChild(createManagementItem(subject, subjectsCol, 'Materia', true));
@@ -577,8 +613,9 @@ function renderGroupsByTrimester() {
     if(!dom.groupsByTrimester || !dom.unassignedGroupsContainer) return;
     dom.groupsByTrimester.innerHTML = '';
     dom.unassignedGroupsContainer.innerHTML = '';
+    const sortedGroups = [...localState.groups].sort(sortByName);
      for (let i = 1; i <= 9; i++) {
-        const groupsInTrimester = localState.groups.filter(g => g.trimester == i);
+        const groupsInTrimester = sortedGroups.filter(g => g.trimester == i);
         if (groupsInTrimester.length > 0) {
             const block = document.createElement('div');
             block.className = 'group-trimester-block trimester-column';
@@ -595,7 +632,7 @@ function renderGroupsByTrimester() {
             dom.groupsByTrimester.appendChild(block);
         }
     }
-    const unassignedGroups = localState.groups.filter(g => !g.trimester || g.trimester === 0);
+    const unassignedGroups = sortedGroups.filter(g => !g.trimester || g.trimester === 0);
     if (unassignedGroups.length > 0) {
         unassignedGroups.forEach(group => {
             dom.unassignedGroupsContainer.appendChild(createManagementItem(group, groupsCol, 'Grupo', true));
@@ -666,7 +703,78 @@ function populateSubjectFilter() {
         subjectsToShow = localState.subjects.filter(s => s.trimester == selectedGroup.trimester);
     }
     
-    populateSelect(dom.subjectSelect, subjectsToShow, 'Seleccionar Materia');
+    populateSelect(dom.subjectSelect, subjectsToShow.sort(sortByName), 'Seleccionar Materia');
+}
+
+function populateGroupFilter() {
+    const selectedSubjectId = dom.subjectSelect.value;
+    const selectedSubject = localState.subjects.find(s => s.id === selectedSubjectId);
+
+    let groupsToShow = localState.groups;
+    if (selectedSubject && selectedSubject.trimester > 0) {
+        groupsToShow = localState.groups.filter(g => g.trimester == selectedSubject.trimester);
+    }
+
+    populateSelect(dom.groupSelect, groupsToShow.sort(sortByName), 'Seleccionar Grupo');
+}
+
+async function savePreset() {
+    const presetData = {
+        teacherId: document.getElementById('modal-preset-teacher').value,
+        subjectId: document.getElementById('modal-preset-subject').value,
+        groupId: document.getElementById('modal-preset-group').value,
+    };
+    if (!presetData.teacherId || !presetData.subjectId || !presetData.groupId) {
+        return notification.show("Selecciona todos los campos para la plantilla.", true);
+    }
+    try {
+        await addDoc(presetsCol, presetData);
+        notification.show("Plantilla guardada.");
+        modal.hide();
+    } catch (error) {
+        notification.show("No se pudo guardar la plantilla.", true);
+    }
+}
+
+function renderPresetsList() {
+    if(!dom.presetsList) return;
+    dom.presetsList.innerHTML = '';
+    if (localState.presets.length === 0) {
+        dom.presetsList.innerHTML = '<p class="text-gray-500 text-sm">No hay plantillas guardadas.</p>';
+        return;
+    }
+    localState.presets.forEach(preset => {
+        const teacher = localState.teachers.find(t => t.id === preset.teacherId);
+        const subject = localState.subjects.find(s => s.id === preset.subjectId);
+        const group = localState.groups.find(g => g.id === preset.groupId);
+        if (!teacher || !subject || !group) return;
+
+        const presetDiv = document.createElement('div');
+        presetDiv.className = 'preset-item';
+        presetDiv.draggable = true;
+        presetDiv.dataset.presetId = preset.id;
+        presetDiv.innerHTML = `
+            <div class="preset-item-info">
+                <span class="subject">${subject.name}</span>
+                <span class="details">${teacher.name} / ${group.name}</span>
+            </div>
+            <button class="text-red-500 font-bold px-2">&times;</button>
+        `;
+        presetDiv.addEventListener('dragstart', handleDragStart);
+        presetDiv.addEventListener('dragend', handleDragEnd);
+        presetDiv.querySelector('button').onclick = (e) => {
+            e.stopPropagation();
+            modal.confirm('¿Eliminar Plantilla?', `Estás a punto de borrar esta plantilla.`, async () => {
+                try {
+                    await deleteDoc(doc(presetsCol, preset.id));
+                    notification.show("Plantilla eliminada.");
+                } catch (error) {
+                    notification.show("Error al eliminar la plantilla.", true);
+                }
+            });
+        };
+        dom.presetsList.appendChild(presetDiv);
+    });
 }
 
 function handleDragStart(e) { e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', e.target.dataset.presetId); }
@@ -852,12 +960,10 @@ async function saveClass() {
 
 function editClass(classData) {
     dom.formTitle.textContent = "Editando Clase";
-    dom.teacherSelect.value = classData.teacherId;
-    dom.groupSelect.value = classData.groupId;
-    
-    populateSubjectFilter();
-    
     dom.subjectSelect.value = classData.subjectId;
+    populateGroupFilter(); // Llama primero al filtro de grupos
+    dom.groupSelect.value = classData.groupId;
+    dom.teacherSelect.value = classData.teacherId;
     dom.daySelect.value = classData.day;
     dom.timeSelect.value = classData.startTime;
     dom.durationInput.value = classData.duration;
@@ -872,6 +978,7 @@ function resetForm() {
     dom.daySelect.value = "Lunes"; dom.timeSelect.value = "7"; dom.durationInput.value = "1";
     dom.editingClassId.value = ""; dom.cancelEditBtn.classList.add('hidden');
     populateSubjectFilter();
+    populateGroupFilter();
 }
 
 function runPedagogicalAnalysis() {
@@ -928,8 +1035,19 @@ function updateWorkloadSummary() {
         groupWorkload[c.groupId] = (groupWorkload[c.groupId] || 0) + c.duration;
     });
 
+    // Sumar horas de los bloqueos de inglés a los grupos
+    localState.blocks.forEach(block => {
+        const affectedGroups = localState.groups.filter(g => g.trimester === block.trimester);
+        const daysCount = block.days === 'L-V' ? 5 : 4;
+        const blockHours = (block.endTime - block.startTime) * daysCount;
+        
+        affectedGroups.forEach(group => {
+            groupWorkload[group.id] = (groupWorkload[group.id] || 0) + blockHours;
+        });
+    });
+
     dom.teacherWorkload.innerHTML = '<h4 class="font-semibold text-gray-700">Docentes</h4>';
-    localState.teachers.forEach(t => {
+    [...localState.teachers].sort(sortByName).forEach(t => {
         const hours = teacherWorkload[t.id] || 0;
         const p = document.createElement('p');
         p.className = `text-sm ${hours > 20 ? 'text-red-600 font-bold' : 'text-gray-600'}`;
@@ -938,7 +1056,7 @@ function updateWorkloadSummary() {
     });
 
     dom.groupWorkload.innerHTML = '<h4 class="font-semibold text-gray-700">Grupos</h4>';
-    localState.groups.forEach(g => {
+    [...localState.groups].sort(sortByName).forEach(g => {
         const hours = groupWorkload[g.id] || 0;
         const p = document.createElement('p');
         p.className = 'text-sm text-gray-600';
