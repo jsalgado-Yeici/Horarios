@@ -29,7 +29,7 @@ const auth = getAuth(app);
 
 // --- Variables y constantes globales ---
 const appId = 'default-scheduler-app-v2';
-const getCollectionRef = name => collection(db, `artifacts/${appId}/public/data/${name}`);
+const getCollectionRef = name => collection(db, name);
 const teachersCol = getCollectionRef('teachers');
 const subjectsCol = getCollectionRef('subjects');
 const groupsCol = getCollectionRef('groups');
