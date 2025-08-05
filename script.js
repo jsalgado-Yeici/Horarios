@@ -68,7 +68,129 @@ const notification = {
 
 // --- Sistema de Modal (Confirmaciones y Formularios) ---
 const modal = {
-    // ... (código del modal sin cambios)
+    el: document.getElementById('modal'),
+    content: document.getElementById('modal-content'),
+    show(htmlContent) {
+        this.content.innerHTML = htmlContent;
+        this.el.classList.remove('hidden');
+    },
+    hide() {
+        this.el.classList.add('hidden');
+        this.content.innerHTML = '';
+    },
+    confirm(title, message, onConfirm) {
+        const confirmHtml = `
+            <div class="text-center">
+                <div class="mx-auto mb-4 text-red-500 w-16 h-16">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold mb-2">${title}</h3>
+                <p class="text-gray-600">${message}</p>
+                <div class="mt-6 flex justify-center gap-4">
+                    <button id="modal-cancel-btn" class="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                    <button id="modal-confirm-btn" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700">Confirmar</button>
+                </div>
+            </div>`;
+        this.show(confirmHtml);
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-confirm-btn').onclick = () => {
+            this.hide();
+            if (onConfirm) onConfirm();
+        };
+    },
+    showSubjectForm(subject = null) {
+        const isEditing = subject !== null;
+        const title = isEditing ? 'Editar Materia' : 'Nueva Materia';
+        let trimesterOptions = '';
+        for (let i = 1; i <= 9; i++) {
+            trimesterOptions += `<option value="${i}" ${isEditing && subject.trimester == i ? 'selected' : ''}>Cuatrimestre ${i}</option>`;
+        }
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">${title}</h2>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nombre de la Materia</label>
+                    <input type="text" id="modal-subject-name" class="mt-1 block w-full p-2 border rounded-lg" value="${isEditing ? subject.name : ''}">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cuatrimestre</label>
+                    <select id="modal-subject-trimester" class="mt-1 block w-full p-2 border rounded-lg">
+                        <option value="0" ${isEditing && (!subject.trimester || subject.trimester === 0) ? 'selected' : ''}>Sin Asignar</option>
+                        ${trimesterOptions}
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700">Guardar</button>
+            </div>`;
+        this.show(formHtml);
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-btn').onclick = () => saveSubject(subject ? subject.id : null);
+    },
+    showGroupForm(group) {
+        const title = 'Editar Grupo';
+        let trimesterOptions = '';
+        for (let i = 1; i <= 9; i++) {
+            trimesterOptions += `<option value="${i}" ${group.trimester == i ? 'selected' : ''}>Cuatrimestre ${i}</option>`;
+        }
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">${title}</h2>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nombre del Grupo</label>
+                    <input type="text" id="modal-group-name" class="mt-1 block w-full p-2 border rounded-lg" value="${group.name}">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cuatrimestre</label>
+                    <select id="modal-group-trimester" class="mt-1 block w-full p-2 border rounded-lg">
+                        <option value="0" ${!group.trimester || group.trimester === 0 ? 'selected' : ''}>Sin Asignar</option>
+                        ${trimesterOptions}
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-btn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700">Guardar</button>
+            </div>`;
+        this.show(formHtml);
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-btn').onclick = () => saveGroup(group.id);
+    },
+    showEditForm(item, type) {
+        const collection = type === 'Docente' ? teachersCol : groupsCol;
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">Editar ${type}</h2>
+            <input type="text" id="modal-edit-name" class="w-full p-2 border rounded-lg" value="${item.name}">
+            <div class="mt-6 flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">Guardar Cambios</button>
+            </div>`;
+        this.show(formHtml);
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-btn').onclick = () => saveEditedItem(item.id, collection);
+    },
+    showPresetForm() {
+        const formHtml = `
+            <h2 class="text-2xl font-semibold mb-4">Crear Plantilla</h2>
+            <div class="space-y-3 mb-4 text-left">
+                <select id="modal-preset-teacher" class="w-full p-2 border rounded-lg"></select>
+                <select id="modal-preset-subject" class="w-full p-2 border rounded-lg"></select>
+                <select id="modal-preset-group" class="w-full p-2 border rounded-lg"></select>
+            </div>
+            <div class="flex gap-4">
+                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
+                <button id="modal-save-preset-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Guardar</button>
+            </div>`;
+        this.show(formHtml);
+        
+        populateSelect(document.getElementById('modal-preset-teacher'), localState.teachers, 'Seleccionar Docente');
+        populateSelect(document.getElementById('modal-preset-subject'), localState.subjects, 'Seleccionar Materia');
+        populateSelect(document.getElementById('modal-preset-group'), localState.groups, 'Seleccionar Grupo');
+
+        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
+        document.getElementById('modal-save-preset-btn').onclick = savePreset;
+    }
 };
 
 function getInitials(name) {
@@ -96,7 +218,24 @@ function startApp() {
     console.log("App iniciada.");
 
     dom = {
-        // ... (resto de los elementos del DOM)
+        teacherName: document.getElementById('teacher-name'), addTeacherBtn: document.getElementById('add-teacher-btn'), teachersList: document.getElementById('teachers-list'),
+        subjectsByTrimester: document.getElementById('subjects-by-trimester'), openSubjectModalBtn: document.getElementById('open-subject-modal-btn'),
+        unassignedSubjectsContainer: document.getElementById('unassigned-subjects-container'),
+        groupPrefixSelect: document.getElementById('group-prefix-select'), groupNumberInput: document.getElementById('group-number-input'), 
+        groupTrimesterSelect: document.getElementById('group-trimester-select'),
+        addGroupBtn: document.getElementById('add-group-btn'), groupsByTrimester: document.getElementById('groups-by-trimester'),
+        unassignedGroupsContainer: document.getElementById('unassigned-groups-container'),
+        teacherSelect: document.getElementById('teacher-select'), subjectSelect: document.getElementById('subject-select'), groupSelect: document.getElementById('group-select'),
+        daySelect: document.getElementById('day-select'), timeSelect: document.getElementById('time-select'), durationInput: document.getElementById('duration-input'),
+        saveClassBtn: document.getElementById('save-class-btn'), cancelEditBtn: document.getElementById('cancel-edit-btn'),
+        formTitle: document.getElementById('form-title'), editingClassId: document.getElementById('editing-class-id'),
+        scheduleGrid: document.getElementById('schedule-grid'),
+        filterTeacher: document.getElementById('filter-teacher'), filterGroup: document.getElementById('filter-group'),
+        alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
+        teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
+        openPresetModalBtn: document.getElementById('open-preset-modal-btn'),
+        presetsList: document.getElementById('presets-list'),
+        advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
         // NUEVOS ELEMENTOS PARA LA IA
         imageUploadInput: document.getElementById('image-upload-input'),
         analyzeImageBtn: document.getElementById('analyze-image-btn'),
@@ -115,19 +254,25 @@ function startApp() {
     onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
     onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
-    // NUEVA SUSCRIPCIÓN para los bloqueos
     onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); });
 }
 
 function setupEventListeners() {
-    // ... (resto de los event listeners)
-    // NUEVO EVENT LISTENER para el botón de analizar imagen
+    dom.addTeacherBtn.onclick = () => addItem(teachersCol, { name: dom.teacherName.value }, dom.teacherName, 'Docente');
+    dom.addGroupBtn.onclick = addGroup;
+    dom.openSubjectModalBtn.onclick = () => modal.showSubjectForm();
+    dom.saveClassBtn.onclick = saveClass;
+    dom.cancelEditBtn.onclick = resetForm;
+    dom.filterTeacher.onchange = renderScheduleGrid;
+    dom.filterGroup.onchange = renderScheduleGrid;
+    dom.groupSelect.onchange = populateSubjectFilter;
+    dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
+    dom.advanceTrimesterBtn.onclick = advanceAllGroups;
     dom.analyzeImageBtn.onclick = analyzeImage;
 }
 
 // --- LÓGICA DE IA PARA ANALIZAR IMÁGENES ---
 
-// Convierte un archivo de imagen a formato base64
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -137,7 +282,6 @@ function fileToBase64(file) {
     });
 }
 
-// Función principal que se activa al hacer clic en "Analizar"
 async function analyzeImage() {
     const file = dom.imageUploadInput.files[0];
     if (!file) {
@@ -145,7 +289,6 @@ async function analyzeImage() {
         return;
     }
 
-    // Cambiar estado del botón a "cargando"
     dom.analyzeImageBtn.disabled = true;
     dom.analyzeBtnIcon.classList.add('hidden');
     dom.analyzeBtnSpinner.classList.remove('hidden');
@@ -154,7 +297,7 @@ async function analyzeImage() {
 
     try {
         const base64ImageData = await fileToBase64(file);
-        const apiKey = ""; // La API Key se gestiona automáticamente
+        const apiKey = "";
 
         const payload = {
             contents: [{
@@ -204,7 +347,6 @@ async function analyzeImage() {
         console.error("Error en el análisis de IA:", error);
         notification.show("No se pudo analizar la imagen. Inténtalo de nuevo.", true);
     } finally {
-        // Restaurar estado del botón
         dom.analyzeImageBtn.disabled = false;
         dom.analyzeBtnIcon.classList.remove('hidden');
         dom.analyzeBtnSpinner.classList.add('hidden');
@@ -212,7 +354,6 @@ async function analyzeImage() {
     }
 }
 
-// Muestra los resultados de la IA para confirmación del usuario
 function renderAIResults(data) {
     if (!data || data.length === 0) {
         dom.aiResultsContainer.innerHTML = `<p class="text-sm text-gray-500">La IA no encontró horarios para extraer.</p>`;
@@ -242,16 +383,14 @@ function renderAIResults(data) {
     document.getElementById('save-ai-btn').onclick = () => saveBlocks(data);
 }
 
-// Guarda los bloqueos confirmados en Firestore
 async function saveBlocks(data) {
     const batch = writeBatch(db);
     
-    // Opcional: Borrar todos los bloqueos anteriores antes de añadir los nuevos
     const existingBlocks = await getDocs(query(blocksCol));
     existingBlocks.forEach(doc => batch.delete(doc.ref));
 
     data.forEach(item => {
-        const newBlockRef = doc(blocksCol); // Crea una referencia con ID automático
+        const newBlockRef = doc(blocksCol);
         batch.set(newBlockRef, item);
     });
 
@@ -259,7 +398,7 @@ async function saveBlocks(data) {
         await batch.commit();
         notification.show(`${data.length} bloqueos de horario guardados.`);
         dom.aiResultsContainer.innerHTML = '';
-        dom.imageUploadInput.value = ''; // Limpia el input de archivo
+        dom.imageUploadInput.value = '';
     } catch (error) {
         console.error("Error al guardar los bloqueos:", error);
         notification.show("No se pudieron guardar los bloqueos.", true);
@@ -270,22 +409,69 @@ async function saveBlocks(data) {
 
 function renderScheduleGrid() {
     dom.scheduleGrid.innerHTML = '';
-    // ... (código para generar encabezados y celdas de la rejilla)
+    dom.scheduleGrid.appendChild(document.createElement('div'));
+    days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
+    
+    timeSlots.forEach(time => {
+        const timeSlot = document.createElement('div');
+        timeSlot.className = 'grid-time-slot';
+        timeSlot.textContent = `${time}h 00 - ${time + 1}h 00`;
+        dom.scheduleGrid.appendChild(timeSlot);
+        
+        days.forEach(day => {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.day = day; cell.dataset.hour = time;
+            cell.addEventListener('dragover', handleDragOver);
+            cell.addEventListener('drop', handleDrop);
+            dom.scheduleGrid.appendChild(cell);
+        });
+    });
 
-    // Primero, renderizar los bloqueos (capa inferior)
     renderScheduleBlocks();
 
-    // Luego, renderizar las clases normales (capa superior)
-    // ... (código existente para renderizar las clases .schedule-item)
+    const filteredSchedule = localState.schedule.filter(c => (!dom.filterTeacher.value || c.teacherId === dom.filterTeacher.value) && (!dom.filterGroup.value || c.groupId === dom.filterGroup.value));
+    days.forEach((day, dayIndex) => {
+        const dayEvents = filteredSchedule.filter(e => e.day === day);
+        dayEvents.forEach(c => {
+            const teacher = localState.teachers.find(t => t.id === c.teacherId);
+            const subject = localState.subjects.find(s => s.id === c.subjectId);
+            const group = localState.groups.find(g => g.id === c.groupId);
+            if (!teacher || !subject || !group) return;
+            const timeIndex = timeSlots.indexOf(c.startTime);
+            if (timeIndex === -1) return;
+            const overlaps = dayEvents.filter(e => e.id !== c.id && (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
+            const totalOverlaps = overlaps.length + 1;
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).findIndex(i => i.id > c.id) + 1;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'schedule-item';
+            itemDiv.dataset.classId = c.id;
+            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
+            const timeColumnWidth = 120;
+            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
+            const itemWidth = (dayColumnWidth / totalOverlaps);
+            itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
+            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * (dayColumnWidth)) + (overlapIndex * itemWidth)}px`;
+            itemDiv.style.width = `${itemWidth - 3}px`;
+            itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
+            let subjectName = subject.name;
+            if (totalOverlaps > 2) { itemDiv.style.fontSize = '0.65rem'; subjectName = getInitials(subject.name); }
+            itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
+            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
+            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
+            dom.scheduleGrid.appendChild(itemDiv);
+        });
+    });
 }
 
-// NUEVA FUNCIÓN: Dibuja los bloques de horario en la rejilla
+
 function renderScheduleBlocks() {
     const selectedGroupId = dom.filterGroup.value;
     const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
     
     localState.blocks.forEach(block => {
-        // Si hay un grupo filtrado, solo mostrar los bloques de su cuatrimestre
         if (selectedGroup && selectedGroup.trimester != block.trimester) {
             return;
         }
@@ -300,7 +486,6 @@ function renderScheduleBlocks() {
         } else if (block.days.toUpperCase() === 'L-J') {
             daysToRender.push('Lunes', 'Martes', 'Miércoles', 'Jueves');
         }
-        // Puedes añadir más casos como 'L-M', etc. si es necesario
 
         daysToRender.forEach(day => {
             const dayIndex = days.indexOf(day);
@@ -346,16 +531,16 @@ function checkConflict(newClass, ignoreId = null) {
 
     // 2. Conflicto con bloqueos de horario
     const group = localState.groups.find(g => g.id === newClass.groupId);
-    if (!group) return false; // No se puede verificar si no se encuentra el grupo
+    if (!group) return false;
 
     const blockConflict = localState.blocks.some(block => {
-        if (block.trimester != group.trimester) return false; // El bloqueo no aplica a este cuatri
+        if (block.trimester != group.trimester) return false;
 
         const daysOfBlock = [];
         if (block.days.toUpperCase() === 'L-V') daysOfBlock.push('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes');
         if (block.days.toUpperCase() === 'L-J') daysOfBlock.push('Lunes', 'Martes', 'Miércoles', 'Jueves');
         
-        if (!daysOfBlock.includes(newClass.day)) return false; // El bloqueo no aplica a este día
+        if (!daysOfBlock.includes(newClass.day)) return false;
 
         const blockStart = parseInt(block.startTime);
         const blockEnd = parseInt(block.endTime);
@@ -364,8 +549,86 @@ function checkConflict(newClass, ignoreId = null) {
     });
     if (blockConflict) return true;
 
-    return false; // No hay conflictos
+    return false;
 }
+
+
+// --- Resto del código (funciones que ya tenías) ---
+// ... (El resto de las funciones como renderTeachersList, addGroup, saveClass, etc. van aquí)
+// Asegúrate de que todas las funciones desde aquí hasta el final estén presentes.
+
+async function addItem(collectionRef, data, inputElement, type) {
+    if (!inputElement.value.trim()) return;
+    try {
+        await addDoc(collectionRef, data);
+        notification.show(`${type} "${data.name}" agregado.`);
+        inputElement.value = '';
+    } catch (error) {
+        notification.show(`No se pudo agregar el ${type.toLowerCase()}.`, true);
+    }
+}
+
+async function addGroup() {
+    const prefix = dom.groupPrefixSelect.value;
+    const number = dom.groupNumberInput.value;
+    if (!number) return notification.show("Introduce un número de grupo.", true);
+    
+    const groupData = {
+        name: `${prefix}-${number}`,
+        trimester: parseInt(dom.groupTrimesterSelect.value)
+    };
+
+    try {
+        await addDoc(groupsCol, groupData);
+        dom.groupNumberInput.value = '';
+        dom.groupTrimesterSelect.value = 0;
+        notification.show(`Grupo "${groupData.name}" agregado.`);
+    } catch (error) {
+        notification.show("No se pudo agregar el grupo.", true);
+    }
+}
+
+function createManagementItem(item, collection, type, draggable = false) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'management-item';
+    if (draggable) {
+        itemDiv.draggable = true;
+        itemDiv.dataset.id = item.id;
+        itemDiv.dataset.type = type;
+        itemDiv.addEventListener('dragstart', handleManagementDragStart);
+        itemDiv.addEventListener('dragend', handleManagementDragEnd);
+    }
+    itemDiv.innerHTML = `
+        <span>${item.name}</span>
+        <div class="actions">
+            <button class="edit-btn" title="Editar">✏️</button>
+            <button class="delete-btn" title="Eliminar">🗑️</button>
+        </div>
+    `;
+    
+    itemDiv.querySelector('.edit-btn').onclick = () => {
+        if (type === 'Materia') {
+            modal.showSubjectForm(item);
+        } else if (type === 'Grupo') {
+            modal.showGroupForm(item);
+        } else {
+            modal.showEditForm(item, type);
+        }
+    };
+    
+    itemDiv.querySelector('.delete-btn').onclick = () => {
+        modal.confirm(`¿Eliminar ${type}?`, `Borrar "<b>${item.name}</b>".`, async () => {
+            try {
+                await deleteDoc(doc(collection, item.id));
+                notification.show(`"${item.name}" eliminado.`);
+            } catch (e) {
+                notification.show("Error al eliminar.", true);
+            }
+        });
+    };
+    return itemDiv;
+}
+
 function renderTeachersList() {
     dom.teachersList.innerHTML = '';
     localState.teachers.forEach(teacher => {
@@ -440,7 +703,6 @@ function renderGroupsByTrimester() {
     dom.unassignedGroupsContainer.addEventListener('drop', handleManagementDrop);
 }
 
-// --- Lógica de Formularios y Edición ---
 async function saveSubject(subjectId = null) {
     const subjectData = {
         name: document.getElementById('modal-subject-name').value,
@@ -478,7 +740,6 @@ async function saveGroup(groupId) {
     }
 }
 
-
 async function saveEditedItem(itemId, collection) {
     const newName = document.getElementById('modal-edit-name').value;
     if (!newName.trim()) return notification.show("El nombre no puede estar vacío.", true);
@@ -503,7 +764,6 @@ function populateSubjectFilter() {
     populateSelect(dom.subjectSelect, subjectsToShow, 'Seleccionar Materia');
 }
 
-// --- Lógica de Plantillas (Presets) y Drag-n-Drop ---
 async function savePreset() {
     const presetData = {
         teacherId: document.getElementById('modal-preset-teacher').value,
@@ -578,7 +838,6 @@ async function handleDrop(e) {
     try { await addDoc(scheduleCol, classData); notification.show("Clase agregada desde plantilla."); } catch (error) { notification.show("Error al agregar la clase.", true); }
 }
 
-// --- Lógica de Arrastrar y Soltar para Gestión ---
 function handleManagementDragStart(e) {
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
@@ -613,7 +872,6 @@ async function handleManagementDrop(e) {
     }
 }
 
-// --- Lógica de Redimensionamiento de Clases ---
 let resizingClass = null;
 let initialY = 0;
 let initialDuration = 0;
@@ -665,7 +923,6 @@ async function handleResizeEnd(e) {
     document.removeEventListener('mouseup', handleResizeEnd);
 }
 
-// --- Lógica de Administración ---
 async function advanceAllGroups() {
     modal.confirm("¿Avanzar Cuatrimestre?", 
     "Esta acción incrementará en 1 el cuatrimestre de TODOS los grupos. Los grupos del 9º cuatrimestre serán eliminados. <b>Esta acción es irreversible.</b>",
@@ -691,7 +948,6 @@ async function advanceAllGroups() {
     });
 }
 
-// --- Funciones de la Aplicación (Restantes) ---
 async function deleteClass(classId, classInfo) {
     modal.confirm('¿Eliminar clase?', `Vas a eliminar la clase de <b>${classInfo}</b>.`, async () => {
         try {
@@ -729,7 +985,10 @@ async function saveClass() {
     };
     if (!classData.teacherId || !classData.subjectId || !classData.groupId) return notification.show("Por favor, selecciona todos los campos.", true);
     const editingId = dom.editingClassId.value;
-    if (checkConflict(classData, editingId)) return notification.show("Conflicto de horario detectado.", true);
+    if (checkConflict(classData, editingId)) {
+        notification.show("Conflicto de horario detectado. La clase choca con otra o con un bloqueo.", true);
+        return;
+    }
     try {
         if (editingId) {
             await updateDoc(doc(scheduleCol, editingId), classData);
@@ -742,78 +1001,6 @@ async function saveClass() {
     } catch (error) {
         notification.show("Error al guardar la clase.", true);
     }
-}
-
-function checkConflict(newClass, ignoreId = null) {
-    const newStart = newClass.startTime;
-    const newEnd = newStart + newClass.duration;
-    return localState.schedule.some(existingClass => {
-        if (existingClass.id === ignoreId || existingClass.day !== newClass.day) return false;
-        if (existingClass.teacherId === newClass.teacherId || existingClass.groupId === newClass.groupId) {
-            const existingStart = existingClass.startTime;
-            const existingEnd = existingStart + existingClass.duration;
-            return newStart < existingEnd && newEnd > existingStart;
-        }
-        return false;
-    });
-}
-
-function renderScheduleGrid() {
-    dom.scheduleGrid.innerHTML = '';
-    dom.scheduleGrid.appendChild(document.createElement('div'));
-    days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
-    
-    timeSlots.forEach(time => {
-        const timeSlot = document.createElement('div');
-        timeSlot.className = 'grid-time-slot';
-        // CAMBIO: Se ajusta el formato de la hora para mostrar el rango
-        timeSlot.textContent = `${time}h 00 - ${time + 1}h 00`;
-        dom.scheduleGrid.appendChild(timeSlot);
-        
-        days.forEach(day => {
-            const cell = document.createElement('div');
-            cell.className = 'grid-cell';
-            cell.dataset.day = day; cell.dataset.hour = time;
-            cell.addEventListener('dragover', handleDragOver);
-            cell.addEventListener('drop', handleDrop);
-            dom.scheduleGrid.appendChild(cell);
-        });
-    });
-
-    const filteredSchedule = localState.schedule.filter(c => (!dom.filterTeacher.value || c.teacherId === dom.filterTeacher.value) && (!dom.filterGroup.value || c.groupId === dom.filterGroup.value));
-    days.forEach((day, dayIndex) => {
-        const dayEvents = filteredSchedule.filter(e => e.day === day);
-        dayEvents.forEach(c => {
-            const teacher = localState.teachers.find(t => t.id === c.teacherId);
-            const subject = localState.subjects.find(s => s.id === c.subjectId);
-            const group = localState.groups.find(g => g.id === c.groupId);
-            if (!teacher || !subject || !group) return;
-            const timeIndex = timeSlots.indexOf(c.startTime);
-            if (timeIndex === -1) return;
-            const overlaps = dayEvents.filter(e => e.id !== c.id && (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
-            const totalOverlaps = overlaps.length + 1;
-            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).findIndex(i => i.id > c.id) + 1;
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'schedule-item';
-            itemDiv.dataset.classId = c.id;
-            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
-            const timeColumnWidth = 120; // Se ajusta este valor en el CSS también
-            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
-            const itemWidth = (dayColumnWidth / totalOverlaps);
-            itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
-            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * (dayColumnWidth)) + (overlapIndex * itemWidth)}px`;
-            itemDiv.style.width = `${itemWidth - 3}px`;
-            itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
-            let subjectName = subject.name;
-            if (totalOverlaps > 2) { itemDiv.style.fontSize = '0.65rem'; subjectName = getInitials(subject.name); }
-            itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
-            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
-            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
-            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
-            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
-            dom.scheduleGrid.appendChild(itemDiv);
-        });
-    });
 }
 
 function editClass(classData) {
@@ -909,6 +1096,7 @@ function updateWorkloadSummary() {
         dom.groupWorkload.appendChild(p);
     });
 }
+
 
 // --- AUTENTICACIÓN Y ARRANQUE ---
 onAuthStateChanged(auth, (user) => {
