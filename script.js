@@ -229,7 +229,7 @@ function startApp() {
         formTitle: document.getElementById('form-title'), editingClassId: document.getElementById('editing-class-id'),
         scheduleGrid: document.getElementById('schedule-grid'),
         filterTeacher: document.getElementById('filter-teacher'), filterGroup: document.getElementById('filter-group'),
-        filterTrimester: document.getElementById('filter-trimester'),
+        filterTrimester: document.getElementById('filter-trimester'), // NUEVO
         alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
         advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
@@ -264,7 +264,7 @@ function setupEventListeners() {
     dom.cancelEditBtn.onclick = resetForm;
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
-    dom.filterTrimester.onchange = renderScheduleGrid;
+    dom.filterTrimester.onchange = renderScheduleGrid; // NUEVO
     dom.groupSelect.onchange = populateSubjectFilter;
     dom.subjectSelect.onchange = populateGroupFilter;
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
@@ -323,10 +323,11 @@ function renderBlocksList() {
         dom.blocksList.innerHTML = '<p class="text-xs text-gray-400">No hay bloqueos activos.</p>';
         return;
     }
-    [...localState.blocks].sort((a,b) => a.trimester - b.trimester || a.startTime - b.startTime).forEach(block => {
+    localState.blocks.forEach(block => {
         const blockDiv = document.createElement('div');
         blockDiv.className = 'management-item';
         
+        // Encontrar los grupos afectados
         const affectedGroups = localState.groups
             .filter(g => g.trimester === block.trimester)
             .map(g => g.name)
@@ -414,9 +415,8 @@ function renderScheduleGrid() {
             const timeIndex = timeSlots.indexOf(c.startTime);
             if (timeIndex === -1) return;
             
-            const overlaps = dayEvents.filter(e => (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
-            const totalOverlaps = overlaps.length;
-            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
+            const overlaps = dayEvents.filter(e => e.id !== c.id && (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
+            const overlapIndex = dayEvents.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'schedule-item';
@@ -425,21 +425,15 @@ function renderScheduleGrid() {
             const timeColumnWidth = 120;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
             
-            const itemWidth = dayColumnWidth / totalOverlaps;
-            const itemLeft = (dayColumnWidth / totalOverlaps) * overlapIndex;
-
+            // Lógica de posicionamiento mejorada
+            const offset = 15 * overlapIndex;
+            itemDiv.style.zIndex = 10 + overlapIndex;
             itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
-            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * dayColumnWidth) + itemLeft}px`;
-            itemDiv.style.width = `${itemWidth - 2}px`;
+            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * dayColumnWidth) + offset}px`;
+            itemDiv.style.width = `${dayColumnWidth - offset - 2}px`;
             itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
             
-            let subjectName = subject.name;
-            if (totalOverlaps > 2) { 
-                itemDiv.style.fontSize = '0.65rem';
-                subjectName = getInitials(subject.name);
-            }
-            
-            itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
+            itemDiv.innerHTML = `<div class="font-bold">${subject.name}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
             const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
             editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
             deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
@@ -454,11 +448,11 @@ function renderScheduleBlocks() {
     if (!dom.scheduleGrid) return;
     const selectedTrimester = dom.filterTrimester.value;
 
-    const filteredBlocks = localState.blocks.filter(block => {
-        return !selectedTrimester || block.trimester == selectedTrimester;
-    });
+    localState.blocks.forEach(block => {
+        if (selectedTrimester && block.trimester != selectedTrimester) {
+            return;
+        }
 
-    filteredBlocks.forEach(block => {
         const startHour = parseInt(block.startTime);
         const endHour = parseInt(block.endTime);
         const duration = endHour - startHour;
@@ -601,10 +595,6 @@ function createManagementItem(item, collection, type, draggable = false) {
         });
     };
     return itemDiv;
-}
-
-function sortByName(a, b) {
-    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 }
 
 function renderTeachersList() {
