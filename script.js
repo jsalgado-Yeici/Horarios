@@ -169,27 +169,6 @@ const modal = {
         this.show(formHtml);
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('modal-save-btn').onclick = () => saveEditedItem(item.id, collection);
-    },
-    showPresetForm() {
-        const formHtml = `
-            <h2 class="text-2xl font-semibold mb-4">Crear Plantilla</h2>
-            <div class="space-y-3 mb-4 text-left">
-                <select id="modal-preset-teacher" class="w-full p-2 border rounded-lg"></select>
-                <select id="modal-preset-subject" class="w-full p-2 border rounded-lg"></select>
-                <select id="modal-preset-group" class="w-full p-2 border rounded-lg"></select>
-            </div>
-            <div class="flex gap-4">
-                <button id="modal-cancel-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
-                <button id="modal-save-preset-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Guardar</button>
-            </div>`;
-        this.show(formHtml);
-        
-        populateSelect(document.getElementById('modal-preset-teacher'), localState.teachers, 'Seleccionar Docente');
-        populateSelect(document.getElementById('modal-preset-subject'), localState.subjects, 'Seleccionar Materia');
-        populateSelect(document.getElementById('modal-preset-group'), localState.groups, 'Seleccionar Grupo');
-
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-save-preset-btn').onclick = savePreset;
     }
 };
 
@@ -234,7 +213,6 @@ function startApp() {
         alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
         advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
-        // NUEVOS ELEMENTOS PARA LA IA
         imageUploadInput: document.getElementById('image-upload-input'),
         analyzeImageBtn: document.getElementById('analyze-image-btn'),
         analyzeBtnIcon: document.getElementById('analyze-btn-icon'),
@@ -251,7 +229,6 @@ function startApp() {
     onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateSubjectFilter(); });
     onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
-    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); /* No se renderiza nada */ });
     onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); });
 }
 
@@ -330,7 +307,7 @@ async function analyzeImage() {
         });
 
         if (!response.ok) {
-            throw new Error(`Error de la API: ${response.statusText}`);
+            throw new Error(`Error de la API: `);
         }
 
         const result = await response.json();
@@ -405,6 +382,7 @@ async function saveBlocks(data) {
 // --- LÓGICA DE RENDERIZADO DEL HORARIO (ACTUALIZADA) ---
 
 function renderScheduleGrid() {
+    if (!dom.scheduleGrid) return; // Verificación de seguridad
     dom.scheduleGrid.innerHTML = '';
     dom.scheduleGrid.appendChild(document.createElement('div'));
     days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
@@ -465,6 +443,7 @@ function renderScheduleGrid() {
 
 
 function renderScheduleBlocks() {
+    if (!dom.scheduleGrid) return;
     const selectedGroupId = dom.filterGroup.value;
     const selectedGroup = localState.groups.find(g => g.id === selectedGroupId);
     
@@ -508,13 +487,10 @@ function renderScheduleBlocks() {
     });
 }
 
-// --- LÓGICA DE CONFLICTOS (ACTUALIZADA) ---
-
 function checkConflict(newClass, ignoreId = null) {
     const newStart = newClass.startTime;
     const newEnd = newStart + newClass.duration;
     
-    // 1. Conflicto con otras clases
     const classConflict = localState.schedule.some(existingClass => {
         if (existingClass.id === ignoreId || existingClass.day !== newClass.day) return false;
         if (existingClass.teacherId === newClass.teacherId || existingClass.groupId === newClass.groupId) {
@@ -526,7 +502,6 @@ function checkConflict(newClass, ignoreId = null) {
     });
     if (classConflict) return true;
 
-    // 2. Conflicto con bloqueos de horario
     const group = localState.groups.find(g => g.id === newClass.groupId);
     if (!group) return false;
 
@@ -548,9 +523,6 @@ function checkConflict(newClass, ignoreId = null) {
 
     return false;
 }
-
-
-// --- Resto del código (funciones que ya tenías) ---
 
 async function addItem(collectionRef, data, inputElement, type) {
     if (!inputElement.value.trim()) return;
@@ -625,6 +597,7 @@ function createManagementItem(item, collection, type, draggable = false) {
 }
 
 function renderTeachersList() {
+    if(!dom.teachersList) return;
     dom.teachersList.innerHTML = '';
     localState.teachers.forEach(teacher => {
         dom.teachersList.appendChild(createManagementItem(teacher, teachersCol, 'Docente'));
@@ -632,6 +605,7 @@ function renderTeachersList() {
 }
 
 function renderSubjectsByTrimester() {
+    if(!dom.subjectsByTrimester || !dom.unassignedSubjectsContainer) return;
     dom.subjectsByTrimester.innerHTML = '';
     dom.unassignedSubjectsContainer.innerHTML = '';
     for (let i = 1; i <= 9; i++) {
@@ -665,6 +639,7 @@ function renderSubjectsByTrimester() {
 }
 
 function renderGroupsByTrimester() {
+    if(!dom.groupsByTrimester || !dom.unassignedGroupsContainer) return;
     dom.groupsByTrimester.innerHTML = '';
     dom.unassignedGroupsContainer.innerHTML = '';
      for (let i = 1; i <= 9; i++) {
@@ -775,10 +750,6 @@ async function savePreset() {
     } catch (error) {
         notification.show("No se pudo guardar la plantilla.", true);
     }
-}
-
-function renderPresetsList() {
-    // Esta función ya no se usa activamente, pero se deja por si se reutiliza en el futuro.
 }
 
 function handleDragStart(e) { e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', e.target.dataset.presetId); }
@@ -987,6 +958,7 @@ function resetForm() {
 }
 
 function runPedagogicalAnalysis() {
+    if (!dom.alertsList) return; // Verificación de seguridad
     const alerts = [];
     localState.groups.forEach(group => {
         if (!group.trimester || group.trimester === 0) return;
@@ -1010,6 +982,7 @@ function runPedagogicalAnalysis() {
 }
 
 function renderAlerts(alerts) {
+    if (!dom.alertsList || !dom.noAlertsMessage) return; // Verificación de seguridad
     dom.alertsList.innerHTML = '';
     if (alerts.length === 0) {
         dom.noAlertsMessage.classList.remove('hidden');
@@ -1029,6 +1002,7 @@ function renderAlerts(alerts) {
 }
 
 function updateWorkloadSummary() {
+    if (!dom.teacherWorkload || !dom.groupWorkload) return; // Verificación de seguridad
     const teacherWorkload = {};
     const groupWorkload = {};
 
