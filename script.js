@@ -9,9 +9,7 @@ import {
     updateDoc, 
     deleteDoc, 
     onSnapshot,
-    writeBatch,
-    query,
-    getDocs
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // Paso 2: Configuración de Firebase
@@ -36,10 +34,9 @@ const teachersCol = getCollectionRef('teachers');
 const subjectsCol = getCollectionRef('subjects');
 const groupsCol = getCollectionRef('groups');
 const scheduleCol = getCollectionRef('schedule');
-const presetsCol = getCollectionRef('presets');
-const blocksCol = getCollectionRef('blocks'); // NUEVA COLECCIÓN para los bloqueos
+const blocksCol = getCollectionRef('blocks'); // Colección para los bloqueos
 
-let localState = { teachers: [], subjects: [], groups: [], schedule: [], presets: [], blocks: [] }; // Se añade 'blocks' al estado local
+let localState = { teachers: [], subjects: [], groups: [], schedule: [], blocks: [] };
 const colorPalette = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 let colorIndex = 0;
 const assignedColors = {};
@@ -213,23 +210,24 @@ function startApp() {
         alertsList: document.getElementById('alerts-list'), noAlertsMessage: document.getElementById('no-alerts-message'),
         teacherWorkload: document.getElementById('teacher-workload'), groupWorkload: document.getElementById('group-workload'),
         advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
-        imageUploadInput: document.getElementById('image-upload-input'),
-        analyzeImageBtn: document.getElementById('analyze-image-btn'),
-        analyzeBtnIcon: document.getElementById('analyze-btn-icon'),
-        analyzeBtnSpinner: document.getElementById('analyze-btn-spinner'),
-        analyzeBtnText: document.getElementById('analyze-btn-text'),
-        aiResultsContainer: document.getElementById('ai-results-container'),
+        // Elementos del formulario de bloqueo
+        blockTrimester: document.getElementById('block-trimester'),
+        blockTime: document.getElementById('block-time'),
+        blockDays: document.getElementById('block-days'),
+        addBlockBtn: document.getElementById('add-block-btn'),
+        blocksList: document.getElementById('blocks-list'),
     };
 
     generateTimeOptions();
     setupEventListeners();
+    populateBlockerForm();
 
     // Suscripciones a Firestore
     onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente'); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
     onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateSubjectFilter(); });
     onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, 'Seleccionar Grupo'); populateSelect(dom.filterGroup, localState.groups, 'Todos los Grupos'); updateWorkloadSummary(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
-    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); });
+    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); });
 }
 
 function setupEventListeners() {
@@ -242,147 +240,84 @@ function setupEventListeners() {
     dom.filterGroup.onchange = renderScheduleGrid;
     dom.groupSelect.onchange = populateSubjectFilter;
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
-    dom.analyzeImageBtn.onclick = analyzeImage;
+    dom.addBlockBtn.onclick = addBlock;
 }
 
-// --- LÓGICA DE IA PARA ANALIZAR IMÁGENES ---
+// --- LÓGICA DE BLOQUEO MANUAL ---
 
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-    });
-}
-
-async function analyzeImage() {
-    const file = dom.imageUploadInput.files[0];
-    if (!file) {
-        notification.show("Por favor, selecciona una imagen primero.", true);
-        return;
+function populateBlockerForm() {
+    // Rellenar cuatrimestres
+    for (let i = 1; i <= 9; i++) {
+        dom.blockTrimester.add(new Option(`Cuatrimestre ${i}`, i));
     }
+    // Rellenar bloques de 2 horas
+    for (let h = 7; h < 21; h++) { // Hasta las 20:00 para un bloque de 2h
+        const timeText = `${h}:00 - ${h+2}:00`;
+        dom.blockTime.add(new Option(timeText, h));
+    }
+}
 
-    dom.analyzeImageBtn.disabled = true;
-    dom.analyzeBtnIcon.classList.add('hidden');
-    dom.analyzeBtnSpinner.classList.remove('hidden');
-    dom.analyzeBtnText.textContent = "Analizando...";
-    dom.aiResultsContainer.innerHTML = '';
+async function addBlock() {
+    const blockData = {
+        trimester: parseInt(dom.blockTrimester.value),
+        startTime: parseInt(dom.blockTime.value),
+        endTime: parseInt(dom.blockTime.value) + 2,
+        days: dom.blockDays.value
+    };
+
+    // Evitar duplicados
+    const isDuplicate = localState.blocks.some(b => 
+        b.trimester === blockData.trimester &&
+        b.startTime === blockData.startTime &&
+        b.days === blockData.days
+    );
+
+    if(isDuplicate) {
+        return notification.show("Este bloqueo ya existe.", true);
+    }
 
     try {
-        const base64ImageData = await fileToBase64(file);
-        const apiKey = "";
-
-        const payload = {
-            contents: [{
-                parts: [
-                    { text: "Analiza la siguiente imagen, que es un horario. Extrae cada fila como un objeto JSON. Cada objeto debe tener 'startTime' (hora de inicio en formato HH), 'endTime' (hora de fin en formato HH), 'days' (un string como 'L-V' o 'L-J'), y 'trimester' (el número del cuatrimestre). Ignora las filas que no tengan un cuatrimestre claro. Devuelve un array de estos objetos." },
-                    { inlineData: { mimeType: file.type, data: base64ImageData } }
-                ]
-            }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "ARRAY",
-                    items: {
-                        type: "OBJECT",
-                        properties: {
-                            startTime: { type: "STRING" },
-                            endTime: { type: "STRING" },
-                            days: { type: "STRING" },
-                            trimester: { type: "NUMBER" }
-                        },
-                        required: ["startTime", "endTime", "days", "trimester"]
-                    }
-                }
-            }
-        };
-
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-        
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            throw new Error(`Error de la API: `);
-        }
-
-        const result = await response.json();
-        const jsonText = result.candidates[0].content.parts[0].text;
-        const extractedData = JSON.parse(jsonText);
-        
-        notification.show("Análisis completado. Revisa los resultados y guarda los bloqueos.");
-        renderAIResults(extractedData);
-
-    } catch (error) {
-        console.error("Error en el análisis de IA:", error);
-        notification.show("No se pudo analizar la imagen. Inténtalo de nuevo.", true);
-    } finally {
-        dom.analyzeImageBtn.disabled = false;
-        dom.analyzeBtnIcon.classList.remove('hidden');
-        dom.analyzeBtnSpinner.classList.add('hidden');
-        dom.analyzeBtnText.textContent = "Analizar";
+        await addDoc(blocksCol, blockData);
+        notification.show("Bloqueo agregado correctamente.");
+    } catch(e) {
+        notification.show("Error al agregar el bloqueo.", true);
+        console.error(e);
     }
 }
 
-function renderAIResults(data) {
-    if (!data || data.length === 0) {
-        dom.aiResultsContainer.innerHTML = `<p class="text-sm text-gray-500">La IA no encontró horarios para extraer.</p>`;
+function renderBlocksList() {
+    dom.blocksList.innerHTML = '';
+    if (localState.blocks.length === 0) {
+        dom.blocksList.innerHTML = '<p class="text-xs text-gray-400">No hay bloqueos activos.</p>';
         return;
     }
-
-    let html = `<h3 class="font-semibold text-lg mb-2">Resultados del Análisis:</h3>`;
-    data.forEach((item, index) => {
-        html += `
-            <div class="bg-gray-100 p-3 rounded-lg text-sm">
-                Bloqueo para <b>Cuatrimestre ${item.trimester}</b>: 
-                de ${item.startTime}:00 a ${item.endTime}:00, 
-                días ${item.days}.
+    localState.blocks.forEach(block => {
+        const blockDiv = document.createElement('div');
+        blockDiv.className = 'management-item'; // Reutilizamos el estilo
+        blockDiv.innerHTML = `
+            <span>Cuatri ${block.trimester}: ${block.startTime}:00-${block.endTime}:00 (${block.days})</span>
+            <div class="actions">
+                <button class="delete-btn" title="Eliminar">🗑️</button>
             </div>
         `;
+        blockDiv.querySelector('.delete-btn').onclick = async () => {
+            modal.confirm("¿Eliminar Bloqueo?", "Esta acción es irreversible.", async () => {
+                try {
+                    await deleteDoc(doc(blocksCol, block.id));
+                    notification.show("Bloqueo eliminado.");
+                } catch (e) {
+                    notification.show("Error al eliminar el bloqueo.", true);
+                }
+            });
+        };
+        dom.blocksList.appendChild(blockDiv);
     });
-
-    html += `
-        <div class="flex gap-4 mt-4">
-            <button id="cancel-ai-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">Cancelar</button>
-            <button id="save-ai-btn" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700">Guardar Bloqueos</button>
-        </div>
-    `;
-
-    dom.aiResultsContainer.innerHTML = html;
-    document.getElementById('cancel-ai-btn').onclick = () => dom.aiResultsContainer.innerHTML = '';
-    document.getElementById('save-ai-btn').onclick = () => saveBlocks(data);
-}
-
-async function saveBlocks(data) {
-    const batch = writeBatch(db);
-    
-    const existingBlocks = await getDocs(query(blocksCol));
-    existingBlocks.forEach(doc => batch.delete(doc.ref));
-
-    data.forEach(item => {
-        const newBlockRef = doc(blocksCol);
-        batch.set(newBlockRef, item);
-    });
-
-    try {
-        await batch.commit();
-        notification.show(`${data.length} bloqueos de horario guardados.`);
-        dom.aiResultsContainer.innerHTML = '';
-        dom.imageUploadInput.value = '';
-    } catch (error) {
-        console.error("Error al guardar los bloqueos:", error);
-        notification.show("No se pudieron guardar los bloqueos.", true);
-    }
 }
 
 // --- LÓGICA DE RENDERIZADO DEL HORARIO (ACTUALIZADA) ---
 
 function renderScheduleGrid() {
-    if (!dom.scheduleGrid) return; // Verificación de seguridad
+    if (!dom.scheduleGrid) return;
     dom.scheduleGrid.innerHTML = '';
     dom.scheduleGrid.appendChild(document.createElement('div'));
     days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
@@ -734,24 +669,6 @@ function populateSubjectFilter() {
     populateSelect(dom.subjectSelect, subjectsToShow, 'Seleccionar Materia');
 }
 
-async function savePreset() {
-    const presetData = {
-        teacherId: document.getElementById('modal-preset-teacher').value,
-        subjectId: document.getElementById('modal-preset-subject').value,
-        groupId: document.getElementById('modal-preset-group').value,
-    };
-    if (!presetData.teacherId || !presetData.subjectId || !presetData.groupId) {
-        return notification.show("Selecciona todos los campos para la plantilla.", true);
-    }
-    try {
-        await addDoc(presetsCol, presetData);
-        notification.show("Plantilla guardada.");
-        modal.hide();
-    } catch (error) {
-        notification.show("No se pudo guardar la plantilla.", true);
-    }
-}
-
 function handleDragStart(e) { e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', e.target.dataset.presetId); }
 function handleDragEnd(e) { e.target.classList.remove('dragging'); }
 function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const cell = e.target.closest('.grid-cell'); if (cell) { document.querySelectorAll('.grid-cell.droppable-hover').forEach(c => c.classList.remove('droppable-hover')); cell.classList.add('droppable-hover'); } }
@@ -958,7 +875,7 @@ function resetForm() {
 }
 
 function runPedagogicalAnalysis() {
-    if (!dom.alertsList) return; // Verificación de seguridad
+    if (!dom.alertsList) return;
     const alerts = [];
     localState.groups.forEach(group => {
         if (!group.trimester || group.trimester === 0) return;
@@ -982,7 +899,7 @@ function runPedagogicalAnalysis() {
 }
 
 function renderAlerts(alerts) {
-    if (!dom.alertsList || !dom.noAlertsMessage) return; // Verificación de seguridad
+    if (!dom.alertsList || !dom.noAlertsMessage) return;
     dom.alertsList.innerHTML = '';
     if (alerts.length === 0) {
         dom.noAlertsMessage.classList.remove('hidden');
@@ -1002,7 +919,7 @@ function renderAlerts(alerts) {
 }
 
 function updateWorkloadSummary() {
-    if (!dom.teacherWorkload || !dom.groupWorkload) return; // Verificación de seguridad
+    if (!dom.teacherWorkload || !dom.groupWorkload) return;
     const teacherWorkload = {};
     const groupWorkload = {};
 
