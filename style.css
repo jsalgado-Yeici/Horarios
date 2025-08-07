@@ -298,3 +298,59 @@ body {
 .collapsed .collapse-icon {
     transform: rotate(-90deg);
 }
+/* Estilos de Botones Genéricos */
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.btn-primary {
+    background-color: #4f46e5; /* Indigo 600 */
+    color: white;
+}
+.btn-primary:hover {
+    background-color: #4338ca; /* Indigo 700 */
+}
+
+.btn-secondary {
+    background-color: #6b7280; /* Gray 500 */
+    color: white;
+}
+.btn-secondary:hover {
+    background-color: #4b5563; /* Gray 600 */
+}
+
+.btn-danger {
+    background-color: #dc2626; /* Red 600 */
+    color: white;
+}
+.btn-danger:hover {
+    background-color: #b91c1c; /* Red 700 */
+}
+
+.btn-indigo {
+    background-color: #4f46e5;
+    color: white;
+}
+.btn-indigo:hover {
+    background-color: #4338ca;
+}
+
+.btn-purple {
+    background-color: #9333ea;
+    color: white;
+}
+.btn-purple:hover {
+    background-color: #7e22ce;
+}
+
+.btn-cyan {
+    background-color: #0891b2;
+    color: white;
+}
+.btn-cyan:hover {
+    background-color: #0e7490;
+}
