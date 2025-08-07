@@ -85,8 +85,8 @@ const modal = {
                 <h3 class="text-xl font-bold mb-2">${title}</h3>
                 <p class="text-gray-600">${message}</p>
                 <div class="mt-6 flex justify-center gap-4">
-                    <button id="modal-cancel-btn" class="btn-secondary">Cancelar</button>
-                    <button id="modal-confirm-btn" class="btn-danger">Confirmar</button>
+                    <button id="modal-cancel-btn" class="btn btn-secondary">Cancelar</button>
+                    <button id="modal-confirm-btn" class="btn btn-danger">Confirmar</button>
                 </div>
             </div>`;
         this.show(confirmHtml);
@@ -96,23 +96,46 @@ const modal = {
             if (onConfirm) onConfirm();
         };
     },
-    // NUEVO: Formulario avanzado para editar docentes
+    // MODIFICADO: Formulario de Docente con Búsqueda y Agrupación de Materias
     showTeacherForm(teacher = null) {
         const isEditing = teacher !== null;
         const title = isEditing ? 'Editar Perfil de Docente' : 'Nuevo Docente';
 
-        // Generar checkboxes para cada materia
-        let subjectsCheckboxes = '<p class="text-sm text-gray-500">Cargando materias...</p>';
+        // 1. Agrupar materias por cuatrimestre
+        const groupedSubjects = localState.subjects.reduce((acc, subject) => {
+            const trimester = subject.trimester || 0; // Agrupar las no asignadas en '0'
+            if (!acc[trimester]) {
+                acc[trimester] = [];
+            }
+            acc[trimester].push(subject);
+            return acc;
+        }, {});
+
+        // 2. Ordenar los cuatrimestres numéricamente
+        const sortedTrimesters = Object.keys(groupedSubjects).sort((a, b) => a - b);
+
+        // 3. Generar el HTML para las materias
+        let subjectsHtml = '';
         if (localState.subjects.length > 0) {
-            subjectsCheckboxes = localState.subjects.sort(sortByName).map(subject => {
-                const isChecked = isEditing && teacher.subjects && teacher.subjects.includes(subject.id);
-                return `
-                    <label class="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100">
-                        <input type="checkbox" class="subject-checkbox rounded" value="${subject.id}" ${isChecked ? 'checked' : ''}>
-                        <span>${subject.name} (Cuatri ${subject.trimester || 'N/A'})</span>
-                    </label>
-                `;
-            }).join('');
+            sortedTrimesters.forEach(trimester => {
+                const trimesterName = trimester === '0' ? 'Sin Asignar' : `Cuatrimestre ${trimester}`;
+                subjectsHtml += `<div class="trimester-group">`;
+                subjectsHtml += `<h4 class="text-md font-semibold text-gray-600 my-2 sticky top-0 bg-gray-50 py-1">${trimesterName}</h4>`;
+                
+                const subjectsInGroup = groupedSubjects[trimester].sort(sortByName);
+                subjectsInGroup.forEach(subject => {
+                    const isChecked = isEditing && teacher.subjects && teacher.subjects.includes(subject.id);
+                    subjectsHtml += `
+                        <label class="subject-label flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100">
+                            <input type="checkbox" class="subject-checkbox rounded" value="${subject.id}" ${isChecked ? 'checked' : ''}>
+                            <span>${subject.name}</span>
+                        </label>
+                    `;
+                });
+                subjectsHtml += `</div>`;
+            });
+        } else {
+            subjectsHtml = '<p class="text-sm text-gray-500">No hay materias para asignar.</p>';
         }
 
         const formHtml = `
@@ -128,16 +151,38 @@ const modal = {
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Materias que puede impartir</label>
-                    <div id="subjects-list" class="max-h-60 overflow-y-auto border rounded-lg p-2 bg-gray-50">
-                        ${subjectsCheckboxes}
+                    <input type="text" id="modal-subject-search" class="w-full p-2 border rounded-lg mb-2" placeholder="Buscar materia...">
+                    <div id="subjects-list" class="max-h-60 overflow-y-auto border rounded-lg p-2 bg-gray-50 relative">
+                        ${subjectsHtml}
                     </div>
                 </div>
             </div>
             <div class="mt-6 flex gap-4">
-                <button id="modal-cancel-btn" class="w-full btn-secondary">Cancelar</button>
-                <button id="modal-save-btn" class="w-full btn-primary">Guardar Cambios</button>
+                <button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button>
+                <button id="modal-save-btn" class="w-full btn btn-primary">Guardar Cambios</button>
             </div>`;
         this.show(formHtml);
+
+        // 4. Añadir el listener para la búsqueda
+        const searchInput = document.getElementById('modal-subject-search');
+        searchInput.addEventListener('keyup', () => {
+            const filter = searchInput.value.toLowerCase();
+            document.querySelectorAll('.trimester-group').forEach(group => {
+                let groupVisible = false;
+                group.querySelectorAll('.subject-label').forEach(label => {
+                    const text = label.textContent.toLowerCase();
+                    if (text.includes(filter)) {
+                        label.style.display = 'flex';
+                        groupVisible = true;
+                    } else {
+                        label.style.display = 'none';
+                    }
+                });
+                // Ocultar el título del cuatrimestre si no hay materias visibles
+                group.style.display = groupVisible ? 'block' : 'none';
+            });
+        });
+        
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('modal-save-btn').onclick = () => saveTeacher(teacher ? teacher.id : null);
     },
@@ -164,8 +209,8 @@ const modal = {
                 </div>
             </div>
             <div class="mt-6 flex gap-4">
-                <button id="modal-cancel-btn" class="w-full btn-secondary">Cancelar</button>
-                <button id="modal-save-btn" class="w-full btn-indigo">Guardar</button>
+                <button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button>
+                <button id="modal-save-btn" class="w-full btn btn-indigo">Guardar</button>
             </div>`;
         this.show(formHtml);
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
@@ -193,8 +238,8 @@ const modal = {
                 </div>
             </div>
             <div class="mt-6 flex gap-4">
-                <button id="modal-cancel-btn" class="w-full btn-secondary">Cancelar</button>
-                <button id="modal-save-btn" class="w-full btn-purple">Guardar</button>
+                <button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button>
+                <button id="modal-save-btn" class="w-full btn btn-purple">Guardar</button>
             </div>`;
         this.show(formHtml);
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
@@ -209,8 +254,8 @@ const modal = {
                 <select id="modal-preset-group" class="w-full p-2 border rounded-lg"></select>
             </div>
             <div class="flex gap-4">
-                <button id="modal-cancel-btn" class="w-full btn-secondary">Cancelar</button>
-                <button id="modal-save-preset-btn" class="w-full btn-cyan">Guardar</button>
+                <button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button>
+                <button id="modal-save-preset-btn" class="w-full btn btn-cyan">Guardar</button>
             </div>`;
         this.show(formHtml);
 
@@ -260,8 +305,12 @@ function populateFilteredSubjects(subjectSelectElement, teacherId) {
         // Filtrar materias globales por las IDs que tiene asignadas el docente
         subjectsToShow = localState.subjects.filter(s => teacher.subjects.includes(s.id));
         populateSelect(subjectSelectElement, subjectsToShow, 'Seleccionar Materia');
-    } else {
-        // Si no hay docente o no tiene materias asignadas, mostrar todas
+    } else if (teacher) {
+        // El docente existe pero no tiene materias asignadas
+        populateSelect(subjectSelectElement, [], 'Este docente no tiene materias asignadas');
+    }
+    else {
+        // Si no hay docente seleccionado, mostrar todas las materias.
         populateSelect(subjectSelectElement, localState.subjects, 'Seleccionar Materia');
     }
 }
@@ -596,7 +645,6 @@ function checkConflict(newClass, ignoreId = null) {
     return false;
 }
 
-// MODIFICADO: Ahora es una función genérica
 async function saveTeacher(teacherId) {
     const name = document.getElementById('modal-teacher-name').value;
     if (!name.trim()) return notification.show("El apodo no puede estar vacío.", true);
@@ -655,7 +703,6 @@ function createManagementItem(item, collection, type, draggable = false) {
         itemDiv.addEventListener('dragend', handleManagementDragEnd);
     }
 
-    // MODIFICADO: Muestra más info del docente
     let mainText = item.name;
     if (type === 'Docente' && item.fullName) {
         mainText = `${item.name} <span class="text-gray-500 text-xs">(${item.fullName})</span>`;
@@ -670,7 +717,6 @@ function createManagementItem(item, collection, type, draggable = false) {
     `;
 
     itemDiv.querySelector('.edit-btn').onclick = () => {
-        // MODIFICADO: Usa el formulario correcto para cada tipo
         if (type === 'Docente') {
             modal.showTeacherForm(item);
         } else if (type === 'Materia') {
@@ -1080,7 +1126,7 @@ async function saveClass() {
 function editClass(classData) {
     dom.formTitle.textContent = "Editando Clase";
     dom.teacherSelect.value = classData.teacherId;
-    
+
     // Disparamos el filtro para que cargue solo las materias del docente
     populateFilteredSubjects(dom.subjectSelect, classData.teacherId);
     dom.subjectSelect.value = classData.subjectId;
