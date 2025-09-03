@@ -1045,64 +1045,6 @@ function openAssignmentModal(subjectId, day, startTime) {
         createClassFromModal(subjectId, day, startTime);
     };
 }
-function openAssignmentModal(subjectId, day, startTime) {
-    const subject = localState.subjects.find(s => s.id === subjectId);
-    if (!subject) return console.error("Materia no encontrada");
-
-    // 1. Filtrar solo los profesores que pueden impartir esta materia
-    const eligibleTeachers = localState.teachers.filter(teacher => 
-        teacher.subjects && teacher.subjects.includes(subjectId)
-    );
-
-    // 2. Filtrar grupos que coincidan con el cuatrimestre de la materia (si lo tiene)
-    const groupsForSubject = subject.trimester > 0
-        ? localState.groups.filter(g => g.trimester == subject.trimester)
-        : localState.groups; // Si la materia no tiene cuatri, mostrar todos los grupos
-
-    // 3. Generar las opciones HTML para los <select>
-    const teacherOptions = eligibleTeachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-    const groupOptions = groupsForSubject.sort(sortByName).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-
-    // 4. Crear el HTML completo del formulario dentro del modal
-    const formHtml = `
-        <h2 class="text-2xl font-semibold mb-2">Asignar Clase</h2>
-        <p class="text-lg text-indigo-600 font-medium mb-6">${subject.name}</p>
-        
-        <div class="space-y-4 text-left">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Grupo</label>
-                <select id="modal-assign-group" class="mt-1 block w-full p-2 border rounded-lg">
-                    <option value="">Seleccionar Grupo...</option>
-                    ${groupOptions}
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Docente</label>
-                <select id="modal-assign-teacher" class="mt-1 block w-full p-2 border rounded-lg">
-                    ${eligibleTeachers.length > 0 ? teacherOptions : '<option value="">No hay docentes asignados a esta materia</option>'}
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Duración (horas)</label>
-                <input type="number" id="modal-assign-duration" value="2" min="1" max="8" class="mt-1 block w-full p-2 border rounded-lg">
-            </div>
-        </div>
-
-        <div class="mt-8 flex gap-4">
-            <button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button>
-            <button id="modal-save-class-btn" class="w-full btn btn-primary">Guardar Clase</button>
-        </div>
-    `;
-
-    // 5. Mostrar el modal y configurar los botones
-    modal.show(formHtml);
-
-    document.getElementById('modal-cancel-btn').onclick = () => modal.hide();
-    document.getElementById('modal-save-class-btn').onclick = () => {
-        // Al guardar, pasamos todos los datos necesarios a una nueva función
-        createClassFromModal(subjectId, day, startTime);
-    };
-}
 async function createClassFromModal(subjectId, day, startTime) {
     // 1. Recoger los valores seleccionados del formulario
     const groupId = document.getElementById('modal-assign-group').value;
