@@ -510,11 +510,9 @@ function renderScheduleGrid() {
     const filteredSchedule = localState.schedule.filter(c => {
         const group = localState.groups.find(g => g.id === c.groupId);
         if (!group) return false;
-
         const teacherMatch = !selectedTeacher || c.teacherId === selectedTeacher;
         const groupMatch = !selectedGroup || c.groupId === selectedGroup;
         const trimesterMatch = !selectedTrimester || group.trimester == selectedTrimester;
-
         return teacherMatch && groupMatch && trimesterMatch;
     });
 
@@ -535,25 +533,51 @@ function renderScheduleGrid() {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'schedule-item';
             itemDiv.dataset.classId = c.id;
-            itemDiv.style.backgroundColor = getSubjectColor(subject.id);
+            
+            // --- INICIO DE CAMBIOS DE LÓGICA Y ESTILO ---
+            
+            const subjectColor = getSubjectColor(subject.id);
+            // CAMBIO: Usamos el color para el borde y un fondo transparente
+            itemDiv.style.borderColor = subjectColor;
+            itemDiv.style.backgroundColor = `${subjectColor}20`; // El '20' al final añade transparencia
+
             const timeColumnWidth = 120;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
 
-            const itemWidth = dayColumnWidth / totalOverlaps;
-            const itemLeft = (dayColumnWidth / totalOverlaps) * overlapIndex;
+            // CAMBIO: Lógica de cascada para superposiciones
+            // Cada elemento ocupa el 85% del ancho. Los elementos superpuestos se desplazan un 12%
+            const itemWidth = totalOverlaps > 1 ? `85%` : '95%';
+            const itemLeft = totalOverlaps > 1 ? `${overlapIndex * 12}%` : '2.5%';
+            
+            const originalLeftPosition = timeColumnWidth + 1 + (dayIndex * dayColumnWidth);
+            
+            // Guardamos la posición original para el efecto hover
+            itemDiv.style.setProperty('--original-left', `${originalLeftPosition}px`);
 
             itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
-            itemDiv.style.left = `${timeColumnWidth + 1 + (dayIndex * dayColumnWidth) + itemLeft}px`;
-            itemDiv.style.width = `${itemWidth - 2}px`;
+            // Aplicamos el nuevo cálculo de la izquierda
+            itemDiv.style.left = `calc(${originalLeftPosition}px + ${itemLeft})`;
+            itemDiv.style.width = itemWidth;
             itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
+            itemDiv.style.zIndex = 10 + overlapIndex; // Asegura que los items se apilen correctamente
 
-            let subjectName = subject.name;
-            if (totalOverlaps > 2) {
-                itemDiv.style.fontSize = '0.65rem';
-                subjectName = getInitials(subject.name);
+            // CAMBIO: Contenido adaptable
+            let detailsHtml = '';
+            if (c.duration >= 2) {
+                itemDiv.classList.add('has-details');
+                detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
             }
+            
+            itemDiv.innerHTML = `
+                <div class="item-content">
+                    <div class="subject-name">${subject.name}</div>
+                    ${detailsHtml}
+                </div>
+                <div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div>
+                <div class="resize-handle"></div>`;
+                
+            // --- FIN DE CAMBIOS DE LÓGICA Y ESTILO ---
 
-            itemDiv.innerHTML = `<div class="font-bold">${subjectName}</div><div>${teacher.name.split(' ')[0]}</div><div class="italic">${group.name}</div><div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div><div class="resize-handle"></div>`;
             const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
             editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
             deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
