@@ -695,13 +695,19 @@ async function addGroup() {
 function createManagementItem(item, collection, type, draggable = false) {
     const itemDiv = document.createElement('div');
     itemDiv.className = 'management-item';
-    if (draggable) {
+
+    // --- INICIO DEL CAMBIO ---
+    // Solo hacemos que el elemento sea arrastrable si la opción 'draggable' es verdadera
+    // Y, crucialmente, si el tipo NO es 'Materia'. Esto deshabilita el drag
+    // para las materias en los paneles de gestión, pero lo mantiene para los grupos.
+    if (draggable && type !== 'Materia') { 
         itemDiv.draggable = true;
         itemDiv.dataset.id = item.id;
         itemDiv.dataset.type = type;
         itemDiv.addEventListener('dragstart', handleManagementDragStart);
         itemDiv.addEventListener('dragend', handleManagementDragEnd);
     }
+    // --- FIN DEL CAMBIO ---
 
     let mainText = item.name;
     if (type === 'Docente' && item.fullName) {
