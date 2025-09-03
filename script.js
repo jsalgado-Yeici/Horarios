@@ -357,8 +357,8 @@ function startApp() {
 
     // Suscripciones a Firestore
     onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.teacherSelect, localState.teachers, 'Seleccionar Docente'); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
-    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateFilteredSubjects(dom.subjectSelect, dom.teacherSelect.value); });
-    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, "Seleccionar Grupo"); populateSelect(dom.filterGroup, localState.groups, "Todos los Grupos"); updateWorkloadSummary(); });
+    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); populateFilteredSubjects(dom.subjectSelect, dom.teacherSelect.value); runPedagogicalAnalysis(); });
+    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.groupSelect, localState.groups, "Seleccionar Grupo"); populateSelect(dom.filterGroup, localState.groups, "Todos los Grupos"); updateWorkloadSummary(); runPedagogicalAnalysis(); });
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
     onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
     onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); updateWorkloadSummary(); });
@@ -758,9 +758,9 @@ function renderTeachersList() {
 }
 
 function renderSubjectsByTrimester() {
-    if(!dom.subjectsByTrimester || !dom.unassignedSubjectsContainer) return;
+    if (!dom.subjectsByTrimester) return; // Modificado para no depender del contenedor que quitamos
     dom.subjectsByTrimester.innerHTML = '';
-    dom.unassignedSubjectsContainer.innerHTML = '';
+    
     const sortedSubjects = [...localState.subjects].sort(sortByName);
     for (let i = 1; i <= 9; i++) {
         const column = document.createElement('div');
@@ -770,26 +770,15 @@ function renderSubjectsByTrimester() {
         const subjectsInTrimester = sortedSubjects.filter(s => s.trimester == i);
         if (subjectsInTrimester.length > 0) {
             subjectsInTrimester.forEach(subject => {
-                column.appendChild(createManagementItem(subject, subjectsCol, 'Materia', true));
+                // Ahora usamos 'false' en draggable para materias
+                column.appendChild(createManagementItem(subject, subjectsCol, 'Materia', false)); 
             });
         } else {
-            column.innerHTML += `<p class="text-xs text-gray-400">Arrastra materias aquí</p>`;
+            column.innerHTML += `<p class="text-xs text-gray-400">No hay materias en este cuatri.</p>`; // Mensaje actualizado
         }
-        column.addEventListener('dragover', handleManagementDragOver);
-        column.addEventListener('drop', handleManagementDrop);
+        // Ya no necesitamos los listeners de drop aquí
         dom.subjectsByTrimester.appendChild(column);
     }
-    const unassignedSubjects = sortedSubjects.filter(s => !s.trimester || s.trimester === 0);
-    if (unassignedSubjects.length > 0) {
-        unassignedSubjects.forEach(subject => {
-            dom.unassignedSubjectsContainer.appendChild(createManagementItem(subject, subjectsCol, 'Materia', true));
-        });
-    } else {
-        dom.unassignedSubjectsContainer.innerHTML = `<p class="text-xs text-gray-400">Todas las materias están asignadas.</p>`;
-    }
-    dom.unassignedSubjectsContainer.dataset.trimester = 0;
-    dom.unassignedSubjectsContainer.addEventListener('dragover', handleManagementDragOver);
-    dom.unassignedSubjectsContainer.addEventListener('drop', handleManagementDrop);
 }
 
 function renderGroupsByTrimester() {
@@ -1284,27 +1273,65 @@ function resetForm() {
 function runPedagogicalAnalysis() {
     if (!dom.alertsList) return;
     const alerts = [];
+    // Usamos un Set para guardar IDs únicos de materias faltantes
+    const missingSubjectIds = new Set(); 
+
     localState.groups.forEach(group => {
         if (!group.trimester || group.trimester === 0) return;
 
         const requiredSubjects = localState.subjects.filter(s => s.trimester == group.trimester);
-        const scheduledSubjects = localState.schedule
+        const scheduledSubjectIds = localState.schedule
             .filter(c => c.groupId === group.id)
             .map(c => c.subjectId);
 
         requiredSubjects.forEach(subject => {
-            if (!scheduledSubjects.includes(subject.id)) {
+            if (!scheduledSubjectIds.includes(subject.id)) {
                 alerts.push({
                     type: 'warning',
                     message: `Al grupo <b>${group.name}</b> le falta la materia <i>${subject.name}</i>.`
                 });
+                // Añadimos el ID de la materia faltante a nuestro Set
+                missingSubjectIds.add(subject.id); 
             }
         });
     });
 
     renderAlerts(alerts);
+    // Llamamos a una nueva función para que renderice la barra lateral
+    renderMissingSubjectsSidebar(missingSubjectIds); 
 }
+function renderMissingSubjectsSidebar(missingSubjectIds) {
+    if (!dom.unassignedSubjectsContainer) return;
+    dom.unassignedSubjectsContainer.innerHTML = ''; // Limpiamos la barra lateral
 
+    if (missingSubjectIds.size === 0) {
+        dom.unassignedSubjectsContainer.innerHTML = `<p class="text-xs text-gray-400">¡Excelente! No faltan materias por asignar en el horario.</p>`;
+        return;
+    }
+
+    // Convertimos el Set de IDs a un array de objetos de materia completos
+    const missingSubjects = Array.from(missingSubjectIds)
+        .map(id => localState.subjects.find(s => s.id === id))
+        .filter(Boolean) // Filtramos por si alguna materia fue eliminada
+        .sort(sortByName);
+
+    missingSubjects.forEach(subject => {
+        // Creamos un elemento 'management-item' para cada materia faltante
+        // OJO: NO usamos createManagementItem porque queremos que SI sea draggable.
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'management-item';
+        itemDiv.draggable = true; // Hacemos que sea arrastrable
+        itemDiv.dataset.id = subject.id;
+        itemDiv.dataset.type = 'Materia'; // Le asignamos el tipo 'Materia'
+        
+        // Le añadimos los listeners para el drag & drop que usará el horario
+        itemDiv.addEventListener('dragstart', handleManagementDragStart);
+        itemDiv.addEventListener('dragend', handleManagementDragEnd);
+
+        itemDiv.innerHTML = `<span>${subject.name}</span>`;
+        dom.unassignedSubjectsContainer.appendChild(itemDiv);
+    });
+}
 function renderAlerts(alerts) {
     if (!dom.alertsList || !dom.noAlertsMessage) return;
     dom.alertsList.innerHTML = '';
