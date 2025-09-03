@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planificador de Horarios</title>
     
-    <!-- Librerías Externas -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Tu Hoja de Estilos Personalizada -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -20,138 +18,137 @@
             <p class="text-gray-600 mt-2"></p>
         </header>
 
-        <!-- Paneles de Gestión -->
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
-            <!-- Panel de Docentes (Más grande) -->
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Docentes</h2>
-                <div id="teachers-list" class="space-y-2 mb-4 max-h-[40rem] overflow-y-auto"></div>
-                <input type="text" id="teacher-name" placeholder="Nombre del docente" class="w-full p-2 border rounded-lg">
-                <button id="add-teacher-btn" class="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">Agregar</button>
-            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
-            <!-- Paneles de Materias y Grupos (Más pequeños) -->
-            <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
-                <!-- Materias -->
-                <div class="mb-6">
-                    <div class="collapsible-header flex justify-between items-center mb-4 border-b pb-2 cursor-pointer">
-                        <h2 class="text-xl font-semibold">Materias por Cuatrimestre</h2>
-                        <div class="flex items-center gap-4">
-                            <button id="open-subject-modal-btn" class="bg-indigo-100 text-indigo-700 text-sm font-semibold py-1 px-3 rounded-lg hover:bg-indigo-200">Nueva Materia</button>
-                            <span class="collapse-icon">▼</span>
+            <aside class="lg:col-span-1 lg:sticky lg:top-8 self-start">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Materias por Asignar</h2>
+                    <p class="text-sm text-gray-500 mb-4">Arrastra una materia desde esta lista hacia el horario.</p>
+                    
+                    <div id="unassigned-subjects-container" class="p-3 bg-gray-50 rounded-lg min-h-[5rem] space-y-2 max-h-[calc(100vh-18rem)] overflow-y-auto">
+                        </div>
+                </div>
+            </aside>
+
+            <main class="lg:col-span-3 space-y-8">
+
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4 border-b pb-2">Docentes</h2>
+                        <div id="teachers-list" class="space-y-2 mb-4 max-h-[40rem] overflow-y-auto"></div>
+                        <input type="text" id="teacher-name" placeholder="Nombre del docente" class="w-full p-2 border rounded-lg">
+                        <button id="add-teacher-btn" class="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">Agregar</button>
+                    </div>
+
+                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                        <div class="mb-6">
+                            <div class="collapsible-header flex justify-between items-center mb-4 border-b pb-2 cursor-pointer">
+                                <h2 class="text-xl font-semibold">Materias por Cuatrimestre</h2>
+                                <div class="flex items-center gap-4">
+                                    <button id="open-subject-modal-btn" class="bg-indigo-100 text-indigo-700 text-sm font-semibold py-1 px-3 rounded-lg hover:bg-indigo-200">Nueva Materia</button>
+                                    <span class="collapse-icon">▼</span>
+                                </div>
+                            </div>
+                            <div class="collapsible-content">
+                                <div id="subjects-by-trimester" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[18rem] overflow-y-auto pr-2"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="collapsible-header flex justify-between items-center mb-4 border-b pb-2 cursor-pointer">
+                                <h2 class="text-xl font-semibold">Grupos por Cuatrimestre</h2>
+                                <span class="collapse-icon">▼</span>
+                            </div>
+                            <div class="collapsible-content">
+                                <div id="groups-by-trimester" class="space-y-4 max-h-[18rem] overflow-y-auto pr-2"></div>
+                                <div class="mt-4">
+                                    <h3 class="font-semibold text-md border-b pb-2 mb-2">Grupos sin Asignar</h3>
+                                    <div id="unassigned-groups-container" class="p-3 bg-gray-50 rounded-lg min-h-[4rem] space-y-2"></div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 mt-4">
+                                    <select id="group-prefix-select" class="col-span-1 p-2 border rounded-lg bg-gray-50"><option>IAEV</option><option>PA</option></select>
+                                    <input type="number" id="group-number-input" placeholder="Ej: 37" class="col-span-1 p-2 border rounded-lg">
+                                    <select id="group-trimester-select" class="col-span-1 p-2 border rounded-lg bg-gray-50"><option value="0">Sin Asignar</option><option value="1">Cuatri 1</option><option value="2">Cuatri 2</option><option value="3">Cuatri 3</option><option value="4">Cuatri 4</option><option value="5">Cuatri 5</option><option value="6">Cuatri 6</option><option value="7">Cuatri 7</option><option value="8">Cuatri 8</option><option value="9">Cuatri 9</option></select>
+                                </div>
+                                <button id="add-group-btn" class="mt-2 w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700">Agregar Grupo</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="collapsible-content">
-                        <div id="subjects-by-trimester" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[18rem] overflow-y-auto pr-2"></div>
-                        <div class="mt-4">
-                            <h3 class="font-semibold text-md border-b pb-2 mb-2">Materias sin Asignar</h3>
-                            <div id="unassigned-subjects-container" class="p-3 bg-gray-50 rounded-lg min-h-[5rem] space-y-2"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                        <h2 id="form-title" class="text-2xl font-semibold mb-4">Agregar/Editar Clase</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                            <div><label class="block text-sm font-medium">Materia</label><select id="subject-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Grupo</label><select id="group-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Docente</label><select id="teacher-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Día</label><select id="day-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Hora Inicio</label><select id="time-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Duración (hrs)</label><input type="number" id="duration-input" value="1" min="1" max="8" class="mt-1 block w-full p-2 border rounded-lg"></div>
+                        </div>
+                        <div class="mt-4 flex gap-4">
+                            <button id="save-class-btn" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700">Guardar Clase</button>
+                            <button id="cancel-edit-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 hidden">Cancelar Edición</button>
+                        </div>
+                        <input type="hidden" id="editing-class-id">
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-semibold mb-4">Plantillas de Clases</h2>
+                        <p class="text-sm text-gray-500 mb-4">Arrastra una plantilla al horario para agregar una clase de 1 hora.</p>
+                        <div id="presets-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                        <button id="open-preset-modal-btn" class="mt-4 w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Crear Nueva Plantilla</button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 md:p-6 rounded-xl shadow-md overflow-x-auto">
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                        <h2 class="text-2xl font-semibold">Horario Visual</h2>
+                        <div class="flex gap-4">
+                            <div>
+                                <label for="filter-trimester" class="block text-sm font-medium">Filtrar por Cuatri</label>
+                                <select id="filter-trimester" class="mt-1 block w-full p-2 border rounded-lg"></select>
+                            </div>
+                            <div><label for="filter-teacher" class="block text-sm font-medium">Filtrar por Docente</label><select id="filter-teacher" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label for="filter-group" class="block text-sm font-medium">Filtrar por Grupo</label><select id="filter-group" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                        </div>
+                    </div>
+                    <div id="schedule-grid" class="schedule-grid"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="md:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-semibold mb-4">Bloqueo Manual de Horarios</h2>
+                        <p class="text-sm text-gray-500 mb-4">Crea bloqueos de 2 horas (ej. clases de inglés) para todos los grupos de un cuatrimestre.</p>
+                        <div class="space-y-3 p-4 border rounded-lg bg-gray-50 mb-4">
+                            <div><label class="block text-sm font-medium">Cuatrimestre</label><select id="block-trimester" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Horario</label><select id="block-time" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                            <div><label class="block text-sm font-medium">Días</label><select id="block-days" class="mt-1 block w-full p-2 border rounded-lg"><option value="L-V">Lunes a Viernes</option><option value="L-J">Lunes a Jueves</option></select></div>
+                            <button id="add-block-btn" class="w-full bg-slate-700 text-white py-2 px-4 rounded-lg hover:bg-slate-800">Agregar Bloqueo</button>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 border-t pt-4">Bloqueos Activos</h3>
+                        <div id="blocks-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-semibold mb-4">Análisis y Alertas</h2>
+                        <ul id="alerts-list" class="space-y-3 max-h-60 overflow-y-auto"><li id="no-alerts-message" class="text-gray-500">No hay alertas.</li></ul>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-semibold mb-4">Administración</h2>
+                        <div class="space-y-4">
+                            <div><h3 class="font-semibold text-lg">Avanzar Cuatrimestre</h3><p class="text-sm text-gray-500 mb-2">Mueve todos los grupos al siguiente cuatrimestre.</p><button id="advance-trimester-btn" class="w-full bg-amber-500 text-white py-2 px-4 rounded-lg hover:bg-amber-600">Avanzar Grupos</button></div>
+                            <div><h3 class="font-semibold text-lg">Carga Horaria (Hrs/Sem)</h3><div class="grid grid-cols-2 gap-4 max-h-40 overflow-y-auto mt-2"><div id="teacher-workload"></div><div id="group-workload"></div></div></div>
                         </div>
                     </div>
                 </div>
-                <!-- Grupos -->
-                <div>
-                    <div class="collapsible-header flex justify-between items-center mb-4 border-b pb-2 cursor-pointer">
-                        <h2 class="text-xl font-semibold">Grupos por Cuatrimestre</h2>
-                        <span class="collapse-icon">▼</span>
-                    </div>
-                    <div class="collapsible-content">
-                        <div id="groups-by-trimester" class="space-y-4 max-h-[18rem] overflow-y-auto pr-2"></div>
-                        <div class="mt-4">
-                            <h3 class="font-semibold text-md border-b pb-2 mb-2">Grupos sin Asignar</h3>
-                            <div id="unassigned-groups-container" class="p-3 bg-gray-50 rounded-lg min-h-[4rem] space-y-2"></div>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 mt-4">
-                            <select id="group-prefix-select" class="col-span-1 p-2 border rounded-lg bg-gray-50"><option>IAEV</option><option>PA</option></select>
-                            <input type="number" id="group-number-input" placeholder="Ej: 37" class="col-span-1 p-2 border rounded-lg">
-                            <select id="group-trimester-select" class="col-span-1 p-2 border rounded-lg bg-gray-50"><option value="0">Sin Asignar</option><option value="1">Cuatri 1</option><option value="2">Cuatri 2</option><option value="3">Cuatri 3</option><option value="4">Cuatri 4</option><option value="5">Cuatri 5</option><option value="6">Cuatri 6</option><option value="7">Cuatri 7</option><option value="8">Cuatri 8</option><option value="9">Cuatri 9</option></select>
-                        </div>
-                        <button id="add-group-btn" class="mt-2 w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700">Agregar Grupo</button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Formularios Principales -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <!-- Formulario de Asignación -->
-            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                <h2 id="form-title" class="text-2xl font-semibold mb-4">Agregar/Editar Clase</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                    <div><label class="block text-sm font-medium">Materia</label><select id="subject-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Grupo</label><select id="group-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Docente</label><select id="teacher-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Día</label><select id="day-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Hora Inicio</label><select id="time-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Duración (hrs)</label><input type="number" id="duration-input" value="1" min="1" max="8" class="mt-1 block w-full p-2 border rounded-lg"></div>
-                </div>
-                <div class="mt-4 flex gap-4">
-                    <button id="save-class-btn" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700">Guardar Clase</button>
-                    <button id="cancel-edit-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 hidden">Cancelar Edición</button>
-                </div>
-                <input type="hidden" id="editing-class-id">
-            </div>
-            <!-- Panel de Plantillas de Clases (Restaurado) -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Plantillas de Clases</h2>
-                <p class="text-sm text-gray-500 mb-4">Arrastra una plantilla al horario para agregar una clase de 1 hora.</p>
-                <div id="presets-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
-                <button id="open-preset-modal-btn" class="mt-4 w-full bg-cyan-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-700">Crear Nueva Plantilla</button>
-            </div>
-        </div>
-
-        <!-- Horario Visual -->
-        <div class="bg-white p-4 md:p-6 rounded-xl shadow-md overflow-x-auto mb-8">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                <h2 class="text-2xl font-semibold">Horario Visual</h2>
-                <div class="flex gap-4">
-                    <!-- NUEVO FILTRO POR CUATRIMESTRE -->
-                    <div>
-                        <label for="filter-trimester" class="block text-sm font-medium">Filtrar por Cuatri</label>
-                        <select id="filter-trimester" class="mt-1 block w-full p-2 border rounded-lg"></select>
-                    </div>
-                    <div><label for="filter-teacher" class="block text-sm font-medium">Filtrar por Docente</label><select id="filter-teacher" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label for="filter-group" class="block text-sm font-medium">Filtrar por Grupo</label><select id="filter-group" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                </div>
-            </div>
-            <div id="schedule-grid" class="schedule-grid"></div>
-        </div>
-
-        <!-- Paneles de Herramientas Secundarios -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="md:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Bloqueo Manual de Horarios</h2>
-                <p class="text-sm text-gray-500 mb-4">Crea bloqueos de 2 horas (ej. clases de inglés) para todos los grupos de un cuatrimestre.</p>
-                <div class="space-y-3 p-4 border rounded-lg bg-gray-50 mb-4">
-                    <div><label class="block text-sm font-medium">Cuatrimestre</label><select id="block-trimester" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Horario</label><select id="block-time" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                    <div><label class="block text-sm font-medium">Días</label><select id="block-days" class="mt-1 block w-full p-2 border rounded-lg"><option value="L-V">Lunes a Viernes</option><option value="L-J">Lunes a Jueves</option></select></div>
-                    <button id="add-block-btn" class="w-full bg-slate-700 text-white py-2 px-4 rounded-lg hover:bg-slate-800">Agregar Bloqueo</button>
-                </div>
-                <h3 class="font-semibold text-lg mb-2 border-t pt-4">Bloqueos Activos</h3>
-                <div id="blocks-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Análisis y Alertas</h2>
-                <ul id="alerts-list" class="space-y-3 max-h-60 overflow-y-auto"><li id="no-alerts-message" class="text-gray-500">No hay alertas.</li></ul>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Administración</h2>
-                <div class="space-y-4">
-                     <div><h3 class="font-semibold text-lg">Avanzar Cuatrimestre</h3><p class="text-sm text-gray-500 mb-2">Mueve todos los grupos al siguiente cuatrimestre.</p><button id="advance-trimester-btn" class="w-full bg-amber-500 text-white py-2 px-4 rounded-lg hover:bg-amber-600">Avanzar Grupos</button></div>
-                    <div><h3 class="font-semibold text-lg">Carga Horaria (Hrs/Sem)</h3><div class="grid grid-cols-2 gap-4 max-h-40 overflow-y-auto mt-2"><div id="teacher-workload"></div><div id="group-workload"></div></div></div>
-                </div>
-            </div>
+            </main>
         </div>
     </div>
     
-    <!-- Contenedor para Notificaciones Emergentes -->
     <div id="notification-container" class="fixed bottom-5 right-5 z-50 space-y-3"></div>
-    <!-- Modal (Para confirmaciones y formularios) -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div id="modal-content" class="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full"></div>
     </div>
-    <!-- Tu Script Principal -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
