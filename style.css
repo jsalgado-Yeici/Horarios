@@ -41,84 +41,104 @@ body {
 
 /* --- INICIA EL BLOQUE PARA REEMPLAZAR Y AÑADIR EN style.css --- */
 
-/* --- ESTILOS MEJORADOS PARA CLASES SUPERPUESTAS --- */
+/* REEMPLAZA tu .schedule-item existente con esto */
 .schedule-item {
     position: absolute;
-    padding: 4px 8px;
+    padding: 4px 2px; /* Reducimos padding horizontal */
     border-radius: 6px;
-    font-size: 0.75rem;
-    /* CAMBIO: Borde izquierdo sólido, el color se aplicará desde JS */
+    font-size: 0.7rem; /* Ligeramente más pequeño para el texto */
     border-left: 5px solid; 
-    /* CAMBIO: El color de fondo se aplicará con transparencia desde JS */
     background-color: rgba(255, 255, 255, 0.7); 
-    color: #1f2937; /* Texto más oscuro para mejor contraste */
+    color: #1f2937;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     z-index: 10;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     transition: all 0.2s ease-in-out;
+    
+    /* CAMBIO CLAVE: Establecemos el ancho máximo al 95% para que no se salga */
+    width: 95% !important; 
+    left: 2.5% !important; /* Centramos el 95% */
+    
+    /* Flexbox para centrar contenido vertical */
+    align-items: center; 
+    justify-content: center;
+    text-align: center; /* Aseguramos que el texto esté centrado si no rota */
 }
 
-/* CAMBIO: Nuevo efecto hover para expandir la clase y leerla mejor */
+/* REEMPLAZA tu .schedule-item:hover existente con esto */
 .schedule-item:hover {
     z-index: 20;
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    /* Se expande al 95% del ancho de la celda al pasar el mouse */
-    width: calc(95%) !important; 
-    /* Se alinea a la izquierda de la celda */
-    left: calc(2.5% + var(--original-left)) !important; 
+    /* Al hacer hover, queremos que conserve su ancho actual, no que se expanda */
+    /* Lo mantenemos como está, o incluso podríamos aumentarlo un poco para que se vea mejor si es vertical */
+    /* Para el texto vertical, el width y left no deben cambiar mucho al hacer hover */
 }
 
-/* NUEVO: Contenedor para la información de la clase */
-.item-content {
-    line-height: 1.3;
+/* NUEVO: Clase para texto vertical */
+.vertical-text {
+    writing-mode: vertical-lr; /* Escribe de arriba a abajo, de derecha a izquierda */
+    text-orientation: mixed; /* Para que las letras individuales no roten */
+    transform: rotate(180deg); /* Rotamos 180 grados para que se lea de abajo a arriba */
+    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+    height: 100%; /* Ocupa la altura completa del contenedor */
+    display: flex; /* Para poder centrarlo verticalmente si es necesario */
+    align-items: center; /* Centrado vertical */
+    justify-content: center; /* Centrado horizontal después de la rotación */
+    padding: 0 2px; /* Un poco de padding horizontal para que no toque los bordes */
 }
+
+/* Ajustes para el contenido de la etiqueta */
 .item-content .subject-name {
     font-weight: 600;
 }
-/* NUEVO: Ocultamos detalles en clases cortas */
 .item-content .item-details {
     display: none;
-    font-size: 0.7rem;
+    font-size: 0.65rem; /* Un poco más pequeño */
     opacity: 0.8;
 }
-/* Mostramos detalles si la clase tiene esta clase (para clases de 2h+) */
 .schedule-item.has-details .item-details {
     display: block;
 }
 
-
-/* Contenedor para los botones de acción (editar, eliminar) */
+/* Ajustamos las acciones para que se vean bien con el texto vertical */
 .schedule-item .actions {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    display: flex;
-    gap: 2px;
+    top: 50%; /* Centrado vertical */
+    right: 0px; /* Pegado al borde derecho */
+    transform: translateY(-50%) translateX(10px); /* Ajuste para que los botones no tapen el texto rotado */
+    flex-direction: column; /* Apilamos los botones verticalmente */
+    gap: 0px; /* Reducimos el espacio entre botones */
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: all 0.2s;
 }
 
 .schedule-item:hover .actions {
     opacity: 1;
+    transform: translateY(-50%) translateX(0px); /* Vuelve a su posición al hacer hover */
 }
 
 .schedule-item .actions button {
-    background-color: rgba(0,0,0,0.4);
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    border: none;
-    cursor: pointer;
-    color: white;
-    font-size: 12px;
-    line-height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 18px; /* Botones más pequeños */
+    height: 18px;
+    font-size: 10px;
 }
+
+/* Líneas de media hora sin cambios */
+.grid-cell::after {
+    content: '';
+    position: absolute;
+    bottom: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #f3f4f6;
+    z-index: 0;
+}
+
+/* --- FIN DEL BLOQUE --- */
 
 /* NUEVO: Líneas de media hora en la rejilla */
 .grid-cell::after {
