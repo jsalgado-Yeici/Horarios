@@ -950,14 +950,62 @@ async function handleDrop(e) {
     document.querySelectorAll('.grid-cell.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
     const cell = e.target.closest('.grid-cell');
     if (!cell) return;
-    const presetId = e.dataTransfer.getData('text/plain');
-    const preset = localState.presets.find(p => p.id === presetId);
-    if (!preset) return;
-    const classData = { teacherId: preset.teacherId, subjectId: preset.subjectId, groupId: preset.groupId, day: cell.dataset.day, startTime: parseInt(cell.dataset.hour), duration: 1 };
-    if (checkConflict(classData)) return notification.show("Conflicto de horario al soltar la plantilla.", true);
-    try { await addDoc(scheduleCol, classData); notification.show("Clase agregada desde plantilla."); } catch (error) { notification.show("Error al agregar la clase.", true); }
-}
 
+    const day = cell.dataset.day;
+    const startTime = parseInt(cell.dataset.hour);
+
+    // Intentamos obtener datos de una materia (que vienen en formato JSON)
+    try {
+        const subjectData = JSON.parse(e.dataTransfer.getData('application/json'));
+        if (subjectData.type === 'Materia') {
+            const subjectId = subjectData.id;
+            // ¡Éxito! Llamamos a la función que abrirá el modal en el futuro
+            openAssignmentModal(subjectId, day, startTime);
+            return; // Detenemos la ejecución aquí
+        }
+    } catch (error) {
+        // No era una materia, podría ser una plantilla. Continuamos...
+    }
+
+    // Lógica original para manejar plantillas (presets)
+    try {
+        const presetId = e.dataTransfer.getData('text/plain');
+        if (presetId) {
+            const preset = localState.presets.find(p => p.id === presetId);
+            if (!preset) return;
+
+            const classData = { teacherId: preset.teacherId, subjectId: preset.subjectId, groupId: preset.groupId, day: day, startTime: startTime, duration: 1 };
+            
+            if (checkConflict(classData)) {
+                return notification.show("Conflicto de horario al soltar la plantilla.", true);
+            }
+            await addDoc(scheduleCol, classData);
+            notification.show("Clase agregada desde plantilla.");
+        }
+    } catch (error) {
+        notification.show("Error al procesar el elemento soltado.", true);
+        console.error("Drop error:", error);
+    }
+}
+function openAssignmentModal(subjectId, day, startTime) {
+    const subject = localState.subjects.find(s => s.id === subjectId);
+    if (!subject) {
+        console.error("No se encontró la materia con ID:", subjectId);
+        return;
+    }
+
+    // Esta es la confirmación de que todo funciona.
+    // En el siguiente paso, reemplazaremos esta alerta con un modal de verdad.
+    alert(`
+        ¡Drag and Drop exitoso!
+
+        Materia: ${subject.name}
+        Día: ${day}
+        Hora de inicio: ${startTime}:00
+        
+        Siguiente paso: construir aquí la ventana para asignar profesor y grupo.
+    `);
+}
 function handleManagementDragStart(e) {
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
