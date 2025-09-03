@@ -273,8 +273,10 @@ body {
 }
 
 .management-item.dragging {
-    opacity: 0.5;
+    opacity: 0.8;
     cursor: grabbing;
+    background-color: #e0f2fe; /* Azul claro */
+    border: 1px dashed #3b82f6; /* Borde punteado azul */
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
