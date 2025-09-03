@@ -482,15 +482,26 @@ function populateTrimesterFilter() {
 function renderScheduleGrid() {
     if (!dom.scheduleGrid) return;
     dom.scheduleGrid.innerHTML = '';
-    dom.scheduleGrid.appendChild(document.createElement('div'));
-    days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
+    
+    // Header vacío para la esquina
+    dom.scheduleGrid.appendChild(document.createElement('div')); 
+    
+    // Cabeceras de los días
+    days.forEach(day => { 
+        const header = document.createElement('div'); 
+        header.className = 'grid-header'; 
+        header.textContent = day; 
+        dom.scheduleGrid.appendChild(header); 
+    });
 
     timeSlots.forEach(time => {
+        // Franja horaria (ej: 8:00 - 9:00)
         const timeSlot = document.createElement('div');
         timeSlot.className = 'grid-time-slot';
         timeSlot.textContent = `${time}:00 - ${time + 1}:00`;
         dom.scheduleGrid.appendChild(timeSlot);
 
+        // Celdas del horario para cada día
         days.forEach(day => {
             const cell = document.createElement('div');
             cell.className = 'grid-cell';
@@ -518,71 +529,78 @@ function renderScheduleGrid() {
 
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
-        dayEvents.forEach(c => {
-            const teacher = localState.teachers.find(t => t.id === c.teacherId);
-            const subject = localState.subjects.find(s => s.id === c.subjectId);
-            const group = localState.groups.find(g => g.id === c.groupId);
-            if (!teacher || !subject || !group) return;
-            const timeIndex = timeSlots.indexOf(c.startTime);
-            if (timeIndex === -1) return;
-
-            const overlaps = dayEvents.filter(e => (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
-            const totalOverlaps = overlaps.length;
-            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'schedule-item';
-            itemDiv.dataset.classId = c.id;
-            
-            // --- INICIO DE CAMBIOS DE LÓGICA Y ESTILO ---
-            
-            const subjectColor = getSubjectColor(subject.id);
-            // CAMBIO: Usamos el color para el borde y un fondo transparente
-            itemDiv.style.borderColor = subjectColor;
-            itemDiv.style.backgroundColor = `${subjectColor}20`; // El '20' al final añade transparencia
-
-            const timeColumnWidth = 120;
-            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
-
-            // CAMBIO: Lógica de cascada para superposiciones
-            // Cada elemento ocupa el 85% del ancho. Los elementos superpuestos se desplazan un 12%
-            const itemWidth = totalOverlaps > 1 ? `85%` : '95%';
-            const itemLeft = totalOverlaps > 1 ? `${overlapIndex * 12}%` : '2.5%';
-            
-            const originalLeftPosition = timeColumnWidth + 1 + (dayIndex * dayColumnWidth);
-            
-            // Guardamos la posición original para el efecto hover
-            itemDiv.style.setProperty('--original-left', `${originalLeftPosition}px`);
-
-            itemDiv.style.top = `${(timeIndex) * 51 + 51}px`;
-            // Aplicamos el nuevo cálculo de la izquierda
-            itemDiv.style.left = `calc(${originalLeftPosition}px + ${itemLeft})`;
-            itemDiv.style.width = itemWidth;
-            itemDiv.style.height = `${(c.duration * 50) + ((c.duration - 1) * 1)}px`;
-            itemDiv.style.zIndex = 10 + overlapIndex; // Asegura que los items se apilen correctamente
-
-            // CAMBIO: Contenido adaptable
-            let detailsHtml = '';
-            if (c.duration >= 2) {
-                itemDiv.classList.add('has-details');
-                detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
+        
+        // CAMBIO: Agrupamos los eventos por hora de inicio para calcular superposiciones correctamente
+        const eventsByStartTime = {};
+        dayEvents.forEach(e => {
+            const key = e.startTime;
+            if (!eventsByStartTime[key]) {
+                eventsByStartTime[key] = [];
             }
-            
-            itemDiv.innerHTML = `
-                <div class="item-content">
-                    <div class="subject-name">${subject.name}</div>
-                    ${detailsHtml}
-                </div>
-                <div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div>
-                <div class="resize-handle"></div>`;
-                
-            // --- FIN DE CAMBIOS DE LÓGICA Y ESTILO ---
+            eventsByStartTime[key].push(e);
+        });
 
-            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
-            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
-            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
-            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
-            dom.scheduleGrid.appendChild(itemDiv);
+        Object.keys(eventsByStartTime).forEach(startTimeKey => {
+            const eventsAtThisTime = eventsByStartTime[startTimeKey];
+            const totalOverlaps = eventsAtThisTime.length;
+
+            eventsAtThisTime.forEach((c, overlapIndex) => {
+                const teacher = localState.teachers.find(t => t.id === c.teacherId);
+                const subject = localState.subjects.find(s => s.id === c.subjectId);
+                const group = localState.groups.find(g => g.id === c.groupId);
+                if (!teacher || !subject || !group) return;
+
+                const timeIndex = timeSlots.indexOf(c.startTime);
+                if (timeIndex === -1) return;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'schedule-item';
+                itemDiv.dataset.classId = c.id;
+                
+                const subjectColor = getSubjectColor(subject.id);
+                itemDiv.style.borderColor = subjectColor;
+                itemDiv.style.backgroundColor = `${subjectColor}20`;
+
+                // CAMBIO: Posicionamiento para mantenerlo dentro de la columna
+                const gridCellHeight = 51; // Altura de una celda de 1 hora
+                itemDiv.style.top = `${(timeIndex * gridCellHeight) + gridCellHeight}px`; // Ajustamos top
+                itemDiv.style.left = `calc(${100 / (days.length + 1) * (dayIndex + 1)}% + 2.5%)`; // Calcula left basado en la columna del día
+                itemDiv.style.width = `calc(${100 / (days.length + 1)}% - 5%)`; // Asegura que no se salga del día
+                itemDiv.style.height = `${(c.duration * gridCellHeight) - 1}px`;
+                
+                // Ajuste para el efecto cascada, si se quiere. Podríamos quitarlo si el texto vertical lo hace innecesario.
+                // itemDiv.style.left = `calc(${100 / (days.length + 1) * (dayIndex + 1)}% + ${2.5 + (overlapIndex * 2)}%)`; 
+                // itemDiv.style.width = `calc(${100 / (days.length + 1)}% - ${5 + (overlapIndex * 2)}%)`;
+
+                itemDiv.style.zIndex = 10 + overlapIndex;
+
+                let subjectNameDisplay = subject.name;
+                // CAMBIO: Lógica de abreviación si hay muchas superposiciones
+                if (totalOverlaps >= 3 && c.duration < 2) { // Puedes ajustar este umbral (3) y duración (2)
+                    subjectNameDisplay = subject.name.split(' ').map(word => word[0]).join('').toUpperCase();
+                }
+
+                let detailsHtml = '';
+                if (c.duration >= 2) { // Mostrar detalles solo en clases más largas
+                    itemDiv.classList.add('has-details');
+                    detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
+                }
+                
+                // CAMBIO: Añadir la clase 'vertical-text' al contenido principal
+                itemDiv.innerHTML = `
+                    <div class="item-content vertical-text">
+                        <div class="subject-name">${subjectNameDisplay}</div>
+                        ${detailsHtml}
+                    </div>
+                    <div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div>
+                    <div class="resize-handle"></div>`;
+                    
+                const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
+                editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+                deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+                itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
+                dom.scheduleGrid.appendChild(itemDiv);
+            });
         });
     });
 }
