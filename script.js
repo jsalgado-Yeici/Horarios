@@ -547,17 +547,19 @@ function renderScheduleGrid() {
             itemDiv.style.borderColor = subjectColor;
             itemDiv.style.backgroundColor = `${subjectColor}20`;
             
-            // --- NUEVA LÓGICA DE POSICIONAMIENTO Y CONTENIDO ---
-            
             const timeColumnWidth = 120;
             const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
             const gridCellHeight = 51;
 
-            const itemWidth = (dayColumnWidth / totalOverlaps) - 4; // Ancho repartido menos un pequeño margen
-            const itemLeft = (dayColumnWidth / totalOverlaps) * overlapIndex;
+            const itemWidth = (dayColumnWidth / totalOverlaps) - 4;
+            const itemLeftOffsetWithinDay = (dayColumnWidth / totalOverlaps) * overlapIndex;
 
             itemDiv.style.top = `${(timeIndex * gridCellHeight) + gridCellHeight}px`;
-            itemDiv.style.left = `${timeColumnWidth + 2 + itemLeft}px`;
+            
+            // --- CORRECCIÓN CLAVE: Aquí estaba el error ---
+            // Se añade (dayIndex * dayColumnWidth) para posicionar la clase en el día correcto.
+            itemDiv.style.left = `${timeColumnWidth + 2 + (dayIndex * dayColumnWidth) + itemLeftOffsetWithinDay}px`;
+            
             itemDiv.style.width = `${itemWidth}px`;
             itemDiv.style.height = `${(c.duration * gridCellHeight) - 2}px`;
             itemDiv.style.zIndex = 10 + overlapIndex;
@@ -565,12 +567,10 @@ function renderScheduleGrid() {
             let subjectNameDisplay = subject.name;
             let detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
 
-            // "MODO COMPACTO" INTELIGENTE
             if (totalOverlaps >= 3) {
                 subjectNameDisplay = getInitials(subject.name);
-                // Ocultamos los detalles si hay 3 o más clases para maximizar espacio
                 detailsHtml = ''; 
-                itemDiv.style.fontSize = '0.7rem'; // Reducimos un poco más la fuente
+                itemDiv.style.fontSize = '0.7rem';
             }
 
             itemDiv.innerHTML = `
@@ -580,8 +580,6 @@ function renderScheduleGrid() {
                 </div>
                 <div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div>
                 <div class="resize-handle"></div>`;
-            
-            // --- FIN DE LA NUEVA LÓGICA ---
                     
             const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
             editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
