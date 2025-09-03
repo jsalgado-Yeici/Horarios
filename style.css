@@ -39,97 +39,72 @@ body {
     background-color: #e0f2fe; /* Un azul claro */
 }
 
-/* --- INICIA EL BLOQUE PARA REEMPLAZAR Y AÑADIR EN style.css --- */
+/* --- INICIA EL BLOQUE PARA REEMPLAZAR EN style.css --- */
 
-/* REEMPLAZA tu .schedule-item existente con esto */
+/* --- ESTILOS MEJORADOS PARA CLASES SUPERPUESTAS --- */
 .schedule-item {
     position: absolute;
-    padding: 4px 2px; /* Reducimos padding horizontal */
+    padding: 4px 6px;
     border-radius: 6px;
-    font-size: 0.7rem; /* Ligeramente más pequeño para el texto */
-    border-left: 5px solid; 
+    font-size: 0.75rem;
+    line-height: 1.2;
+    border-left: 4px solid; /* Borde un poco más delgado */
     background-color: rgba(255, 255, 255, 0.7); 
     color: #1f2937;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; /* Oculta el texto que no cabe */
     z-index: 10;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     transition: all 0.2s ease-in-out;
-    
-    /* Mantenemos el ancho al 95% para que no desborde */
-    width: 95% !important; 
-    left: 2.5% !important; /* Centramos el 95% */
-    
-    /* CAMBIO CLAVE: Quitamos align-items y justify-content del schedule-item */
-    /* Lo manejaremos dentro del item-content */
+    /* El texto no se partirá */
+    white-space: nowrap; 
 }
 
-/* REEMPLAZA tu .schedule-item:hover existente con esto */
 .schedule-item:hover {
     z-index: 20;
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    /* Al hacer hover, queremos que conserve su ancho actual, no que se expanda */
-    /* Lo mantenemos como está, o incluso podríamos aumentarlo un poco para que se vea mejor si es vertical */
-    /* Para el texto vertical, el width y left no deben cambiar mucho al hacer hover */
-    width: 95% !important; /* Mantenemos el ancho sin cambios */
-    left: 2.5% !important;
+    /* Al pasar el mouse, permitimos que se vea más contenido si estaba oculto */
+    overflow: visible; 
 }
-.item-content {
-    display: flex;
-    flex-direction: column; /* Por defecto, el contenido va hacia abajo */
-    align-items: center; /* Centrado horizontal si no hay rotación */
-    justify-content: center; /* Centrado vertical si no hay rotación */
-    height: 100%;
-    width: 100%;
-    text-align: center;
-    line-height: 1.2; /* Ajustamos la altura de línea */
-}
+
+/* Contenido de la etiqueta */
 .item-content .subject-name {
     font-weight: 600;
 }
-/* NUEVO: Clase para aplicar rotación */
-.rotate-text {
-    /* CAMBIO CLAVE: Rotamos 90 grados, que el texto se lea de arriba a abajo */
-    transform: rotate(-90deg); 
-    white-space: nowrap; /* Evita saltos de línea */
-    /* Ajustes para centrar después de la rotación */
-    transform-origin: center center; 
-    height: auto; 
-    width: auto;
-    max-width: 100%;
-    /* Permitimos que el texto rote sin desbordar el contenedor padre */
-    position: absolute; 
-}
-.schedule-item.has-details .item-details {
-    display: block;
+.item-content .item-details {
+    display: block; /* Siempre visible, pero el overflow del padre lo oculta si no cabe */
+    font-size: 0.7rem;
+    opacity: 0.8;
 }
 
-/* Ajustamos las acciones para que se vean bien con el texto vertical */
+/* Botones de acción */
 .schedule-item .actions {
     position: absolute;
-    /* Ajustamos top y right para que los botones estén en la esquina superior derecha */
     top: 2px;
-    right: 2px; 
+    right: 2px;
     display: flex;
-    flex-direction: row; /* Volvemos a poner los botones en fila */
     gap: 2px;
     opacity: 0;
     transition: opacity 0.2s;
-    transform: none; /* Quitamos el transform del hover */
 }
 
-/* REEMPLAZA tu .schedule-item:hover .actions con esto */
 .schedule-item:hover .actions {
     opacity: 1;
-    transform: none; /* Quitamos el transform del hover */
 }
 
 .schedule-item .actions button {
-    width: 18px; /* Botones más pequeños */
-    height: 18px;
-    font-size: 10px;
+    background-color: rgba(0,0,0,0.4);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    font-size: 12px;
+    line-height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Líneas de media hora sin cambios */
@@ -140,24 +115,9 @@ body {
     left: 0;
     right: 0;
     height: 1px;
-    background-color: #f3f4f6;
-    z-index: 0;
-}
-
-/* --- FIN DEL BLOQUE --- */
-
-/* NUEVO: Líneas de media hora en la rejilla */
-.grid-cell::after {
-    content: '';
-    position: absolute;
-    bottom: 50%;
-    left: 0;
-    right: 0;
-    height: 1px;
     background-color: #f3f4f6; /* Un gris muy claro */
     z-index: 0;
 }
-
 
 /* --- FIN DEL BLOQUE --- */
 /* --- ESTILO: Bloques de Horario Externo (Inglés) --- */
