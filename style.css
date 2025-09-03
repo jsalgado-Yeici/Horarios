@@ -57,14 +57,12 @@ body {
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     transition: all 0.2s ease-in-out;
     
-    /* CAMBIO CLAVE: Establecemos el ancho máximo al 95% para que no se salga */
+    /* Mantenemos el ancho al 95% para que no desborde */
     width: 95% !important; 
     left: 2.5% !important; /* Centramos el 95% */
     
-    /* Flexbox para centrar contenido vertical */
-    align-items: center; 
-    justify-content: center;
-    text-align: center; /* Aseguramos que el texto esté centrado si no rota */
+    /* CAMBIO CLAVE: Quitamos align-items y justify-content del schedule-item */
+    /* Lo manejaremos dentro del item-content */
 }
 
 /* REEMPLAZA tu .schedule-item:hover existente con esto */
@@ -75,29 +73,34 @@ body {
     /* Al hacer hover, queremos que conserve su ancho actual, no que se expanda */
     /* Lo mantenemos como está, o incluso podríamos aumentarlo un poco para que se vea mejor si es vertical */
     /* Para el texto vertical, el width y left no deben cambiar mucho al hacer hover */
+    width: 95% !important; /* Mantenemos el ancho sin cambios */
+    left: 2.5% !important;
 }
-
-/* NUEVO: Clase para texto vertical */
-.vertical-text {
-    writing-mode: vertical-lr; /* Escribe de arriba a abajo, de derecha a izquierda */
-    text-orientation: mixed; /* Para que las letras individuales no roten */
-    transform: rotate(180deg); /* Rotamos 180 grados para que se lea de abajo a arriba */
-    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
-    height: 100%; /* Ocupa la altura completa del contenedor */
-    display: flex; /* Para poder centrarlo verticalmente si es necesario */
-    align-items: center; /* Centrado vertical */
-    justify-content: center; /* Centrado horizontal después de la rotación */
-    padding: 0 2px; /* Un poco de padding horizontal para que no toque los bordes */
+.item-content {
+    display: flex;
+    flex-direction: column; /* Por defecto, el contenido va hacia abajo */
+    align-items: center; /* Centrado horizontal si no hay rotación */
+    justify-content: center; /* Centrado vertical si no hay rotación */
+    height: 100%;
+    width: 100%;
+    text-align: center;
+    line-height: 1.2; /* Ajustamos la altura de línea */
 }
-
-/* Ajustes para el contenido de la etiqueta */
 .item-content .subject-name {
     font-weight: 600;
 }
-.item-content .item-details {
-    display: none;
-    font-size: 0.65rem; /* Un poco más pequeño */
-    opacity: 0.8;
+/* NUEVO: Clase para aplicar rotación */
+.rotate-text {
+    /* CAMBIO CLAVE: Rotamos 90 grados, que el texto se lea de arriba a abajo */
+    transform: rotate(-90deg); 
+    white-space: nowrap; /* Evita saltos de línea */
+    /* Ajustes para centrar después de la rotación */
+    transform-origin: center center; 
+    height: auto; 
+    width: auto;
+    max-width: 100%;
+    /* Permitimos que el texto rote sin desbordar el contenedor padre */
+    position: absolute; 
 }
 .schedule-item.has-details .item-details {
     display: block;
@@ -106,18 +109,21 @@ body {
 /* Ajustamos las acciones para que se vean bien con el texto vertical */
 .schedule-item .actions {
     position: absolute;
-    top: 50%; /* Centrado vertical */
-    right: 0px; /* Pegado al borde derecho */
-    transform: translateY(-50%) translateX(10px); /* Ajuste para que los botones no tapen el texto rotado */
-    flex-direction: column; /* Apilamos los botones verticalmente */
-    gap: 0px; /* Reducimos el espacio entre botones */
+    /* Ajustamos top y right para que los botones estén en la esquina superior derecha */
+    top: 2px;
+    right: 2px; 
+    display: flex;
+    flex-direction: row; /* Volvemos a poner los botones en fila */
+    gap: 2px;
     opacity: 0;
-    transition: all 0.2s;
+    transition: opacity 0.2s;
+    transform: none; /* Quitamos el transform del hover */
 }
 
+/* REEMPLAZA tu .schedule-item:hover .actions con esto */
 .schedule-item:hover .actions {
     opacity: 1;
-    transform: translateY(-50%) translateX(0px); /* Vuelve a su posición al hacer hover */
+    transform: none; /* Quitamos el transform del hover */
 }
 
 .schedule-item .actions button {
