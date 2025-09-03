@@ -483,6 +483,7 @@ function renderScheduleGrid() {
     if (!dom.scheduleGrid) return;
     dom.scheduleGrid.innerHTML = '';
     
+    // Header vacío para la esquina y cabeceras de los días
     dom.scheduleGrid.appendChild(document.createElement('div')); 
     days.forEach(day => { 
         const header = document.createElement('div'); 
@@ -491,6 +492,7 @@ function renderScheduleGrid() {
         dom.scheduleGrid.appendChild(header); 
     });
 
+    // Celdas y franjas horarias
     timeSlots.forEach(time => {
         const timeSlot = document.createElement('div');
         timeSlot.className = 'grid-time-slot';
@@ -524,96 +526,68 @@ function renderScheduleGrid() {
 
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
-        
-        const eventsByStartTime = {};
-        dayEvents.forEach(e => {
-            const key = e.startTime;
-            if (!eventsByStartTime[key]) {
-                eventsByStartTime[key] = [];
+        dayEvents.forEach(c => {
+            const teacher = localState.teachers.find(t => t.id === c.teacherId);
+            const subject = localState.subjects.find(s => s.id === c.subjectId);
+            const group = localState.groups.find(g => g.id === c.groupId);
+            if (!teacher || !subject || !group) return;
+
+            const timeIndex = timeSlots.indexOf(c.startTime);
+            if (timeIndex === -1) return;
+
+            const overlaps = dayEvents.filter(e => (c.startTime < (e.startTime + e.duration)) && ((c.startTime + c.duration) > e.startTime));
+            const totalOverlaps = overlaps.length;
+            const overlapIndex = overlaps.sort((a,b) => a.id.localeCompare(b.id)).indexOf(c);
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'schedule-item';
+            itemDiv.dataset.classId = c.id;
+            
+            const subjectColor = getSubjectColor(subject.id);
+            itemDiv.style.borderColor = subjectColor;
+            itemDiv.style.backgroundColor = `${subjectColor}20`;
+            
+            // --- NUEVA LÓGICA DE POSICIONAMIENTO Y CONTENIDO ---
+            
+            const timeColumnWidth = 120;
+            const dayColumnWidth = (dom.scheduleGrid.offsetWidth - timeColumnWidth) / days.length;
+            const gridCellHeight = 51;
+
+            const itemWidth = (dayColumnWidth / totalOverlaps) - 4; // Ancho repartido menos un pequeño margen
+            const itemLeft = (dayColumnWidth / totalOverlaps) * overlapIndex;
+
+            itemDiv.style.top = `${(timeIndex * gridCellHeight) + gridCellHeight}px`;
+            itemDiv.style.left = `${timeColumnWidth + 2 + itemLeft}px`;
+            itemDiv.style.width = `${itemWidth}px`;
+            itemDiv.style.height = `${(c.duration * gridCellHeight) - 2}px`;
+            itemDiv.style.zIndex = 10 + overlapIndex;
+
+            let subjectNameDisplay = subject.name;
+            let detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
+
+            // "MODO COMPACTO" INTELIGENTE
+            if (totalOverlaps >= 3) {
+                subjectNameDisplay = getInitials(subject.name);
+                // Ocultamos los detalles si hay 3 o más clases para maximizar espacio
+                detailsHtml = ''; 
+                itemDiv.style.fontSize = '0.7rem'; // Reducimos un poco más la fuente
             }
-            eventsByStartTime[key].push(e);
-        });
 
-        Object.keys(eventsByStartTime).forEach(startTimeKey => {
-            const eventsAtThisTime = eventsByStartTime[startTimeKey];
-            const totalOverlaps = eventsAtThisTime.length;
-
-            eventsAtThisTime.forEach((c, overlapIndex) => {
-                const teacher = localState.teachers.find(t => t.id === c.teacherId);
-                const subject = localState.subjects.find(s => s.id === c.subjectId);
-                const group = localState.groups.find(g => g.id === c.groupId);
-                if (!teacher || !subject || !group) return;
-
-                const timeIndex = timeSlots.indexOf(c.startTime);
-                if (timeIndex === -1) return;
-
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'schedule-item';
-                itemDiv.dataset.classId = c.id;
-                
-                const subjectColor = getSubjectColor(subject.id);
-                itemDiv.style.borderColor = subjectColor;
-                itemDiv.style.backgroundColor = `${subjectColor}20`;
-
-                const gridCellHeight = 51; 
-                itemDiv.style.top = `${(timeIndex * gridCellHeight) + gridCellHeight}px`; 
-                itemDiv.style.height = `${(c.duration * gridCellHeight) - 1}px`;
-                
-                // CAMBIO: Lógica de ancho y desplazamiento para superposiciones
-                // Si hay más de una superposición, las hacemos más delgadas y las desplazamos
-                if (totalOverlaps > 1) {
-                    const itemWidthPercentage = 95 / totalOverlaps; // Distribuye el ancho disponible
-                    const itemLeftPercentage = 2.5 + (overlapIndex * itemWidthPercentage); // Desplaza cada una
-                    itemDiv.style.left = `${itemLeftPercentage}%`;
-                    itemDiv.style.width = `${itemWidthPercentage - 2}%`; // Resta un poco para espacio entre ellas
-                } else {
-                    itemDiv.style.left = `2.5%`;
-                    itemDiv.style.width = `95%`;
-                }
-
-                itemDiv.style.zIndex = 10 + overlapIndex;
-
-                let subjectNameDisplay = subject.name;
-                let rotateText = false;
-
-                // CAMBIO: Condiciones para rotar o abreviar
-                const availableHeight = c.duration * gridCellHeight; // Altura en píxeles
-                const requiredHeightForNormalText = 20; // Altura aprox. que necesita una línea de texto horizontal
-                const requiredWidthForNormalText = 80; // Ancho aprox. para texto horizontal sin abreviar
-
-                // Si la clase es muy corta, o hay muchas superposiciones y el ancho es limitado, rotamos el texto
-                if (availableHeight < (requiredHeightForNormalText * 2) || totalOverlaps >= 2) { 
-                    rotateText = true;
-                }
-                
-                // Si el texto es rotado y aún así es muy largo para el ancho, o hay muchas superposiciones, abreviamos
-                const currentWidth = itemDiv.offsetWidth; // No podemos obtenerlo con precisión aquí, mejor basarse en totalOverlaps
-
-                if (rotateText && (totalOverlaps >= 3 || subjectNameDisplay.length > 15)) { // Umbral de abreviación
-                    subjectNameDisplay = subject.name.split(' ').map(word => word[0]).join('').toUpperCase();
-                }
-
-                let detailsHtml = '';
-                // Mostrar detalles solo en clases que duren al menos 2 horas y si no hay demasiadas superposiciones
-                if (c.duration >= 2 && totalOverlaps < 3) { 
-                    itemDiv.classList.add('has-details');
-                    detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
-                }
-                
-                itemDiv.innerHTML = `
-                    <div class="item-content ${rotateText ? 'rotate-text' : ''}">
-                        <div class="subject-name">${subjectNameDisplay}</div>
-                        ${detailsHtml}
-                    </div>
-                    <div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div>
-                    <div class="resize-handle"></div>`;
+            itemDiv.innerHTML = `
+                <div class="item-content">
+                    <div class="subject-name">${subjectNameDisplay}</div>
+                    ${detailsHtml}
+                </div>
+                <div class="actions"><button title="Editar">✏️</button><button title="Eliminar">🗑️</button></div>
+                <div class="resize-handle"></div>`;
+            
+            // --- FIN DE LA NUEVA LÓGICA ---
                     
-                const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
-                editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
-                deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
-                itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
-                dom.scheduleGrid.appendChild(itemDiv);
-            });
+            const [editBtn, deleteBtn] = itemDiv.querySelectorAll('button');
+            editBtn.onclick = (e) => { e.stopPropagation(); editClass(c); };
+            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteClass(c.id, `${subject.name} con ${teacher.name}`); };
+            itemDiv.querySelector('.resize-handle').addEventListener('mousedown', (e) => handleResizeStart(e, c));
+            dom.scheduleGrid.appendChild(itemDiv);
         });
     });
 }
