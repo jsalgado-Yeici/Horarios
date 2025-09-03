@@ -483,10 +483,7 @@ function renderScheduleGrid() {
     if (!dom.scheduleGrid) return;
     dom.scheduleGrid.innerHTML = '';
     
-    // Header vacío para la esquina
     dom.scheduleGrid.appendChild(document.createElement('div')); 
-    
-    // Cabeceras de los días
     days.forEach(day => { 
         const header = document.createElement('div'); 
         header.className = 'grid-header'; 
@@ -495,13 +492,11 @@ function renderScheduleGrid() {
     });
 
     timeSlots.forEach(time => {
-        // Franja horaria (ej: 8:00 - 9:00)
         const timeSlot = document.createElement('div');
         timeSlot.className = 'grid-time-slot';
         timeSlot.textContent = `${time}:00 - ${time + 1}:00`;
         dom.scheduleGrid.appendChild(timeSlot);
 
-        // Celdas del horario para cada día
         days.forEach(day => {
             const cell = document.createElement('div');
             cell.className = 'grid-cell';
@@ -530,7 +525,6 @@ function renderScheduleGrid() {
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
         
-        // CAMBIO: Agrupamos los eventos por hora de inicio para calcular superposiciones correctamente
         const eventsByStartTime = {};
         dayEvents.forEach(e => {
             const key = e.startTime;
@@ -561,34 +555,53 @@ function renderScheduleGrid() {
                 itemDiv.style.borderColor = subjectColor;
                 itemDiv.style.backgroundColor = `${subjectColor}20`;
 
-                // CAMBIO: Posicionamiento para mantenerlo dentro de la columna
-                const gridCellHeight = 51; // Altura de una celda de 1 hora
-                itemDiv.style.top = `${(timeIndex * gridCellHeight) + gridCellHeight}px`; // Ajustamos top
-                itemDiv.style.left = `calc(${100 / (days.length + 1) * (dayIndex + 1)}% + 2.5%)`; // Calcula left basado en la columna del día
-                itemDiv.style.width = `calc(${100 / (days.length + 1)}% - 5%)`; // Asegura que no se salga del día
+                const gridCellHeight = 51; 
+                itemDiv.style.top = `${(timeIndex * gridCellHeight) + gridCellHeight}px`; 
                 itemDiv.style.height = `${(c.duration * gridCellHeight) - 1}px`;
                 
-                // Ajuste para el efecto cascada, si se quiere. Podríamos quitarlo si el texto vertical lo hace innecesario.
-                // itemDiv.style.left = `calc(${100 / (days.length + 1) * (dayIndex + 1)}% + ${2.5 + (overlapIndex * 2)}%)`; 
-                // itemDiv.style.width = `calc(${100 / (days.length + 1)}% - ${5 + (overlapIndex * 2)}%)`;
+                // CAMBIO: Lógica de ancho y desplazamiento para superposiciones
+                // Si hay más de una superposición, las hacemos más delgadas y las desplazamos
+                if (totalOverlaps > 1) {
+                    const itemWidthPercentage = 95 / totalOverlaps; // Distribuye el ancho disponible
+                    const itemLeftPercentage = 2.5 + (overlapIndex * itemWidthPercentage); // Desplaza cada una
+                    itemDiv.style.left = `${itemLeftPercentage}%`;
+                    itemDiv.style.width = `${itemWidthPercentage - 2}%`; // Resta un poco para espacio entre ellas
+                } else {
+                    itemDiv.style.left = `2.5%`;
+                    itemDiv.style.width = `95%`;
+                }
 
                 itemDiv.style.zIndex = 10 + overlapIndex;
 
                 let subjectNameDisplay = subject.name;
-                // CAMBIO: Lógica de abreviación si hay muchas superposiciones
-                if (totalOverlaps >= 3 && c.duration < 2) { // Puedes ajustar este umbral (3) y duración (2)
+                let rotateText = false;
+
+                // CAMBIO: Condiciones para rotar o abreviar
+                const availableHeight = c.duration * gridCellHeight; // Altura en píxeles
+                const requiredHeightForNormalText = 20; // Altura aprox. que necesita una línea de texto horizontal
+                const requiredWidthForNormalText = 80; // Ancho aprox. para texto horizontal sin abreviar
+
+                // Si la clase es muy corta, o hay muchas superposiciones y el ancho es limitado, rotamos el texto
+                if (availableHeight < (requiredHeightForNormalText * 2) || totalOverlaps >= 2) { 
+                    rotateText = true;
+                }
+                
+                // Si el texto es rotado y aún así es muy largo para el ancho, o hay muchas superposiciones, abreviamos
+                const currentWidth = itemDiv.offsetWidth; // No podemos obtenerlo con precisión aquí, mejor basarse en totalOverlaps
+
+                if (rotateText && (totalOverlaps >= 3 || subjectNameDisplay.length > 15)) { // Umbral de abreviación
                     subjectNameDisplay = subject.name.split(' ').map(word => word[0]).join('').toUpperCase();
                 }
 
                 let detailsHtml = '';
-                if (c.duration >= 2) { // Mostrar detalles solo en clases más largas
+                // Mostrar detalles solo en clases que duren al menos 2 horas y si no hay demasiadas superposiciones
+                if (c.duration >= 2 && totalOverlaps < 3) { 
                     itemDiv.classList.add('has-details');
                     detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}</div>`;
                 }
                 
-                // CAMBIO: Añadir la clase 'vertical-text' al contenido principal
                 itemDiv.innerHTML = `
-                    <div class="item-content vertical-text">
+                    <div class="item-content ${rotateText ? 'rotate-text' : ''}">
                         <div class="subject-name">${subjectNameDisplay}</div>
                         ${detailsHtml}
                     </div>
