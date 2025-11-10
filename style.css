@@ -14,7 +14,7 @@ body {
 }
 
 /* Estilos para las celdas de la rejilla (encabezados, horas y celdas de fondo) */
-.grid-header, .grid-time-slot, .grid-cell {
+.grid-header, .grid-time-slot {
     background-color: white;
     display: flex;
     align-items: center;
@@ -39,7 +39,17 @@ body {
     background-color: #e0f2fe; /* Un azul claro */
 }
 
-/* --- INICIA EL BLOQUE PARA REEMPLAZAR EN style.css --- */
+/* --- NUEVO: Estilo de Clic en Celda --- */
+.grid-cell {
+    background-color: white;
+    position: relative;
+    z-index: 1; /* Asegura que la celda esté sobre las líneas ::after */
+    cursor: pointer; /* Invita a hacer clic */
+    transition: background-color 0.2s;
+}
+.grid-cell:hover {
+    background-color: #eff6ff; /* Un azul-gris muy claro */
+}
 
 /* --- ESTILOS MEJORADOS PARA CLASES SUPERPUESTAS --- */
 .schedule-item {
@@ -55,15 +65,14 @@ body {
     z-index: 10;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     transition: all 0.2s ease-in-out;
-    /* El texto no se partirá */
     white-space: nowrap; 
+    cursor: default; /* El cursor normal, ya no es 'pointer' */
 }
 
 .schedule-item:hover {
     z-index: 20;
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    /* Al pasar el mouse, permitimos que se vea más contenido si estaba oculto */
     overflow: visible; 
 }
 
@@ -72,7 +81,7 @@ body {
     font-weight: 600;
 }
 .item-content .item-details {
-    display: block; /* Siempre visible, pero el overflow del padre lo oculta si no cabe */
+    display: block; 
     font-size: 0.7rem;
     opacity: 0.8;
 }
@@ -107,7 +116,7 @@ body {
     justify-content: center;
 }
 
-/* Líneas de media hora sin cambios */
+/* Líneas de media hora */
 .grid-cell::after {
     content: '';
     position: absolute;
@@ -116,10 +125,9 @@ body {
     right: 0;
     height: 1px;
     background-color: #f3f4f6; /* Un gris muy claro */
-    z-index: 0;
+    z-index: -1; /* CAMBIO: Puesto detrás para que el clic funcione */
 }
 
-/* --- FIN DEL BLOQUE --- */
 /* --- ESTILO: Bloques de Horario Externo (Inglés) --- */
 .schedule-block {
     position: absolute;
@@ -384,6 +392,7 @@ body {
 .btn-cyan:hover {
     background-color: #0e7490;
 }
+
 /* --- NUEVOS ESTILOS PARA PESTAÑAS (TABS) --- */
 .tab-button {
     display: flex;
