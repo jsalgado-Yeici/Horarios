@@ -321,6 +321,32 @@ function setupEventListeners() {
     document.querySelectorAll('.collapsible-header').forEach(header => {
         header.addEventListener('click', () => header.parentElement.classList.toggle('collapsed'));
     });
+    // --- NUEVO: Event Listeners para las Pestañas ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Obtener el ID de la pestaña desde el atributo 'data-tab'
+            const tabId = button.dataset.tab;
+
+            // Ocultar todo el contenido
+            tabContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Desactivar todos los botones
+            tabButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Mostrar el contenido de la pestaña seleccionada
+            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+            
+            // Activar el botón seleccionado
+            button.classList.add('active');
+        });
+    });
 }
 
 // --- LÓGICA DE GESTIÓN (AULAS, DOCENTES, ETC) ---
