@@ -45,7 +45,7 @@ const assignedColors = {};
 const getSubjectColor = id => assignedColors[id] || (assignedColors[id] = colorPalette[colorIndex++ % colorPalette.length]);
 let dom = {};
 let isAppStarted = false;
-let isMapEditing = false; // Estado para modo edición de mapa
+let isMapEditing = false; 
 
 // Constantes de días y horas
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
@@ -434,8 +434,6 @@ function setupEventListeners() {
             if (tabId === 'mapa') {
                 renderClassroomMap();
             }
-            // CORRECCION CRUCIAL: Si volvemos al horario, redibujar la grilla
-            // para recalcular anchos (evita que se vea amontonado)
             if (tabId === 'horario') {
                 setTimeout(renderScheduleGrid, 50);
             }
@@ -705,6 +703,45 @@ function toggleMapEditMode() {
     renderClassroomMap(); // Re-renderizar para activar/desactivar listeners
 }
 
+// Nueva función para mostrar la Agenda del Salón
+function showClassroomAgenda(classroomId, day) {
+    const classroom = localState.classrooms.find(c => c.id === classroomId);
+    const classes = localState.schedule
+        .filter(c => c.classroomId === classroomId && c.day === day)
+        .sort((a, b) => a.startTime - b.startTime);
+
+    let html = `<h2 class="text-2xl font-bold mb-4">Agenda: ${classroom.name}</h2>
+                <p class="text-gray-600 mb-4">Horario para el ${day}</p>
+                <div class="space-y-3">`;
+
+    if (classes.length === 0) {
+        html += `<p class="text-center text-gray-500 py-4">No hay clases asignadas para este día.</p>`;
+    } else {
+        classes.forEach(c => {
+            const subject = localState.subjects.find(s => s.id === c.subjectId);
+            const teacher = localState.teachers.find(t => t.id === c.teacherId);
+            const group = localState.groups.find(g => g.id === c.groupId);
+            
+            html += `
+                <div class="flex items-center p-3 bg-gray-50 rounded-lg border-l-4" style="border-left-color: ${getSubjectColor(subject.id)}">
+                    <div class="w-24 font-bold text-gray-700">${c.startTime}:00 - ${c.startTime + c.duration}:00</div>
+                    <div class="flex-1">
+                        <div class="font-semibold">${subject.name}</div>
+                        <div class="text-sm text-gray-600">${teacher.name} • ${group.name}</div>
+                    </div>
+                </div>`;
+        });
+    }
+    
+    html += `</div>
+             <div class="mt-6 text-right">
+                <button id="modal-close-btn" class="btn btn-secondary">Cerrar</button>
+             </div>`;
+
+    modal.show(html);
+    document.getElementById('modal-close-btn').onclick = modal.hide;
+}
+
 function renderClassroomMap() {
     const container = dom.classroomMapContainer;
     if (!container) return;
@@ -722,11 +759,9 @@ function renderClassroomMap() {
     const selectedTime = parseInt(dom.mapTimeSelect.value) || 7;
 
     [...localState.classrooms].forEach(classroom => {
-        // Posición Default si no existe
         const posX = classroom.x !== undefined ? classroom.x : 10;
         const posY = classroom.y !== undefined ? classroom.y : 10;
 
-        // Buscar clase activa
         const activeClass = localState.schedule.find(c => 
             c.classroomId === classroom.id &&
             c.day === selectedDay &&
@@ -741,33 +776,52 @@ function renderClassroomMap() {
         card.dataset.id = classroom.id;
 
         let contentHtml = '';
+        let smartStatusHtml = '';
+
         if (activeClass) {
             const teacher = localState.teachers.find(t => t.id === activeClass.teacherId);
             const subject = localState.subjects.find(s => s.id === activeClass.subjectId);
             const group = localState.groups.find(g => g.id === activeClass.groupId);
+            
+            const endTime = activeClass.startTime + activeClass.duration;
+            smartStatusHtml = `<div class="text-xs text-red-500 font-medium mt-1">Ocupado hasta las ${endTime}:00</div>`;
+
             contentHtml = `
                 <div class="header">${classroom.name}</div>
-                <div class="status text-red-600">● Ocupado</div>
-                <div class="info">
+                ${smartStatusHtml}
+                <div class="info mt-2">
                     <div class="font-bold">${teacher ? teacher.name : 'Desc.'}</div>
                     <div>${group ? group.name : 'Desc.'}</div>
                     <div class="text-xs truncate">${subject ? subject.name : 'Desc.'}</div>
                 </div>
             `;
         } else {
+            // Lógica de "Libre hasta..."
+            const nextClass = localState.schedule
+                .filter(c => c.classroomId === classroom.id && c.day === selectedDay && c.startTime > selectedTime)
+                .sort((a, b) => a.startTime - b.startTime)[0];
+            
+            if (nextClass) {
+                smartStatusHtml = `<div class="text-xs text-green-600 font-medium mt-1">Libre hasta las ${nextClass.startTime}:00</div>`;
+            } else {
+                smartStatusHtml = `<div class="text-xs text-green-600 font-medium mt-1">Libre el resto del día</div>`;
+            }
+
             contentHtml = `
                 <div class="header">${classroom.name}</div>
-                <div class="status text-green-600">● Libre</div>
-                <div class="info text-gray-400 italic">Disponible</div>
+                ${smartStatusHtml}
+                <div class="info mt-2 text-gray-400 italic">Clic para ver agenda</div>
             `;
         }
         
-        // Badge de edición
         const badge = `<div class="edit-badge">✎</div>`;
         card.innerHTML = badge + contentHtml;
 
         if (isMapEditing) {
             card.onmousedown = (e) => handleMapDragStart(e, card, classroom.id);
+        } else {
+            // Hacer clic para ver detalles
+            card.onclick = () => showClassroomAgenda(classroom.id, selectedDay);
         }
 
         container.appendChild(card);
@@ -803,8 +857,6 @@ function handleMapDragStart(e, card, classroomId) {
         
         // Guardar nueva posición
         const containerRect = container.getBoundingClientRect();
-        // Recalcular posición final relativa al contenedor
-        // Nota: leemos directamente del style que actualizamos en move
         const finalX = parseInt(card.style.left); 
         const finalY = parseInt(card.style.top);
 
@@ -817,10 +869,7 @@ function handleMapDragStart(e, card, classroomId) {
 
 function renderScheduleGrid() {
     if (!dom.scheduleGrid) return;
-    
-    // VALIDACIÓN IMPORTANTE: Si la pestaña no es visible, el offsetWidth es 0
-    // y eso rompe todos los cálculos. Si pasa eso, abortamos.
-    if (dom.scheduleGrid.offsetWidth === 0) return;
+    if (dom.scheduleGrid.offsetWidth === 0) return; // Evitar render si está oculto
 
     dom.scheduleGrid.innerHTML = '';
     dom.scheduleGrid.appendChild(document.createElement('div'));
