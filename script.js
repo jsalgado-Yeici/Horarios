@@ -69,7 +69,7 @@ const notification = {
     }
 };
 
-// --- Sistema de Modal (Confirmaciones y Formularios) ---
+// --- Sistema de Modal ---
 const modal = {
     el: document.getElementById('modal'),
     content: document.getElementById('modal-content'),
@@ -104,8 +104,6 @@ const modal = {
     showClassForm(defaults = null) {
         const isEditing = defaults && defaults.id;
         const title = isEditing ? 'Editando Clase' : 'Agregar Nueva Clase';
-        
-        // Generar opciones de Aulas
         const classroomOptions = localState.classrooms.sort(sortByName)
             .map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
@@ -115,9 +113,7 @@ const modal = {
                 <div><label class="block text-sm font-medium">Materia</label><select id="subject-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Grupo</label><select id="group-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Docente</label><select id="teacher-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                
                 <div><label class="block text-sm font-medium">Aula</label><select id="classroom-select" class="mt-1 block w-full p-2 border rounded-lg"><option value="">Seleccionar Aula...</option>${classroomOptions}</select></div>
-                
                 <div><label class="block text-sm font-medium">Día</label><select id="day-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Hora Inicio</label><select id="time-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Duración (hrs)</label><input type="number" id="duration-input" value="1" min="1" max="8" class="mt-1 block w-full p-2 border rounded-lg"></div>
@@ -130,16 +126,12 @@ const modal = {
         `;
         
         this.show(formHtml);
-
         const daySelect = document.getElementById('day-select');
         const timeSelect = document.getElementById('time-select');
         daySelect.innerHTML = '';
         days.forEach(day => daySelect.add(new Option(day, day)));
-        
         timeSelect.innerHTML = '';
-        timeSlots.forEach(h => {
-            timeSelect.add(new Option(`${String(h).padStart(2, '0')}:00`, h));
-        });
+        timeSlots.forEach(h => timeSelect.add(new Option(`${String(h).padStart(2, '0')}:00`, h)));
 
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('save-class-btn').onclick = saveClass;
@@ -171,7 +163,7 @@ const modal = {
             subjectSelect.value = defaults.subjectId || '';
             populateGroupFilter(subjectSelect.value, groupSelect);
             groupSelect.value = defaults.groupId || '';
-            classroomSelect.value = defaults.classroomId || ''; // Asignar aula
+            classroomSelect.value = defaults.classroomId || '';
             daySelect.value = defaults.day || 'Lunes';
             timeSelect.value = defaults.startTime || 7;
             document.getElementById('duration-input').value = defaults.duration || 1;
@@ -347,12 +339,10 @@ function startApp() {
         addGroupBtn: document.getElementById('add-group-btn'), 
         groupsByTrimester: document.getElementById('groups-by-trimester'),
         unassignedGroupsContainer: document.getElementById('unassigned-groups-container'),
-        
         openClassModalBtn: document.getElementById('open-class-modal-btn'),
-
         scheduleGrid: document.getElementById('schedule-grid'),
         filterTeacher: document.getElementById('filter-teacher'),
-        filterClassroom: document.getElementById('filter-classroom'), // Nuevo filtro
+        filterClassroom: document.getElementById('filter-classroom'),
         filterGroup: document.getElementById('filter-group'),
         filterTrimester: document.getElementById('filter-trimester'),
         alertsList: document.getElementById('alerts-list'), 
@@ -369,25 +359,32 @@ function startApp() {
         blocksList: document.getElementById('blocks-list'),
         classroomsList: document.getElementById('classrooms-list'),
         addClassroomBtn: document.getElementById('add-classroom-btn'),
+        // Referencias para el Mapa
+        classroomMapGrid: document.getElementById('classroom-map-grid'),
+        mapDaySelect: document.getElementById('map-day-select'),
+        mapTimeSelect: document.getElementById('map-time-select'),
     };
 
     initializeTimeSlots();
     setupEventListeners();
     populateBlockerForm();
     populateTrimesterFilter();
-
-    onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); });
-    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); runPedagogicalAnalysis(); });
-    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.filterGroup, localState.groups, "Todos los Grupos"); updateWorkloadSummary(); runPedagogicalAnalysis(); });
-    onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
-    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
-    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); updateWorkloadSummary(); });
     
-    // Snapshot para aulas con poblado del filtro
+    // Rellenar selector de horas del mapa
+    dom.mapTimeSelect.innerHTML = '';
+    timeSlots.forEach(h => dom.mapTimeSelect.add(new Option(`${h}:00 - ${h+1}:00`, h)));
+
+    onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); renderClassroomMap(); });
+    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); runPedagogicalAnalysis(); renderClassroomMap(); });
+    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.filterGroup, localState.groups, "Todos los Grupos"); updateWorkloadSummary(); runPedagogicalAnalysis(); renderClassroomMap(); });
+    onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); renderClassroomMap(); });
+    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
+    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); updateWorkloadSummary(); renderClassroomMap(); });
     onSnapshot(classroomsCol, s => { 
         localState.classrooms = s.docs.map(d => ({ id: d.id, ...d.data() })); 
         renderClassroomsList(); 
         populateSelect(dom.filterClassroom, localState.classrooms, 'Todas las Aulas');
+        renderClassroomMap(); // Renderizar mapa al cargar aulas
     });
 }
 
@@ -399,13 +396,17 @@ function setupEventListeners() {
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
     dom.filterTrimester.onchange = renderScheduleGrid;
-    dom.filterClassroom.onchange = renderScheduleGrid; // Nuevo evento
+    dom.filterClassroom.onchange = renderScheduleGrid;
     
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
     dom.addBlockBtn.onclick = addBlock;
     dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
     dom.openClassModalBtn.onclick = () => modal.showClassForm(); 
     dom.addClassroomBtn.onclick = addClassroom;
+    
+    // Listeners del Mapa
+    dom.mapDaySelect.onchange = renderClassroomMap;
+    dom.mapTimeSelect.onchange = renderClassroomMap;
     
     document.querySelectorAll('.collapsible-header').forEach(header => {
         header.addEventListener('click', () => header.parentElement.classList.toggle('collapsed'));
@@ -660,11 +661,68 @@ function renderBlocksList() {
         dom.blocksList.appendChild(blockDiv);
     });
 }
-// --- LÓGICA DEL HORARIO (DRAG & DROP, RENDERIZADO) ---
+
+// --- LÓGICA DEL HORARIO Y MAPA (RENDERIZADO) ---
 
 function populateTrimesterFilter() {
     dom.filterTrimester.innerHTML = '<option value="">Todos los Cuatris</option>';
     for (let i = 1; i <= 9; i++) dom.filterTrimester.add(new Option(`Cuatrimestre ${i}`, i));
+}
+
+// --- NUEVA FUNCIÓN: RENDERIZAR MAPA DE AULAS ---
+function renderClassroomMap() {
+    if (!dom.classroomMapGrid) return;
+    dom.classroomMapGrid.innerHTML = '';
+
+    const selectedDay = dom.mapDaySelect.value;
+    const selectedTime = parseInt(dom.mapTimeSelect.value) || 7; // Default 7am
+
+    if (localState.classrooms.length === 0) {
+        dom.classroomMapGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">No hay aulas registradas. Ve a "Gestión Académica" para agregar salones.</p>';
+        return;
+    }
+
+    [...localState.classrooms].sort(sortByName).forEach(classroom => {
+        // Buscar clase en este salón, día y hora
+        const activeClass = localState.schedule.find(c => 
+            c.classroomId === classroom.id &&
+            c.day === selectedDay &&
+            c.startTime <= selectedTime &&
+            (c.startTime + c.duration) > selectedTime
+        );
+
+        const card = document.createElement('div');
+        card.className = `classroom-card ${activeClass ? 'occupied' : 'free'}`;
+
+        let statusHtml = '';
+        if (activeClass) {
+            const teacher = localState.teachers.find(t => t.id === activeClass.teacherId);
+            const subject = localState.subjects.find(s => s.id === activeClass.subjectId);
+            const group = localState.groups.find(g => g.id === activeClass.groupId);
+            
+            statusHtml = `
+                <div class="classroom-status status-occupied">● Ocupado</div>
+                <div class="classroom-details">
+                    <strong class="text-lg">${teacher ? teacher.name : 'Desc.'}</strong>
+                    <span>${subject ? subject.name : 'Desc.'}</span>
+                    <span class="text-sm bg-gray-100 px-2 py-1 rounded mt-1 inline-block">${group ? group.name : 'Desc.'}</span>
+                </div>
+            `;
+        } else {
+            statusHtml = `
+                <div class="classroom-status status-free">● Libre</div>
+                <div class="classroom-details text-gray-400 italic">
+                    Disponible para asignación
+                </div>
+            `;
+        }
+
+        card.innerHTML = `
+            <div class="classroom-header">${classroom.name}</div>
+            <div>${statusHtml}</div>
+        `;
+        dom.classroomMapGrid.appendChild(card);
+    });
 }
 
 function renderScheduleGrid() {
@@ -679,13 +737,11 @@ function renderScheduleGrid() {
             const cell = document.createElement('div'); cell.className = 'grid-cell'; cell.dataset.day = day; cell.dataset.hour = time;
             cell.addEventListener('dragover', handleDragOver);
             cell.addEventListener('drop', handleDrop);
-            
             cell.onclick = (e) => {
                 if (e.target.classList.contains('grid-cell')) {
                     modal.showClassForm({ day: day, startTime: time });
                 }
             };
-
             dom.scheduleGrid.appendChild(cell);
         });
     });
@@ -694,7 +750,7 @@ function renderScheduleGrid() {
     const selectedTeacher = dom.filterTeacher.value;
     const selectedGroup = dom.filterGroup.value;
     const selectedTrimester = dom.filterTrimester.value;
-    const selectedClassroom = dom.filterClassroom.value; // Filtro de Aula
+    const selectedClassroom = dom.filterClassroom.value;
 
     const filteredSchedule = localState.schedule.filter(c => {
         const group = localState.groups.find(g => g.id === c.groupId);
@@ -735,16 +791,13 @@ function renderScheduleGrid() {
             itemDiv.style.height = `${(c.duration * gridCellHeight) - 2}px`;
             itemDiv.style.zIndex = 10 + overlapIndex;
             
-            // Lógica de visualización (Negrita para aula o vista especial)
             let subjectNameDisplay = subject.name;
             const classroom = localState.classrooms.find(cr => cr.id === c.classroomId);
             let detailsHtml = '';
 
             if (selectedClassroom) {
-                 // Si estamos filtrando por aula, mostrar Profe y Grupo grandes
                  detailsHtml = `<div class="item-details" style="font-weight:bold; color:#000;">${teacher.name}</div><div class="item-details">${group.name}</div>`;
             } else {
-                // Vista normal
                 detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}`;
                 if (classroom) detailsHtml += ` / <b>${classroom.name}</b>`;
                 else detailsHtml += ` / <span style="color:red; font-weight:bold;">?</span>`;
@@ -1024,7 +1077,7 @@ async function saveClass() {
         teacherId: document.getElementById('teacher-select').value,
         subjectId: document.getElementById('subject-select').value,
         groupId: document.getElementById('group-select').value,
-        classroomId: document.getElementById('classroom-select').value, // Guardar el aula
+        classroomId: document.getElementById('classroom-select').value,
         day: document.getElementById('day-select').value,
         startTime: parseInt(document.getElementById('time-select').value),
         duration: parseInt(document.getElementById('duration-input').value)
