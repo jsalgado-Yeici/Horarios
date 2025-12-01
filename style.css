@@ -500,3 +500,11 @@ body {
 .map-container-wrapper.editing .classroom-card .edit-badge {
     opacity: 1;
 }
+.map-container-wrapper:not(.editing) .classroom-card {
+    cursor: pointer;
+}
+
+.map-container-wrapper:not(.editing) .classroom-card:hover {
+    transform: translateY(-2px); /* Se levanta un poquito */
+    border-color: #94a3b8; /* El borde se oscurece */
+}
