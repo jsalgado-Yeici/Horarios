@@ -1,442 +1,10 @@
-// Paso 1: Importar las funciones necesarias desde los SDK de Firebase
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import {
-    getFirestore,
-    collection,
-    doc,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    onSnapshot,
-    writeBatch
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-
-// Paso 2: Configuración de Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyA5jnDVPPYhSuN7D6qzcETKWW3kzkqV1zs",
-  authDomain: "planificador-horarios.firebaseapp.com",
-  projectId: "planificador-horarios",
-  storageBucket: "planificador-horarios.appspot.com",
-  messagingSenderId: "625559113082",
-  appId: "1:625559113082:web:836fb0b09be2a60cf2dac3"
-};
-
-// Paso 3: Inicialización de Firebase y servicios
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-// --- Variables y constantes globales ---
-const appId = 'default-scheduler-app-v2';
-const getCollectionRef = name => collection(db, `artifacts/${appId}/public/data/${name}`);
-const teachersCol = getCollectionRef('teachers');
-const subjectsCol = getCollectionRef('subjects');
-const groupsCol = getCollectionRef('groups');
-const scheduleCol = getCollectionRef('schedule');
-const presetsCol = getCollectionRef('presets');
-const blocksCol = getCollectionRef('blocks');
-const classroomsCol = getCollectionRef('classrooms');
-
-let localState = { teachers: [], subjects: [], groups: [], schedule: [], presets: [], blocks: [], classrooms: [] };
-const colorPalette = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
-let colorIndex = 0;
-const assignedColors = {};
-const getSubjectColor = id => assignedColors[id] || (assignedColors[id] = colorPalette[colorIndex++ % colorPalette.length]);
-let dom = {};
-let isAppStarted = false;
-
-// Constantes de días y horas
-const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
-const timeSlots = []; 
-
-// --- Sistema de Notificaciones Emergentes ---
-const notification = {
-    container: document.getElementById('notification-container'),
-    show(message, isError = false) {
-        const notif = document.createElement('div');
-        notif.className = `notification ${isError ? 'error' : 'success'}`;
-        const icon = isError ?
-            `<svg class="notification-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` :
-            `<svg class="notification-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
-        notif.innerHTML = `${icon}<span class="notification-message">${message}</span>`;
-        this.container.appendChild(notif);
-        requestAnimationFrame(() => notif.classList.add('show'));
-        setTimeout(() => {
-            notif.classList.remove('show');
-            notif.addEventListener('transitionend', () => notif.remove());
-        }, 3000);
-    }
-};
-
-// --- Sistema de Modal ---
-const modal = {
-    el: document.getElementById('modal'),
-    content: document.getElementById('modal-content'),
-    show(htmlContent) {
-        this.content.innerHTML = htmlContent;
-        this.el.classList.remove('hidden');
-    },
-    hide() {
-        this.el.classList.add('hidden');
-        this.content.innerHTML = '';
-    },
-    confirm(title, message, onConfirm) {
-        const confirmHtml = `
-            <div class="text-center">
-                <div class="mx-auto mb-4 text-red-500 w-16 h-16">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-                <h3 class="text-xl font-bold mb-2">${title}</h3>
-                <p class="text-gray-600">${message}</p>
-                <div class="mt-6 flex justify-center gap-4">
-                    <button id="modal-cancel-btn" class="btn btn-secondary">Cancelar</button>
-                    <button id="modal-confirm-btn" class="btn btn-danger">Confirmar</button>
-                </div>
-            </div>`;
-        this.show(confirmHtml);
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-confirm-btn').onclick = () => {
-            this.hide();
-            if (onConfirm) onConfirm();
-        };
-    },
-    showClassForm(defaults = null) {
-        const isEditing = defaults && defaults.id;
-        const title = isEditing ? 'Editando Clase' : 'Agregar Nueva Clase';
-        const classroomOptions = localState.classrooms.sort(sortByName)
-            .map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-
-        const formHtml = `
-            <h2 id="form-title" class="text-2xl font-semibold mb-4">${title}</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                <div><label class="block text-sm font-medium">Materia</label><select id="subject-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                <div><label class="block text-sm font-medium">Grupo</label><select id="group-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                <div><label class="block text-sm font-medium">Docente</label><select id="teacher-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                <div><label class="block text-sm font-medium">Aula</label><select id="classroom-select" class="mt-1 block w-full p-2 border rounded-lg"><option value="">Seleccionar Aula...</option>${classroomOptions}</select></div>
-                <div><label class="block text-sm font-medium">Día</label><select id="day-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                <div><label class="block text-sm font-medium">Hora Inicio</label><select id="time-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
-                <div><label class="block text-sm font-medium">Duración (hrs)</label><input type="number" id="duration-input" value="1" min="1" max="8" class="mt-1 block w-full p-2 border rounded-lg"></div>
-            </div>
-            <div class="mt-6 flex gap-4">
-                <button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button>
-                <button id="save-class-btn" class="w-full btn btn-primary bg-green-600 hover:bg-green-700">Guardar Clase</button>
-            </div>
-            <input type="hidden" id="editing-class-id">
-        `;
-        
-        this.show(formHtml);
-        const daySelect = document.getElementById('day-select');
-        const timeSelect = document.getElementById('time-select');
-        daySelect.innerHTML = '';
-        days.forEach(day => daySelect.add(new Option(day, day)));
-        timeSelect.innerHTML = '';
-        timeSlots.forEach(h => timeSelect.add(new Option(`${String(h).padStart(2, '0')}:00`, h)));
-
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('save-class-btn').onclick = saveClass;
-        
-        const teacherSelect = document.getElementById('teacher-select');
-        const subjectSelect = document.getElementById('subject-select');
-        const groupSelect = document.getElementById('group-select');
-        const classroomSelect = document.getElementById('classroom-select');
-        
-        populateSelect(teacherSelect, localState.teachers, 'Seleccionar Docente');
-        populateFilteredSubjects(subjectSelect, null);
-        populateSelect(groupSelect, localState.groups, "Seleccionar Grupo");
-
-        teacherSelect.onchange = () => populateFilteredSubjects(subjectSelect, teacherSelect.value);
-        groupSelect.onchange = () => {
-             const selectedGroup = localState.groups.find(g => g.id === groupSelect.value);
-             const subjectsToShow = (selectedGroup && selectedGroup.trimester > 0) ? localState.subjects.filter(s => s.trimester == selectedGroup.trimester) : localState.subjects;
-             populateSelect(subjectSelect, subjectsToShow.sort(sortByName), 'Seleccionar Materia');
-        };
-        subjectSelect.onchange = () => {
-             const selectedSubject = localState.subjects.find(s => s.id === subjectSelect.value);
-             const groupsToShow = (selectedSubject && selectedSubject.trimester > 0) ? localState.groups.filter(g => g.trimester == selectedSubject.trimester) : localState.groups;
-             populateSelect(groupSelect, groupsToShow.sort(sortByName), 'Seleccionar Grupo');
-        };
-        
-        if (defaults) {
-            teacherSelect.value = defaults.teacherId || '';
-            populateFilteredSubjects(subjectSelect, defaults.teacherId || null);
-            subjectSelect.value = defaults.subjectId || '';
-            populateGroupFilter(subjectSelect.value, groupSelect);
-            groupSelect.value = defaults.groupId || '';
-            classroomSelect.value = defaults.classroomId || '';
-            daySelect.value = defaults.day || 'Lunes';
-            timeSelect.value = defaults.startTime || 7;
-            document.getElementById('duration-input').value = defaults.duration || 1;
-            document.getElementById('editing-class-id').value = defaults.id || '';
-        }
-    },
-    showTeacherForm(teacher = null) {
-        const isEditing = teacher !== null;
-        const title = isEditing ? 'Editar Perfil de Docente' : 'Nuevo Docente';
-        const groupedSubjects = localState.subjects.reduce((acc, subject) => {
-            const trimester = subject.trimester || 0;
-            if (!acc[trimester]) acc[trimester] = [];
-            acc[trimester].push(subject);
-            return acc;
-        }, {});
-        const sortedTrimesters = Object.keys(groupedSubjects).sort((a, b) => a - b);
-        let subjectsHtml = '';
-        if (localState.subjects.length > 0) {
-            sortedTrimesters.forEach(trimester => {
-                const trimesterName = trimester === '0' ? 'Sin Asignar' : `Cuatrimestre ${trimester}`;
-                subjectsHtml += `<div class="trimester-group"><h4 class="text-md font-semibold text-gray-600 my-2 sticky top-0 bg-gray-50 py-1">${trimesterName}</h4>`;
-                const subjectsInGroup = groupedSubjects[trimester].sort(sortByName);
-                subjectsInGroup.forEach(subject => {
-                    const isChecked = isEditing && teacher.subjects && teacher.subjects.includes(subject.id);
-                    subjectsHtml += `<label class="subject-label flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100"><input type="checkbox" class="subject-checkbox rounded" value="${subject.id}" ${isChecked ? 'checked' : ''}><span>${subject.name}</span></label>`;
-                });
-                subjectsHtml += `</div>`;
-            });
-        } else {
-            subjectsHtml = '<p class="text-sm text-gray-500">No hay materias para asignar.</p>';
-        }
-
-        const formHtml = `
-            <h2 class="text-2xl font-semibold mb-6">${title}</h2>
-            <div class="space-y-4 text-left">
-                <div><label class="block text-sm font-medium text-gray-700">Apodo / Nombre Corto</label><input type="text" id="modal-teacher-name" class="mt-1 block w-full p-2 border rounded-lg" value="${isEditing ? teacher.name : ''}" placeholder="Ej: Alex"></div>
-                <div><label class="block text-sm font-medium text-gray-700">Nombre Completo</label><input type="text" id="modal-teacher-fullname" class="mt-1 block w-full p-2 border rounded-lg" value="${isEditing && teacher.fullName ? teacher.fullName : ''}" placeholder="Ej: Alejandro Hernández"></div>
-                <div><label class="block text-sm font-medium text-gray-700 mb-2">Materias que puede impartir</label><input type="text" id="modal-subject-search" class="w-full p-2 border rounded-lg mb-2" placeholder="Buscar materia..."><div id="subjects-list" class="max-h-60 overflow-y-auto border rounded-lg p-2 bg-gray-50 relative">${subjectsHtml}</div></div>
-            </div>
-            <div class="mt-6 flex gap-4"><button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button><button id="modal-save-btn" class="w-full btn btn-primary">Guardar Cambios</button></div>`;
-        this.show(formHtml);
-
-        const searchInput = document.getElementById('modal-subject-search');
-        searchInput.addEventListener('keyup', () => {
-            const filter = searchInput.value.toLowerCase();
-            document.querySelectorAll('.trimester-group').forEach(group => {
-                let groupVisible = false;
-                group.querySelectorAll('.subject-label').forEach(label => {
-                    const text = label.textContent.toLowerCase();
-                    if (text.includes(filter)) {
-                        label.style.display = 'flex';
-                        groupVisible = true;
-                    } else {
-                        label.style.display = 'none';
-                    }
-                });
-                group.style.display = groupVisible ? 'block' : 'none';
-            });
-        });
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-save-btn').onclick = () => saveTeacher(teacher ? teacher.id : null);
-    },
-    showSubjectForm(subject = null) {
-        const isEditing = subject !== null;
-        const title = isEditing ? 'Editar Materia' : 'Nueva Materia';
-        let trimesterOptions = '';
-        for (let i = 1; i <= 9; i++) {
-            trimesterOptions += `<option value="${i}" ${isEditing && subject.trimester == i ? 'selected' : ''}>Cuatrimestre ${i}</option>`;
-        }
-        const formHtml = `
-            <h2 class="text-2xl font-semibold mb-4">${title}</h2>
-            <div class="space-y-4 text-left">
-                <div><label class="block text-sm font-medium text-gray-700">Nombre de la Materia</label><input type="text" id="modal-subject-name" class="mt-1 block w-full p-2 border rounded-lg" value="${isEditing ? subject.name : ''}"></div>
-                <div><label class="block text-sm font-medium text-gray-700">Cuatrimestre</label><select id="modal-subject-trimester" class="mt-1 block w-full p-2 border rounded-lg"><option value="0" ${isEditing && (!subject.trimester || subject.trimester === 0) ? 'selected' : ''}>Sin Asignar</option>${trimesterOptions}</select></div>
-            </div>
-            <div class="mt-6 flex gap-4"><button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button><button id="modal-save-btn" class="w-full btn btn-indigo">Guardar</button></div>`;
-        this.show(formHtml);
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-save-btn').onclick = () => saveSubject(subject ? subject.id : null);
-    },
-    showGroupForm(group) {
-        const title = 'Editar Grupo';
-        let trimesterOptions = '';
-        for (let i = 1; i <= 9; i++) {
-            trimesterOptions += `<option value="${i}" ${group.trimester == i ? 'selected' : ''}>Cuatrimestre ${i}</option>`;
-        }
-        const formHtml = `
-            <h2 class="text-2xl font-semibold mb-4">${title}</h2>
-            <div class="space-y-4 text-left">
-                <div><label class="block text-sm font-medium text-gray-700">Nombre del Grupo</label><input type="text" id="modal-group-name" class="mt-1 block w-full p-2 border rounded-lg" value="${group.name}"></div>
-                <div><label class="block text-sm font-medium text-gray-700">Cuatrimestre</label><select id="modal-group-trimester" class="mt-1 block w-full p-2 border rounded-lg"><option value="0" ${!group.trimester || group.trimester === 0 ? 'selected' : ''}>Sin Asignar</option>${trimesterOptions}</select></div>
-            </div>
-            <div class="mt-6 flex gap-4"><button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button><button id="modal-save-btn" class="w-full btn btn-purple">Guardar</button></div>`;
-        this.show(formHtml);
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-save-btn').onclick = () => saveGroup(group.id);
-    },
-    showPresetForm() {
-        const formHtml = `
-            <h2 class="text-2xl font-semibold mb-4">Crear Plantilla</h2>
-            <div class="space-y-3 mb-4 text-left">
-                <select id="modal-preset-teacher" class="w-full p-2 border rounded-lg"></select>
-                <select id="modal-preset-subject" class="w-full p-2 border rounded-lg"></select>
-                <select id="modal-preset-group" class="w-full p-2 border rounded-lg"></select>
-            </div>
-            <div class="flex gap-4"><button id="modal-cancel-btn" class="w-full btn btn-secondary">Cancelar</button><button id="modal-save-preset-btn" class="w-full btn btn-cyan">Guardar</button></div>`;
-        this.show(formHtml);
-        const teacherSelect = document.getElementById('modal-preset-teacher');
-        const subjectSelect = document.getElementById('modal-preset-subject');
-        populateSelect(teacherSelect, localState.teachers, 'Seleccionar Docente');
-        populateSelect(subjectSelect, [], 'Seleccione un docente primero');
-        populateSelect(document.getElementById('modal-preset-group'), localState.groups, 'Seleccionar Grupo');
-        teacherSelect.onchange = () => populateFilteredSubjects(subjectSelect, teacherSelect.value);
-        document.getElementById('modal-cancel-btn').onclick = () => this.hide();
-        document.getElementById('modal-save-preset-btn').onclick = savePreset;
-    }
-};
-
-function getInitials(name) {
-    if (!name || typeof name !== 'string') return '';
-    const words = name.trim().split(/\s+/);
-    if (words.length > 1) return words.map(word => word[0]).join('').toUpperCase();
-    return name.substring(0, 3).toUpperCase();
-}
-
-function populateSelect(selectElement, dataArray, placeholderText, defaultOption = true) {
-    if (!selectElement) return;
-    const currentValue = selectElement.value;
-    selectElement.innerHTML = '';
-    if (defaultOption) {
-        selectElement.add(new Option(placeholderText, ''));
-    }
-    dataArray.sort(sortByName).forEach(item => {
-        selectElement.add(new Option(item.name, item.id));
-    });
-    selectElement.value = currentValue;
-}
-
-function populateFilteredSubjects(subjectSelectElement, teacherId) {
-    const teacher = localState.teachers.find(t => t.id === teacherId);
-    if (teacher && teacher.subjects && teacher.subjects.length > 0) {
-        const subjectsToShow = localState.subjects.filter(s => teacher.subjects.includes(s.id));
-        populateSelect(subjectSelectElement, subjectsToShow, 'Seleccionar Materia');
-    } else if (teacher) {
-        populateSelect(subjectSelectElement, [], 'Este docente no tiene materias');
-    } else {
-        populateSelect(subjectSelectElement, localState.subjects, 'Seleccionar Materia');
-    }
-}
-
-function initializeTimeSlots() {
-    if (timeSlots.length > 0) return;
-    for (let h = 7; h < 22; h++) {
-        timeSlots.push(h);
-    }
-}
-
-// --- Lógica principal de la aplicación ---
-function startApp() {
-    if (isAppStarted) return;
-    isAppStarted = true;
-    console.log("App iniciada.");
-
-    dom = {
-        addTeacherBtn: document.getElementById('add-teacher-btn'),
-        teachersList: document.getElementById('teachers-list'),
-        subjectsByTrimester: document.getElementById('subjects-by-trimester'), 
-        openSubjectModalBtn: document.getElementById('open-subject-modal-btn'),
-        unassignedSubjectsContainer: document.getElementById('unassigned-subjects-container'),
-        groupPrefixSelect: document.getElementById('group-prefix-select'), 
-        groupNumberInput: document.getElementById('group-number-input'),
-        groupTrimesterSelect: document.getElementById('group-trimester-select'),
-        addGroupBtn: document.getElementById('add-group-btn'), 
-        groupsByTrimester: document.getElementById('groups-by-trimester'),
-        unassignedGroupsContainer: document.getElementById('unassigned-groups-container'),
-        openClassModalBtn: document.getElementById('open-class-modal-btn'),
-        scheduleGrid: document.getElementById('schedule-grid'),
-        filterTeacher: document.getElementById('filter-teacher'),
-        filterClassroom: document.getElementById('filter-classroom'),
-        filterGroup: document.getElementById('filter-group'),
-        filterTrimester: document.getElementById('filter-trimester'),
-        alertsList: document.getElementById('alerts-list'), 
-        noAlertsMessage: document.getElementById('no-alerts-message'),
-        teacherWorkload: document.getElementById('teacher-workload'), 
-        groupWorkload: document.getElementById('group-workload'),
-        advanceTrimesterBtn: document.getElementById('advance-trimester-btn'),
-        openPresetModalBtn: document.getElementById('open-preset-modal-btn'),
-        presetsList: document.getElementById('presets-list'),
-        blockTrimester: document.getElementById('block-trimester'),
-        blockTime: document.getElementById('block-time'),
-        blockDays: document.getElementById('block-days'),
-        addBlockBtn: document.getElementById('add-block-btn'),
-        blocksList: document.getElementById('blocks-list'),
-        classroomsList: document.getElementById('classrooms-list'),
-        addClassroomBtn: document.getElementById('add-classroom-btn'),
-        // Referencias para el Mapa
-        classroomMapGrid: document.getElementById('classroom-map-grid'),
-        mapDaySelect: document.getElementById('map-day-select'),
-        mapTimeSelect: document.getElementById('map-time-select'),
-    };
-
-    initializeTimeSlots();
-    setupEventListeners();
-    populateBlockerForm();
-    populateTrimesterFilter();
-    
-    // Rellenar selector de horas del mapa
-    dom.mapTimeSelect.innerHTML = '';
-    timeSlots.forEach(h => dom.mapTimeSelect.add(new Option(`${h}:00 - ${h+1}:00`, h)));
-
-    onSnapshot(teachersCol, s => { localState.teachers = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTeachersList(); populateSelect(dom.filterTeacher, localState.teachers, 'Todos los Docentes'); updateWorkloadSummary(); renderClassroomMap(); });
-    onSnapshot(subjectsCol, s => { localState.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); renderSubjectsByTrimester(); runPedagogicalAnalysis(); renderClassroomMap(); });
-    onSnapshot(groupsCol, s => { localState.groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroupsByTrimester(); populateSelect(dom.filterGroup, localState.groups, "Todos los Grupos"); updateWorkloadSummary(); runPedagogicalAnalysis(); renderClassroomMap(); });
-    onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); renderClassroomMap(); });
-    onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
-    onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); updateWorkloadSummary(); renderClassroomMap(); });
-    onSnapshot(classroomsCol, s => { 
-        localState.classrooms = s.docs.map(d => ({ id: d.id, ...d.data() })); 
-        renderClassroomsList(); 
-        populateSelect(dom.filterClassroom, localState.classrooms, 'Todas las Aulas');
-        renderClassroomMap(); // Renderizar mapa al cargar aulas
-    });
-}
-
-function setupEventListeners() {
-    dom.addTeacherBtn.onclick = () => modal.showTeacherForm();
-    dom.addGroupBtn.onclick = addGroup;
-    dom.openSubjectModalBtn.onclick = () => modal.showSubjectForm();
-    
-    dom.filterTeacher.onchange = renderScheduleGrid;
-    dom.filterGroup.onchange = renderScheduleGrid;
-    dom.filterTrimester.onchange = renderScheduleGrid;
-    dom.filterClassroom.onchange = renderScheduleGrid;
-    
-    dom.advanceTrimesterBtn.onclick = advanceAllGroups;
-    dom.addBlockBtn.onclick = addBlock;
-    dom.openPresetModalBtn.onclick = () => modal.showPresetForm();
-    dom.openClassModalBtn.onclick = () => modal.showClassForm(); 
-    dom.addClassroomBtn.onclick = addClassroom;
-    
-    // Listeners del Mapa
-    dom.mapDaySelect.onchange = renderClassroomMap;
-    dom.mapTimeSelect.onchange = renderClassroomMap;
-    
-    document.querySelectorAll('.collapsible-header').forEach(header => {
-        header.addEventListener('click', () => header.parentElement.classList.toggle('collapsed'));
-    });
-
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tabId = button.dataset.tab;
-            tabContents.forEach(content => {
-                content.classList.add('hidden');
-            });
-            tabButtons.forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
-            button.classList.add('active');
-        });
-    });
-}
-
 // --- LÓGICA DE GESTIÓN (AULAS, DOCENTES, ETC) ---
 async function addClassroom() {
     const nameInput = document.getElementById('classroom-name');
     const name = nameInput.value.trim();
     if (!name) return notification.show("El nombre del aula no puede estar vacío.", true);
     try {
-        await addDoc(classroomsCol, { name });
+        await addDoc(classroomsCol, { name, x: 10, y: 10 }); // Posición default
         notification.show(`Aula "${name}" agregada.`);
         nameInput.value = '';
     } catch (e) {
@@ -669,21 +237,51 @@ function populateTrimesterFilter() {
     for (let i = 1; i <= 9; i++) dom.filterTrimester.add(new Option(`Cuatrimestre ${i}`, i));
 }
 
-// --- NUEVA FUNCIÓN: RENDERIZAR MAPA DE AULAS ---
+// --- LÓGICA DEL MAPA DE AULAS ---
+function toggleMapEditMode() {
+    isMapEditing = !isMapEditing;
+    const container = dom.classroomMapContainer;
+    
+    if (isMapEditing) {
+        dom.toggleMapEditBtn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span>Guardar Distribución</span>`;
+        dom.toggleMapEditBtn.className = "bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors";
+        container.classList.add('editing');
+        notification.show("Modo Edición Activado: Arrastra los salones.");
+    } else {
+        dom.toggleMapEditBtn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            <span>Editar Distribución</span>`;
+        dom.toggleMapEditBtn.className = "bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 flex items-center gap-2 transition-colors";
+        container.classList.remove('editing');
+        notification.show("Distribución Guardada.");
+    }
+    renderClassroomMap(); // Re-renderizar para activar/desactivar listeners
+}
+
 function renderClassroomMap() {
-    if (!dom.classroomMapGrid) return;
-    dom.classroomMapGrid.innerHTML = '';
-
-    const selectedDay = dom.mapDaySelect.value;
-    const selectedTime = parseInt(dom.mapTimeSelect.value) || 7; // Default 7am
-
+    const container = dom.classroomMapContainer;
+    if (!container) return;
+    container.innerHTML = '';
+    const placeholder = document.createElement('p');
+    placeholder.className = 'text-center text-gray-400 mt-20 pointer-events-none select-none';
+    
     if (localState.classrooms.length === 0) {
-        dom.classroomMapGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">No hay aulas registradas. Ve a "Gestión Académica" para agregar salones.</p>';
+        placeholder.textContent = 'No hay aulas registradas.';
+        container.appendChild(placeholder);
         return;
     }
 
-    [...localState.classrooms].sort(sortByName).forEach(classroom => {
-        // Buscar clase en este salón, día y hora
+    const selectedDay = dom.mapDaySelect.value;
+    const selectedTime = parseInt(dom.mapTimeSelect.value) || 7;
+
+    [...localState.classrooms].forEach(classroom => {
+        // Posición Default si no existe
+        const posX = classroom.x !== undefined ? classroom.x : 10;
+        const posY = classroom.y !== undefined ? classroom.y : 10;
+
+        // Buscar clase activa
         const activeClass = localState.schedule.find(c => 
             c.classroomId === classroom.id &&
             c.day === selectedDay &&
@@ -693,36 +291,83 @@ function renderClassroomMap() {
 
         const card = document.createElement('div');
         card.className = `classroom-card ${activeClass ? 'occupied' : 'free'}`;
+        card.style.left = `${posX}px`;
+        card.style.top = `${posY}px`;
+        card.dataset.id = classroom.id;
 
-        let statusHtml = '';
+        let contentHtml = '';
         if (activeClass) {
             const teacher = localState.teachers.find(t => t.id === activeClass.teacherId);
             const subject = localState.subjects.find(s => s.id === activeClass.subjectId);
             const group = localState.groups.find(g => g.id === activeClass.groupId);
-            
-            statusHtml = `
-                <div class="classroom-status status-occupied">● Ocupado</div>
-                <div class="classroom-details">
-                    <strong class="text-lg">${teacher ? teacher.name : 'Desc.'}</strong>
-                    <span>${subject ? subject.name : 'Desc.'}</span>
-                    <span class="text-sm bg-gray-100 px-2 py-1 rounded mt-1 inline-block">${group ? group.name : 'Desc.'}</span>
+            contentHtml = `
+                <div class="header">${classroom.name}</div>
+                <div class="status text-red-600">● Ocupado</div>
+                <div class="info">
+                    <div class="font-bold">${teacher ? teacher.name : 'Desc.'}</div>
+                    <div>${group ? group.name : 'Desc.'}</div>
+                    <div class="text-xs truncate">${subject ? subject.name : 'Desc.'}</div>
                 </div>
             `;
         } else {
-            statusHtml = `
-                <div class="classroom-status status-free">● Libre</div>
-                <div class="classroom-details text-gray-400 italic">
-                    Disponible para asignación
-                </div>
+            contentHtml = `
+                <div class="header">${classroom.name}</div>
+                <div class="status text-green-600">● Libre</div>
+                <div class="info text-gray-400 italic">Disponible</div>
             `;
         }
+        
+        // Badge de edición
+        const badge = `<div class="edit-badge">✎</div>`;
+        card.innerHTML = badge + contentHtml;
 
-        card.innerHTML = `
-            <div class="classroom-header">${classroom.name}</div>
-            <div>${statusHtml}</div>
-        `;
-        dom.classroomMapGrid.appendChild(card);
+        if (isMapEditing) {
+            card.onmousedown = (e) => handleMapDragStart(e, card, classroom.id);
+        }
+
+        container.appendChild(card);
     });
+}
+
+// Lógica de arrastre del mapa
+function handleMapDragStart(e, card, classroomId) {
+    e.preventDefault();
+    const container = dom.classroomMapContainer;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const rect = card.getBoundingClientRect();
+    const offsetX = startX - rect.left;
+    const offsetY = startY - rect.top;
+
+    function onMouseMove(e) {
+        const containerRect = container.getBoundingClientRect();
+        let newLeft = e.clientX - containerRect.left - offsetX;
+        let newTop = e.clientY - containerRect.top - offsetY;
+
+        // Límites
+        newLeft = Math.max(0, Math.min(newLeft, containerRect.width - card.offsetWidth));
+        newTop = Math.max(0, Math.min(newTop, containerRect.height - card.offsetHeight));
+
+        card.style.left = `${newLeft}px`;
+        card.style.top = `${newTop}px`;
+    }
+
+    function onMouseUp(e) {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        
+        // Guardar nueva posición
+        const containerRect = container.getBoundingClientRect();
+        // Recalcular posición final relativa al contenedor
+        // Nota: leemos directamente del style que actualizamos en move
+        const finalX = parseInt(card.style.left); 
+        const finalY = parseInt(card.style.top);
+
+        updateDoc(doc(classroomsCol, classroomId), { x: finalX, y: finalY });
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 }
 
 function renderScheduleGrid() {
