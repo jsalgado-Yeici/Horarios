@@ -410,67 +410,93 @@ body {
     color: #111827; /* text-gray-900 */
     background-color: #f9fafb; /* bg-gray-50 */
 }
-/* --- ESTILOS PARA EL MAPA DE AULAS (CROQUIS) --- */
-.map-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.5rem;
-    padding: 1rem;
+/* --- ESTILOS PARA EL MAPA DE AULAS (TIPO CROQUIS) --- */
+.map-container-wrapper {
+    position: relative;
+    width: 100%;
+    height: 600px; /* Altura del área del mapa */
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background-color: #f8fafc;
+    overflow: hidden;
+    background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+    background-size: 20px 20px; /* Cuadrícula de guía */
+    transition: border-color 0.3s;
+}
+
+.map-container-wrapper.editing {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+    cursor: grab;
 }
 
 .classroom-card {
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1rem;
+    position: absolute; /* Importante para moverlos */
+    width: 180px;
+    padding: 0.75rem;
     background-color: white;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-height: 140px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    user-select: none; /* Evita seleccionar texto al arrastrar */
+    transition: transform 0.1s, box-shadow 0.2s, background-color 0.3s;
+    z-index: 10;
+}
+
+.classroom-card:hover {
+    z-index: 20; /* Que se ponga encima al pasar el mouse */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .classroom-card.free {
-    border-color: #86efac; /* Verde claro */
-    background-color: #f0fdf4; /* Fondo verde muy pálido */
+    border-top: 4px solid #4ade80; /* Barra verde */
 }
 
 .classroom-card.occupied {
-    border-color: #fca5a5; /* Rojo claro */
-    background-color: #fef2f2; /* Fondo rojo muy pálido */
+    border-top: 4px solid #f87171; /* Barra roja */
+    background-color: #fef2f2;
 }
 
-.classroom-header {
+.classroom-card .header {
     font-weight: 700;
-    font-size: 1.1rem;
-    color: #374151;
-    margin-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(0,0,0,0.1);
-    padding-bottom: 0.5rem;
-}
-
-.classroom-status {
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
-}
-
-.status-free { color: #16a34a; }
-.status-occupied { color: #dc2626; }
-
-.classroom-details {
-    font-size: 0.9rem;
-    color: #4b5563;
-}
-
-.classroom-details strong {
-    display: block;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
     color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.tab-button.active {
-    color: #4f46e5; /* text-indigo-600 */
-    border-bottom-color: #4f46e5; /* border-indigo-600 */
+
+.classroom-card .status {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.classroom-card .info {
+    font-size: 0.8rem;
+    color: #4b5563;
+    line-height: 1.2;
+}
+
+/* Indicador de modo edición */
+.edit-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #3b82f6;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.map-container-wrapper.editing .classroom-card .edit-badge {
+    opacity: 1;
 }
