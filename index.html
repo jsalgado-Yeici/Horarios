@@ -75,30 +75,44 @@
 
         <div id="tab-content-mapa" class="tab-content hidden">
             <div class="bg-white p-6 rounded-xl shadow-md">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <div>
                         <h2 class="text-2xl font-semibold">Mapa de Aulas en Vivo</h2>
-                        <p class="text-gray-500">Consulta qué está pasando en cada salón en un momento específico.</p>
+                        <p class="text-sm text-gray-500">Arrastra los salones en "Modo Edición" para acomodarlos como en la realidad.</p>
                     </div>
-                    <div class="flex gap-4 items-end">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Día</label>
-                            <select id="map-day-select" class="mt-1 block w-40 p-2 border rounded-lg bg-gray-50">
-                                <option value="Lunes">Lunes</option>
-                                <option value="Martes">Martes</option>
-                                <option value="Miércoles">Miércoles</option>
-                                <option value="Jueves">Jueves</option>
-                                <option value="Viernes">Viernes</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Hora</label>
-                            <select id="map-time-select" class="mt-1 block w-32 p-2 border rounded-lg bg-gray-50"></select>
+                    
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <button id="toggle-map-edit-btn" class="bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 flex items-center gap-2 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                            <span>Editar Distribución</span>
+                        </button>
+                        
+                        <div class="bg-gray-100 p-2 rounded-lg flex gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase">Día</label>
+                                <select id="map-day-select" class="block w-32 p-1 bg-white border rounded text-sm">
+                                    <option value="Lunes">Lunes</option>
+                                    <option value="Martes">Martes</option>
+                                    <option value="Miércoles">Miércoles</option>
+                                    <option value="Jueves">Jueves</option>
+                                    <option value="Viernes">Viernes</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase">Hora</label>
+                                <select id="map-time-select" class="block w-28 p-1 bg-white border rounded text-sm"></select>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div id="classroom-map-grid" class="map-grid">
-                    </div>
+
+                <div id="classroom-map-container" class="map-container-wrapper relative">
+                    <p id="map-placeholder" class="text-center text-gray-400 mt-20 pointer-events-none select-none">Cargando mapa...</p>
+                </div>
+                
+                <div class="mt-2 text-xs text-gray-400 text-right">
+                    * Los cambios de posición se guardan automáticamente al soltar el salón.
+                </div>
             </div>
         </div>
         
@@ -199,3 +213,4 @@
     <script type="module" src="script.js"></script>
 </body>
 </html>
+
