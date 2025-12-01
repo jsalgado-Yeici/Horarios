@@ -48,7 +48,7 @@ let isAppStarted = false;
 
 // Constantes de días y horas
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
-const timeSlots = []; // Se rellenará en initializeTimeSlots()
+const timeSlots = []; 
 
 // --- Sistema de Notificaciones Emergentes ---
 const notification = {
@@ -101,16 +101,23 @@ const modal = {
             if (onConfirm) onConfirm();
         };
     },
-    // --- Formulario de Clase movido a un Modal ---
     showClassForm(defaults = null) {
         const isEditing = defaults && defaults.id;
         const title = isEditing ? 'Editando Clase' : 'Agregar Nueva Clase';
+        
+        // Generar opciones de Aulas
+        const classroomOptions = localState.classrooms.sort(sortByName)
+            .map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
         const formHtml = `
             <h2 id="form-title" class="text-2xl font-semibold mb-4">${title}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 <div><label class="block text-sm font-medium">Materia</label><select id="subject-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Grupo</label><select id="group-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Docente</label><select id="teacher-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
+                
+                <div><label class="block text-sm font-medium">Aula</label><select id="classroom-select" class="mt-1 block w-full p-2 border rounded-lg"><option value="">Seleccionar Aula...</option>${classroomOptions}</select></div>
+                
                 <div><label class="block text-sm font-medium">Día</label><select id="day-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Hora Inicio</label><select id="time-select" class="mt-1 block w-full p-2 border rounded-lg"></select></div>
                 <div><label class="block text-sm font-medium">Duración (hrs)</label><input type="number" id="duration-input" value="1" min="1" max="8" class="mt-1 block w-full p-2 border rounded-lg"></div>
@@ -124,7 +131,6 @@ const modal = {
         
         this.show(formHtml);
 
-        // --- Rellenar selects de Día y Hora (usando el array global 'timeSlots') ---
         const daySelect = document.getElementById('day-select');
         const timeSelect = document.getElementById('time-select');
         daySelect.innerHTML = '';
@@ -134,22 +140,19 @@ const modal = {
         timeSlots.forEach(h => {
             timeSelect.add(new Option(`${String(h).padStart(2, '0')}:00`, h));
         });
-        // --- Fin de rellenar selects ---
 
-        // Registrar botones del modal
         document.getElementById('modal-cancel-btn').onclick = () => this.hide();
         document.getElementById('save-class-btn').onclick = saveClass;
         
-        // Popular selects
         const teacherSelect = document.getElementById('teacher-select');
         const subjectSelect = document.getElementById('subject-select');
         const groupSelect = document.getElementById('group-select');
+        const classroomSelect = document.getElementById('classroom-select');
         
         populateSelect(teacherSelect, localState.teachers, 'Seleccionar Docente');
-        populateFilteredSubjects(subjectSelect, null); // Empezar con todas las materias
+        populateFilteredSubjects(subjectSelect, null);
         populateSelect(groupSelect, localState.groups, "Seleccionar Grupo");
 
-        // Registrar listeners para selects dependientes
         teacherSelect.onchange = () => populateFilteredSubjects(subjectSelect, teacherSelect.value);
         groupSelect.onchange = () => {
              const selectedGroup = localState.groups.find(g => g.id === groupSelect.value);
@@ -162,13 +165,13 @@ const modal = {
              populateSelect(groupSelect, groupsToShow.sort(sortByName), 'Seleccionar Grupo');
         };
         
-        // Si estamos editando (isEditing) o creando desde clic (defaults)
         if (defaults) {
             teacherSelect.value = defaults.teacherId || '';
             populateFilteredSubjects(subjectSelect, defaults.teacherId || null);
             subjectSelect.value = defaults.subjectId || '';
-            populateGroupFilter(subjectSelect.value, groupSelect); // Lógica de 'populateGroupFilter' simplificada
+            populateGroupFilter(subjectSelect.value, groupSelect);
             groupSelect.value = defaults.groupId || '';
+            classroomSelect.value = defaults.classroomId || ''; // Asignar aula
             daySelect.value = defaults.day || 'Lunes';
             timeSelect.value = defaults.startTime || 7;
             document.getElementById('duration-input').value = defaults.duration || 1;
@@ -176,7 +179,6 @@ const modal = {
         }
     },
     showTeacherForm(teacher = null) {
-        // ... (código sin cambios)
         const isEditing = teacher !== null;
         const title = isEditing ? 'Editar Perfil de Docente' : 'Nuevo Docente';
         const groupedSubjects = localState.subjects.reduce((acc, subject) => {
@@ -233,7 +235,6 @@ const modal = {
         document.getElementById('modal-save-btn').onclick = () => saveTeacher(teacher ? teacher.id : null);
     },
     showSubjectForm(subject = null) {
-        // ... (código sin cambios)
         const isEditing = subject !== null;
         const title = isEditing ? 'Editar Materia' : 'Nueva Materia';
         let trimesterOptions = '';
@@ -252,7 +253,6 @@ const modal = {
         document.getElementById('modal-save-btn').onclick = () => saveSubject(subject ? subject.id : null);
     },
     showGroupForm(group) {
-        // ... (código sin cambios)
         const title = 'Editar Grupo';
         let trimesterOptions = '';
         for (let i = 1; i <= 9; i++) {
@@ -270,7 +270,6 @@ const modal = {
         document.getElementById('modal-save-btn').onclick = () => saveGroup(group.id);
     },
     showPresetForm() {
-        // ... (código sin cambios)
         const formHtml = `
             <h2 class="text-2xl font-semibold mb-4">Crear Plantilla</h2>
             <div class="space-y-3 mb-4 text-left">
@@ -299,7 +298,7 @@ function getInitials(name) {
 }
 
 function populateSelect(selectElement, dataArray, placeholderText, defaultOption = true) {
-    if (!selectElement) return; // Guard clause
+    if (!selectElement) return;
     const currentValue = selectElement.value;
     selectElement.innerHTML = '';
     if (defaultOption) {
@@ -323,9 +322,8 @@ function populateFilteredSubjects(subjectSelectElement, teacherId) {
     }
 }
 
-// --- NUEVA FUNCIÓN: Rellena el array global 'timeSlots' ---
 function initializeTimeSlots() {
-    if (timeSlots.length > 0) return; // Ya está lleno
+    if (timeSlots.length > 0) return;
     for (let h = 7; h < 22; h++) {
         timeSlots.push(h);
     }
@@ -353,7 +351,8 @@ function startApp() {
         openClassModalBtn: document.getElementById('open-class-modal-btn'),
 
         scheduleGrid: document.getElementById('schedule-grid'),
-        filterTeacher: document.getElementById('filter-teacher'), 
+        filterTeacher: document.getElementById('filter-teacher'),
+        filterClassroom: document.getElementById('filter-classroom'), // Nuevo filtro
         filterGroup: document.getElementById('filter-group'),
         filterTrimester: document.getElementById('filter-trimester'),
         alertsList: document.getElementById('alerts-list'), 
@@ -372,7 +371,7 @@ function startApp() {
         addClassroomBtn: document.getElementById('add-classroom-btn'),
     };
 
-    initializeTimeSlots(); // <-- LLAMARLA AQUÍ
+    initializeTimeSlots();
     setupEventListeners();
     populateBlockerForm();
     populateTrimesterFilter();
@@ -383,7 +382,13 @@ function startApp() {
     onSnapshot(scheduleCol, s => { localState.schedule = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); runPedagogicalAnalysis(); updateWorkloadSummary(); });
     onSnapshot(presetsCol, s => { localState.presets = s.docs.map(d => ({ id: d.id, ...d.data() })); renderPresetsList(); });
     onSnapshot(blocksCol, s => { localState.blocks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderScheduleGrid(); renderBlocksList(); updateWorkloadSummary(); });
-    onSnapshot(classroomsCol, s => { localState.classrooms = s.docs.map(d => ({ id: d.id, ...d.data() })); renderClassroomsList(); });
+    
+    // Snapshot para aulas con poblado del filtro
+    onSnapshot(classroomsCol, s => { 
+        localState.classrooms = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+        renderClassroomsList(); 
+        populateSelect(dom.filterClassroom, localState.classrooms, 'Todas las Aulas');
+    });
 }
 
 function setupEventListeners() {
@@ -394,6 +399,7 @@ function setupEventListeners() {
     dom.filterTeacher.onchange = renderScheduleGrid;
     dom.filterGroup.onchange = renderScheduleGrid;
     dom.filterTrimester.onchange = renderScheduleGrid;
+    dom.filterClassroom.onchange = renderScheduleGrid; // Nuevo evento
     
     dom.advanceTrimesterBtn.onclick = advanceAllGroups;
     dom.addBlockBtn.onclick = addBlock;
@@ -405,7 +411,6 @@ function setupEventListeners() {
         header.addEventListener('click', () => header.parentElement.classList.toggle('collapsed'));
     });
 
-    // --- Event Listeners para las Pestañas ---
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -425,7 +430,6 @@ function setupEventListeners() {
 }
 
 // --- LÓGICA DE GESTIÓN (AULAS, DOCENTES, ETC) ---
-// ... (Todas las funciones de saveTeacher, addGroup, createManagementItem, etc., van aquí sin cambios) ...
 async function addClassroom() {
     const nameInput = document.getElementById('classroom-name');
     const name = nameInput.value.trim();
@@ -656,7 +660,6 @@ function renderBlocksList() {
         dom.blocksList.appendChild(blockDiv);
     });
 }
-
 // --- LÓGICA DEL HORARIO (DRAG & DROP, RENDERIZADO) ---
 
 function populateTrimesterFilter() {
@@ -670,7 +673,6 @@ function renderScheduleGrid() {
     dom.scheduleGrid.appendChild(document.createElement('div'));
     days.forEach(day => { const header = document.createElement('div'); header.className = 'grid-header'; header.textContent = day; dom.scheduleGrid.appendChild(header); });
     
-    // --- CAMBIO: Este bucle AHORA FUNCIONA porque 'timeSlots' está lleno ---
     timeSlots.forEach(time => {
         const timeSlot = document.createElement('div'); timeSlot.className = 'grid-time-slot'; timeSlot.textContent = `${time}:00 - ${time + 1}:00`; dom.scheduleGrid.appendChild(timeSlot);
         days.forEach(day => {
@@ -692,14 +694,18 @@ function renderScheduleGrid() {
     const selectedTeacher = dom.filterTeacher.value;
     const selectedGroup = dom.filterGroup.value;
     const selectedTrimester = dom.filterTrimester.value;
+    const selectedClassroom = dom.filterClassroom.value; // Filtro de Aula
+
     const filteredSchedule = localState.schedule.filter(c => {
         const group = localState.groups.find(g => g.id === c.groupId);
         if (!group) return false;
         const teacherMatch = !selectedTeacher || c.teacherId === selectedTeacher;
         const groupMatch = !selectedGroup || c.groupId === selectedGroup;
         const trimesterMatch = !selectedTrimester || group.trimester == selectedTrimester;
-        return teacherMatch && groupMatch && trimesterMatch;
+        const classroomMatch = !selectedClassroom || c.classroomId === selectedClassroom;
+        return teacherMatch && groupMatch && trimesterMatch && classroomMatch;
     });
+
     days.forEach((day, dayIndex) => {
         const dayEvents = filteredSchedule.filter(e => e.day === day);
         dayEvents.forEach(c => {
@@ -728,11 +734,23 @@ function renderScheduleGrid() {
             itemDiv.style.width = `${itemWidth}px`;
             itemDiv.style.height = `${(c.duration * gridCellHeight) - 2}px`;
             itemDiv.style.zIndex = 10 + overlapIndex;
+            
+            // Lógica de visualización (Negrita para aula o vista especial)
             let subjectNameDisplay = subject.name;
             const classroom = localState.classrooms.find(cr => cr.id === c.classroomId);
-            let detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}`;
-            if (classroom) detailsHtml += ` / ${classroom.name}`;
-            detailsHtml += `</div>`;
+            let detailsHtml = '';
+
+            if (selectedClassroom) {
+                 // Si estamos filtrando por aula, mostrar Profe y Grupo grandes
+                 detailsHtml = `<div class="item-details" style="font-weight:bold; color:#000;">${teacher.name}</div><div class="item-details">${group.name}</div>`;
+            } else {
+                // Vista normal
+                detailsHtml = `<div class="item-details">${teacher.name.split(' ')[0]} / ${group.name}`;
+                if (classroom) detailsHtml += ` / <b>${classroom.name}</b>`;
+                else detailsHtml += ` / <span style="color:red; font-weight:bold;">?</span>`;
+                detailsHtml += `</div>`;
+            }
+
             if (totalOverlaps >= 3) {
                 subjectNameDisplay = getInitials(subject.name);
                 detailsHtml = '';
@@ -775,7 +793,6 @@ function renderScheduleBlocks() {
 }
 
 function checkConflict(newClass, ignoreId = null) {
-    // ... (código sin cambios)
     const newStart = newClass.startTime;
     const newEnd = newStart + newClass.duration;
     for (const existingClass of localState.schedule) {
@@ -1007,6 +1024,7 @@ async function saveClass() {
         teacherId: document.getElementById('teacher-select').value,
         subjectId: document.getElementById('subject-select').value,
         groupId: document.getElementById('group-select').value,
+        classroomId: document.getElementById('classroom-select').value, // Guardar el aula
         day: document.getElementById('day-select').value,
         startTime: parseInt(document.getElementById('time-select').value),
         duration: parseInt(document.getElementById('duration-input').value)
