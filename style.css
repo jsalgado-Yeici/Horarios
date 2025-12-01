@@ -410,7 +410,66 @@ body {
     color: #111827; /* text-gray-900 */
     background-color: #f9fafb; /* bg-gray-50 */
 }
+/* --- ESTILOS PARA EL MAPA DE AULAS (CROQUIS) --- */
+.map-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem;
+}
 
+.classroom-card {
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem;
+    background-color: white;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 140px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.classroom-card.free {
+    border-color: #86efac; /* Verde claro */
+    background-color: #f0fdf4; /* Fondo verde muy pálido */
+}
+
+.classroom-card.occupied {
+    border-color: #fca5a5; /* Rojo claro */
+    background-color: #fef2f2; /* Fondo rojo muy pálido */
+}
+
+.classroom-header {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding-bottom: 0.5rem;
+}
+
+.classroom-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.status-free { color: #16a34a; }
+.status-occupied { color: #dc2626; }
+
+.classroom-details {
+    font-size: 0.9rem;
+    color: #4b5563;
+}
+
+.classroom-details strong {
+    display: block;
+    color: #1f2937;
+}
 .tab-button.active {
     color: #4f46e5; /* text-indigo-600 */
     border-bottom-color: #4f46e5; /* border-indigo-600 */
