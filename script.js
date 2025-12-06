@@ -4,7 +4,7 @@ import { exportSchedule, exportAllSchedules } from './export.js';
 import { signInAnonymously } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// === ESTADO GLOBAL ===
+// ESTADO
 const state = {
     teachers: [], subjects: [], groups: [], schedule: [], 
     presets: [], blocks: [], classrooms: [],
@@ -24,16 +24,16 @@ const cols = {
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 
-// === INIT ===
+// INIT
 let tooltipEl = null;
 function initApp() {
-    console.log("App v7.0 (Final Export Fix)");
+    console.log("App v8.0 (Official Export Style)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
 }
 
-// === LISTENERS ===
+// LISTENERS
 function setupListeners() {
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.onclick = () => {
@@ -70,13 +70,13 @@ function setupListeners() {
     // EXPORTACIÓN
     bind('btn-export-pdf', () => exportSchedule('pdf'));
     bind('btn-export-img', () => exportSchedule('img'));
-    bind('btn-export-all', () => exportAllSchedules(state, renderScheduleGrid));
+    bind('btn-export-all', () => exportAllSchedules(state, renderScheduleGrid)); // Pasamos la función de renderizado
 
     const modal = document.getElementById('modal');
     if(modal) modal.onclick = (e) => { if(e.target.id === 'modal') modal.classList.add('hidden'); };
 }
 
-// === MAPA ===
+// MAPA
 function initMapTab() { switchFloor('pa'); }
 function switchFloor(floor) {
     const btnPb = document.getElementById('floor-btn-pb');
@@ -109,7 +109,7 @@ function showRoomDetails(room) {
     content.innerHTML = html;
 }
 
-// === FIREBASE ===
+// FIREBASE
 function setupRealtimeListeners() {
     const update = (k, s) => {
         state[k] = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -127,10 +127,16 @@ function setupRealtimeListeners() {
 }
 function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); }}}
 
-// === RENDER GRID (CLAVE PARA EXPORTACIÓN) ===
+// RENDER GRID (EXPORT VERSION)
 export function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
     if (!targetElement) return;
     
+    // Si es exportación, limpiamos el estilo para evitar herencias
+    if(customFilters) {
+        targetElement.style.border = "none";
+        targetElement.style.boxShadow = "none";
+    }
+
     targetElement.innerHTML = '';
     const frag = document.createDocumentFragment();
 
@@ -140,10 +146,9 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
 
     // Grid
     timeSlots.forEach(h => {
-        const tc = document.createElement('div'); tc.className = 'grid-time-slot sticky left-0 bg-white'; tc.innerText = `${h}:00`; frag.appendChild(tc);
+        const tc = document.createElement('div'); tc.className = 'grid-time-slot sticky left-0 bg-white'; tc.innerText = `${h}:00 - ${h+1}:00`; frag.appendChild(tc);
         days.forEach(d => {
             const cell = document.createElement('div'); cell.className = 'grid-cell'; cell.dataset.day = d; cell.dataset.hour = h;
-            // Solo interactivo si NO es exportación
             if(!customFilters && targetElement.id === 'schedule-grid') { 
                 cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
                 cell.ondragleave = () => cell.classList.remove('droppable-hover');
@@ -154,7 +159,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // Filtros
     const fTch = customFilters ? customFilters.teacherId : document.getElementById('filter-teacher')?.value;
     const fGrp = customFilters ? customFilters.groupId : document.getElementById('filter-group')?.value;
     const fTrim = customFilters ? null : document.getElementById('filter-trimester')?.value;
@@ -166,34 +170,31 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         return true;
     });
 
-    // Items
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
             const overlaps = items.filter(o => c.startTime < (o.startTime + o.duration) && (c.startTime + c.duration) > o.startTime);
             overlaps.sort((a,b) => a.id.localeCompare(b.id)); 
-            // Pasamos "!!customFilters" como bandera de "isExporting"
             const el = createItem(c, dIdx, overlaps.length, overlaps.indexOf(c), !!customFilters);
             if(el) frag.appendChild(el);
         });
     });
 
-    // Blocks
-    state.blocks.forEach(b => {
-        if(fTrim && b.trimester != fTrim) return;
-        const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
-        dIndices.forEach(di => {
-            const el = document.createElement('div'); el.className = 'schedule-block';
-            el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; el.style.height = `${(b.endTime - b.startTime)*60}px`;
-            el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; el.style.width = `calc(((100% - 60px)/5) - 2px)`;
-            el.innerHTML = `<span>BLOQ C${b.trimester}</span>`;
-            if(!customFilters) {
-                el.innerHTML += `<button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
-                el.children[1].style.pointerEvents = "auto";
-            }
-            frag.appendChild(el);
+    // En exportación NO mostramos bloqueos (limpieza) o los mostramos como celdas grises simples
+    if(!customFilters) {
+        state.blocks.forEach(b => {
+            if(fTrim && b.trimester != fTrim) return;
+            const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
+            dIndices.forEach(di => {
+                const el = document.createElement('div'); el.className = 'schedule-block';
+                el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; el.style.height = `${(b.endTime - b.startTime)*60}px`;
+                el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; el.style.width = `calc(((100% - 60px)/5) - 2px)`;
+                el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
+                if(el.children[1]) el.children[1].style.pointerEvents = "auto";
+                frag.appendChild(el);
+            });
         });
-    });
+    }
 
     targetElement.appendChild(frag);
 }
@@ -206,34 +207,32 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!subj || !grp || !teach) return null;
 
     const el = document.createElement('div'); el.className = 'schedule-item';
-    const rowH = 60; const colW = `((100% - 60px)/5)`;
+    const rowH = isExporting ? 55 : 60; // Ajuste para grid compacto
+    const colW = `((100% - ${isExporting?80:60}px)/5)`;
     
-    el.style.top = `${(tIdx + 1) * rowH}px`;
-    el.style.height = `${(c.duration * rowH) - 4}px`;
-    el.style.left = `calc(60px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
-    el.style.width = `calc((${colW} / ${totalOverlaps}) - 4px)`;
+    el.style.top = `${(tIdx + 1) * rowH}px`; 
+    el.style.height = `${(c.duration * rowH) - (isExporting?2:4)}px`;
+    el.style.left = `calc(${isExporting?80:60}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`; 
+    el.style.width = `calc((${colW} / ${totalOverlaps}) - 2px)`;
     
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     
-    // Estilos de exportación (fondo claro para legibilidad)
+    // FORMATO OFICIAL: Colores Pastel Sólidos
     if(isExporting) {
-        el.style.backgroundColor = PALETTE[cIdx] + '20'; // Pastel
-        el.style.border = `1px solid ${PALETTE[cIdx]}`;
-        el.style.borderLeft = `4px solid ${PALETTE[cIdx]}`;
+        el.style.backgroundColor = PALETTE[cIdx] + '60'; // Mas fuerte que antes
+        el.style.border = '1px solid #000';
+        el.style.borderLeft = '1px solid #000'; // Quitar barra lateral
     } else {
         el.style.borderLeftColor = PALETTE[cIdx];
     }
 
-    // LÓGICA DE TEXTO: Si es exportación, mostrar nombre completo y forzar visualización
+    // TEXTO: Nombre completo para exportación
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
-    const isNarrow = totalOverlaps >= 3 && !isExporting; // No comprimir en export
+    const isNarrow = totalOverlaps >= 3 && !isExporting;
 
     el.innerHTML = `
         <div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>
-        ${!isNarrow ? `
-            <div class="item-details">
-                ${teacherName}<br>${grp.name}
-            </div>` : ''}
+        ${!isNarrow ? `<div class="item-details" style="${isExporting?'display:none':''}">${teacherName}<br>${grp.name}</div>` : ''}
         ${!isExporting ? `<div class="actions"><button class="btn-edt">✎</button><button class="btn-del">×</button></div>` : ''}
     `;
 
@@ -247,7 +246,10 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     return el;
 }
 
-// === FORMULARIOS Y LISTAS (Igual que antes) ===
+// ... (El resto del archivo script.js, funciones de formularios y helpers, SE MANTIENE IGUAL)
+// Asegúrate de copiar las funciones showClassForm, commitSave, etc. del archivo anterior si copiaste y pegaste este bloque.
+// Para que sea completo, agrego las funciones restantes aquí abajo:
+
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const content = document.getElementById('modal-content');
     const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
