@@ -28,17 +28,20 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7); // 7:00 a 20:00
 let tooltipEl = null;
 
 function initTooltip() {
+    // Evitar duplicados
+    const existing = document.getElementById('custom-tooltip');
+    if (existing) existing.remove();
+
     tooltipEl = document.createElement('div');
     tooltipEl.id = 'custom-tooltip';
     document.body.appendChild(tooltipEl);
     
-    // Mover tooltip con el mouse
     document.addEventListener('mousemove', (e) => {
         if (tooltipEl.classList.contains('visible')) {
-            // Evitar que se salga de la pantalla
             const x = e.clientX + 15;
             const y = e.clientY + 15;
-            tooltipEl.style.left = `${Math.min(x, window.innerWidth - 260)}px`;
+            // Ajuste para que no se salga de la pantalla
+            tooltipEl.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
             tooltipEl.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
         }
     });
@@ -56,10 +59,72 @@ function hideTooltip() {
 
 // === INICIO APP ===
 function initApp() {
-    console.log("App Iniciada v3.0");
+    console.log("App Iniciada v3.1 (Fixed)");
     initTooltip();
-    setupListeners();
+    setupListeners(); // ¡Ahora sí existe!
     setupRealtimeListeners();
+}
+
+// === LISTENERS DE INTERFAZ (ESTA FUE LA QUE FALTÓ) ===
+function setupListeners() {
+    // Navegación de Pestañas (Tabs)
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.onclick = () => {
+            // Desactivar todos
+            document.querySelectorAll('.tab-button').forEach(b => {
+                b.classList.remove('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
+                b.classList.add('text-gray-600');
+            });
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            
+            // Activar actual
+            btn.classList.add('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
+            btn.classList.remove('text-gray-600');
+            
+            const target = document.getElementById(`tab-content-${btn.dataset.tab}`);
+            if(target) target.classList.remove('hidden');
+            
+            // Renderizado bajo demanda
+            if(btn.dataset.tab === 'horario') renderScheduleGrid();
+        };
+    });
+
+    // Filtros del Horario
+    ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
+        const el = document.getElementById(`filter-${id}`);
+        if(el) el.onchange = renderScheduleGrid;
+    });
+
+    // Botones de Acción
+    const bindClick = (id, fn) => {
+        const el = document.getElementById(id);
+        if(el) el.onclick = fn;
+    };
+
+    bindClick('open-class-modal-btn', () => showClassForm());
+    bindClick('add-teacher-btn', showTeacherForm);
+    bindClick('open-subject-modal-btn', showSubjectForm);
+    bindClick('add-group-btn', addGroup);
+    bindClick('add-classroom-btn', addClassroom);
+    bindClick('add-block-btn', addBlock);
+    bindClick('toggle-map-edit-btn', toggleMapEdit);
+    bindClick('open-preset-modal-btn', showPresetForm);
+    
+    // Peligro
+    bindClick('advance-trimester-btn', () => {
+        if(confirm('¿Seguro? Esto avanzará todos los grupos.')) {
+            // Lógica simple de avance
+            alert('Funcionalidad de avance pendiente de implementación segura.');
+        }
+    });
+
+    // Cerrar Modal al hacer clic fuera
+    const modal = document.getElementById('modal');
+    if(modal) {
+        modal.onclick = (e) => {
+            if(e.target.id === 'modal') modal.classList.add('hidden');
+        };
+    }
 }
 
 // === LISTENERS FIREBASE ===
@@ -74,6 +139,9 @@ function setupRealtimeListeners() {
         if(k === 'teachers') renderTeachersList();
         if(k === 'subjects') renderSubjectsList();
         if(k === 'groups') renderGroupsList();
+        // Presets y bloques
+        if(k === 'presets') renderPresetsList();
+        if(k === 'blocks') renderBlocksList();
     };
 
     Object.keys(cols).forEach(k => onSnapshot(cols[k], s => update(k, s)));
@@ -86,7 +154,7 @@ function checkLoading() {
     }
 }
 
-// === CONFLICT DETECTION (NUEVO & CRÍTICO) ===
+// === CONFLICT DETECTION ===
 function validateConflicts(newClass, ignoreId = null) {
     const conflicts = [];
     
@@ -94,35 +162,32 @@ function validateConflicts(newClass, ignoreId = null) {
     const ncEnd = newClass.startTime + newClass.duration;
 
     state.schedule.forEach(existing => {
-        if (existing.id === ignoreId) return; // Ignorar si es la misma que editamos
+        if (existing.id === ignoreId) return; // Ignorar si es la misma
         if (existing.day !== newClass.day) return; // Ignorar otro día
 
         const exStart = existing.startTime;
         const exEnd = existing.startTime + existing.duration;
 
-        // Verificar superposición de tiempo
+        // Verificar superposición
         const overlap = (ncStart < exEnd) && (ncEnd > exStart);
         
         if (overlap) {
-            // 1. Choque de Profesor
             if (existing.teacherId === newClass.teacherId) {
                 const t = state.teachers.find(x => x.id === existing.teacherId);
-                conflicts.push(`El docente <b>${t?.name}</b> ya tiene clase a esa hora.`);
+                conflicts.push(`El docente <b>${t?.name}</b> ya tiene clase.`);
             }
-            // 2. Choque de Grupo
             if (existing.groupId === newClass.groupId) {
                 const g = state.groups.find(x => x.id === existing.groupId);
-                conflicts.push(`El grupo <b>${g?.name}</b> ya tiene clase a esa hora.`);
+                conflicts.push(`El grupo <b>${g?.name}</b> ya tiene clase.`);
             }
-            // 3. Choque de Aula (Solo si ambos tienen aula asignada)
             if (newClass.classroomId && existing.classroomId && existing.classroomId === newClass.classroomId) {
                 const r = state.classrooms.find(x => x.id === existing.classroomId);
                 conflicts.push(`El aula <b>${r?.name}</b> está ocupada.`);
             }
         }
     });
-
-    // 4. Choque con Bloqueos (Inglés, Recesos, etc)
+    
+    // Bloqueos
     const group = state.groups.find(g => g.id === newClass.groupId);
     if(group) {
         state.blocks.forEach(block => {
@@ -133,7 +198,7 @@ function validateConflicts(newClass, ignoreId = null) {
             const bStart = block.startTime;
             const bEnd = block.endTime;
             if ((ncStart < bEnd) && (ncEnd > bStart)) {
-                conflicts.push(`Choque con Bloqueo Administrativo (Cuatri ${block.trimester}).`);
+                conflicts.push(`Choque con Bloqueo Administrativo (C${block.trimester}).`);
             }
         });
     }
@@ -173,7 +238,7 @@ function renderScheduleGrid() {
             cell.className = 'grid-cell';
             cell.dataset.day = d;
             cell.dataset.hour = h;
-            // Drag Events
+            // Drag
             cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
             cell.ondragleave = () => cell.classList.remove('droppable-hover');
             cell.ondrop = e => handleDrop(e, d, h);
@@ -183,10 +248,10 @@ function renderScheduleGrid() {
     });
 
     // Filters
-    const fTeacher = document.getElementById('filter-teacher').value;
-    const fGroup = document.getElementById('filter-group').value;
-    const fRoom = document.getElementById('filter-classroom').value;
-    const fTrim = document.getElementById('filter-trimester').value;
+    const fTeacher = document.getElementById('filter-teacher')?.value;
+    const fGroup = document.getElementById('filter-group')?.value;
+    const fRoom = document.getElementById('filter-classroom')?.value;
+    const fTrim = document.getElementById('filter-trimester')?.value;
 
     const visible = state.schedule.filter(c => {
         if(fTeacher && c.teacherId !== fTeacher) return false;
@@ -199,19 +264,19 @@ function renderScheduleGrid() {
         return true;
     });
 
-    // Render Items (Overlap Logic)
+    // Items
     days.forEach((day, dIdx) => {
         const dayItems = visible.filter(c => c.day === day);
         dayItems.forEach(c => {
             const overlaps = dayItems.filter(o => c.startTime < (o.startTime + o.duration) && (c.startTime + c.duration) > o.startTime);
-            overlaps.sort((a,b) => a.id.localeCompare(b.id)); // Orden estable
+            overlaps.sort((a,b) => a.id.localeCompare(b.id)); 
             
             const item = createItem(c, dIdx, overlaps.length, overlaps.indexOf(c));
             if(item) frag.appendChild(item);
         });
     });
 
-    // Render Blocks
+    // Blocks
     state.blocks.forEach(b => {
         if(fTrim && b.trimester != fTrim) return;
         const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
@@ -222,11 +287,9 @@ function renderScheduleGrid() {
             el.style.height = `${(b.endTime - b.startTime)*60}px`;
             el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`;
             el.style.width = `calc(((100% - 60px)/5) - 2px)`;
-            el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="delBlock('${b.id}')">×</button>`;
-            // Hack para que el botón funcione dentro de un elemento pointer-events:none
-            el.children[1].style.pointerEvents = "auto"; 
-            // Función global temporal para el onclick string
-            window.delBlock = (id) => deleteDoc(doc(cols.blocks, id));
+            el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
+            // Hack pointer events
+            if(el.children[1]) el.children[1].style.pointerEvents = "auto";
             frag.appendChild(el);
         });
     });
@@ -249,18 +312,14 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
     const el = document.createElement('div');
     el.className = 'schedule-item';
     
-    // Geometry
     const rowH = 60;
     const colW = `((100% - 60px)/5)`;
     
     el.style.top = `${(tIdx + 1) * rowH}px`;
     el.style.height = `${(c.duration * rowH) - 4}px`;
-    
-    // Overlap math
     el.style.left = `calc(60px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
     el.style.width = `calc((${colW} / ${totalOverlaps}) - 4px)`;
     
-    // Color
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     el.style.borderLeftColor = PALETTE[cIdx];
 
@@ -274,11 +333,9 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
         </div>
     `;
 
-    // Events
     el.querySelector('.edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); };
     el.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
     
-    // Tooltip Events
     el.onmouseenter = () => {
         showTooltip(`
             <strong>${subj.name}</strong>
@@ -295,7 +352,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
     return el;
 }
 
-// === FORMULARIO Y GUARDADO ===
+// === FORMULARIO ===
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal');
     modal.classList.remove('hidden');
@@ -338,7 +395,6 @@ function showClassForm(defs = {}) {
             duration: parseInt(document.getElementById('f-dur').value)
         };
 
-        // VALIDACIÓN DE CONFLICTOS ANTES DE GUARDAR
         const conflicts = validateConflicts(payload, defs.id);
         
         if (conflicts.length > 0) {
@@ -346,11 +402,10 @@ function showClassForm(defs = {}) {
             warningDiv.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-3 text-red-700"><p class="font-bold">¡Conflicto Detectado!</p><ul class="list-disc pl-4 mt-1">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul><div class="mt-2 text-xs text-right"><button id="btn-force" class="text-red-800 underline font-bold">Guardar de todos modos</button></div></div>`;
             warningDiv.classList.remove('hidden');
             
-            // Permitir forzar guardado si es urgente
             document.getElementById('btn-force').onclick = async () => {
                 await commitSave(payload, defs.id);
             };
-            return; // Detener guardado normal
+            return;
         }
 
         await commitSave(payload, defs.id);
@@ -364,12 +419,11 @@ async function commitSave(data, id) {
         document.getElementById('modal').classList.add('hidden');
         notify("Clase guardada exitosamente", false);
     } catch(e) {
-        notify("Error al guardar en base de datos", true);
+        notify("Error al guardar", true);
         console.error(e);
     }
 }
 
-// === UTILS ===
 async function handleDrop(e, day, hour) {
     e.preventDefault();
     document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
@@ -381,6 +435,7 @@ async function handleDrop(e, day, hour) {
 
 function notify(msg, err) {
     const box = document.getElementById('notification-container');
+    if(!box) return;
     const n = document.createElement('div');
     n.className = `notification ${err?'error':'success'} show`;
     n.textContent = msg;
@@ -388,10 +443,12 @@ function notify(msg, err) {
     setTimeout(()=>n.remove(), 3000);
 }
 
-// === BOILERPLATE FILTROS/LISTAS (Simplificado) ===
+// === UTILS RENDER ===
 function renderFilterOptions() {
     const fill = (id, arr, lbl) => {
-        const el = document.getElementById(id); const val = el.value;
+        const el = document.getElementById(id); 
+        if(!el) return;
+        const val = el.value;
         el.innerHTML = `<option value="">${lbl}</option>` + arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
         el.value = val;
     };
@@ -399,32 +456,40 @@ function renderFilterOptions() {
     fill('filter-group', state.groups, 'Todos los Grupos');
     fill('filter-classroom', state.classrooms, 'Todas las Aulas');
     
-    // Trimestre especial
     const t = document.getElementById('filter-trimester');
-    if(t.children.length < 2) { t.innerHTML='<option value="">Todos los Cuatris</option>'; for(let i=1;i<=9;i++) t.add(new Option(`C${i}`,i)); }
+    if(t && t.children.length < 2) { t.innerHTML='<option value="">Todos los Cuatris</option>'; for(let i=1;i<=9;i++) t.add(new Option(`C${i}`,i)); }
 }
 
 function renderSubjectsList() {
-    const c = document.getElementById('unassigned-subjects-container'); c.innerHTML='';
-    state.subjects.sort((a,b)=>a.name.localeCompare(b.name)).forEach(s => {
-        const d = document.createElement('div');
-        d.className = 'p-2 bg-white border rounded shadow-sm text-xs cursor-grab hover:bg-indigo-50 truncate';
-        d.draggable = true; d.textContent = s.name;
-        d.ondragstart = e => e.dataTransfer.setData('application/json', JSON.stringify({type:'subject', id:s.id}));
-        c.appendChild(d);
-    });
-    // Lista completa en panel gestión... (omitiendo por brevedad, usar lógica previa)
-    const list = document.getElementById('subjects-by-trimester'); list.innerHTML='';
-    state.subjects.forEach(s => {
-        const el = document.createElement('div'); el.className='text-xs p-1 border rounded bg-gray-50 mb-1 flex justify-between';
-        el.innerHTML = `<span class="truncate w-3/4">${s.name}</span><button class="text-red-500 font-bold" onclick="delDoc('subjects','${s.id}')">×</button>`;
-        list.appendChild(el);
-    });
+    const c = document.getElementById('unassigned-subjects-container'); 
+    if(c) {
+        c.innerHTML='';
+        state.subjects.sort((a,b)=>a.name.localeCompare(b.name)).forEach(s => {
+            const d = document.createElement('div');
+            d.className = 'p-2 bg-white border rounded shadow-sm text-xs cursor-grab hover:bg-indigo-50 truncate';
+            d.draggable = true; d.textContent = s.name;
+            d.ondragstart = e => e.dataTransfer.setData('application/json', JSON.stringify({type:'subject', id:s.id}));
+            c.appendChild(d);
+        });
+    }
+    // Lista completa
+    const list = document.getElementById('subjects-by-trimester'); 
+    if(list) {
+        list.innerHTML='';
+        state.subjects.forEach(s => {
+            const el = document.createElement('div'); el.className='text-xs p-1 border rounded bg-gray-50 mb-1 flex justify-between';
+            el.innerHTML = `<span class="truncate w-3/4">${s.name}</span><button class="text-red-500 font-bold" onclick="delDoc('subjects','${s.id}')">×</button>`;
+            list.appendChild(el);
+        });
+    }
 }
-// Helpers globales para gestión
-window.delDoc = (col, id) => { if(confirm('Borrar?')) deleteDoc(doc(cols[col], id)); };
+
+// Helpers globales para gestión (se inyectan en window para los onclicks de HTML plano)
+window.delDoc = (col, id) => { if(confirm('¿Eliminar?')) deleteDoc(doc(cols[col], id)); };
+
 function renderTeachersList() { 
-    const l = document.getElementById('teachers-list'); l.innerHTML='';
+    const l = document.getElementById('teachers-list'); if(!l) return;
+    l.innerHTML='';
     state.teachers.forEach(t => {
         const d = document.createElement('div'); d.className='flex justify-between p-2 border-b text-sm';
         d.innerHTML=`${t.name} <button onclick="delDoc('teachers','${t.id}')" class="text-red-500">×</button>`;
@@ -432,7 +497,8 @@ function renderTeachersList() {
     });
 }
 function renderGroupsList() {
-    const l = document.getElementById('groups-by-trimester'); l.innerHTML='';
+    const l = document.getElementById('groups-by-trimester'); if(!l) return;
+    l.innerHTML='';
     state.groups.forEach(g => {
         const d = document.createElement('div'); d.className='text-sm p-2 border rounded bg-white mb-2';
         d.innerHTML = `<b>${g.name}</b> (C${g.trimester})`;
@@ -440,21 +506,45 @@ function renderGroupsList() {
     });
 }
 function renderClassroomsList() {
-    const l = document.getElementById('classrooms-list'); l.innerHTML='';
+    const l = document.getElementById('classrooms-list'); if(!l) return;
+    l.innerHTML='';
     state.classrooms.forEach(c => {
         const d = document.createElement('div'); d.className='p-2 border-b text-sm flex justify-between';
         d.innerHTML=`${c.name} <button onclick="delDoc('classrooms','${c.id}')" class="text-red-500">×</button>`;
         l.appendChild(d);
     });
 }
-// Placeholder functions
+function renderPresetsList() {
+    const l = document.getElementById('presets-list'); if(!l) return;
+    l.innerHTML = '';
+    // Placeholder de presets
+}
+function renderBlocksList() {
+    const l = document.getElementById('blocks-list'); if(!l) return;
+    l.innerHTML = '';
+    state.blocks.forEach(b => {
+        const d = document.createElement('div');
+        d.className='text-xs p-2 border rounded mb-1 flex justify-between';
+        d.innerHTML = `Bloqueo C${b.trimester} (${b.days})`;
+        l.appendChild(d);
+    });
+}
+
+// Actions
 function addGroup() { const n = document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 function addClassroom() { const n = document.getElementById('classroom-name').value; if(n) addDoc(cols.classrooms, {name: n}); }
-function addBlock() { /* Usar lógica previa */ }
+function addBlock() { 
+    const t = document.getElementById('block-time')?.value;
+    const tri = document.getElementById('block-trimester')?.value;
+    if(t && tri) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tri, days:'L-V'}); 
+}
 function showTeacherForm() { const n = prompt('Nombre docente:'); if(n) addDoc(cols.teachers, {name: n}); }
 function showSubjectForm() { const n = prompt('Materia:'); if(n) addDoc(cols.subjects, {name: n, trimester: 1}); }
-function showPresetForm() {}
-function toggleMapEdit() {}
+function showPresetForm() { alert('Función de presets en construcción'); }
+function toggleMapEdit() { alert('Mapa en construcción'); }
 
 // START
-auth.onAuthStateChanged(u => { if(u) initApp(); else signInAnonymously(auth); });
+auth.onAuthStateChanged(u => { 
+    if(u) initApp(); 
+    else signInAnonymously(auth).catch(console.error); 
+});
