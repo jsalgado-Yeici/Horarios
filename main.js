@@ -5,20 +5,15 @@ import { state, cols } from './state.js';
 import { renderScheduleGrid } from './grid.js';
 import { 
     createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList, 
-    renderBlocksList, renderClassroomsManageList, renderFilterOptions, 
+    renderBlocksList, renderClassroomsManageList, renderFilterOptions, renderAlerts, 
     addGroup, addClassroom, addBlock 
 } from './ui.js';
 import { showClassForm, showTeacherForm, showSubjectForm } from './actions.js';
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
-import { 
-    createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList, 
-    renderBlocksList, renderClassroomsManageList, renderFilterOptions, renderAlerts, // <--- AGREGADO AQUÍ
-    addGroup, addClassroom, addBlock 
-} from './ui.js';
 
 function initApp() {
-    console.log("App v13.0 (Modularized & Fixed DragDrop)");
+    console.log("App v13.1 (Audit System)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -43,13 +38,13 @@ function setupListeners() {
         };
     });
 
-    // Filters
+    // Filtros
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = () => renderScheduleGrid();
     });
 
-    // Buttons
+    // Botones
     const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
     bind('open-class-modal-btn', () => showClassForm());
     bind('add-teacher-btn', () => showTeacherForm()); 
@@ -68,7 +63,7 @@ function setupListeners() {
     if(modal) modal.onclick = (e) => { if(e.target.id === 'modal') modal.classList.add('hidden'); };
 }
 
-// === MAP LOGIC (Wrapper) ===
+// === LÓGICA DEL MAPA ===
 function initMapTab() { switchFloor('pa'); }
 function switchFloor(floor) {
     const btnPb = document.getElementById('floor-btn-pb');
@@ -102,7 +97,7 @@ function showRoomDetails(room) {
     document.getElementById('close-room-btn').onclick = () => modal.classList.add('hidden');
 }
 
-// === FIREBASE ===
+// === FIREBASE LISTENERS ===
 function setupRealtimeListeners() {
     const update = (k, s) => {
         state[k] = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -117,9 +112,21 @@ function setupRealtimeListeners() {
         if(k === 'groups') renderGroupsList();
         if(k === 'blocks') renderBlocksList();
         if(k === 'classrooms') renderClassroomsManageList();
+        
+        // Actualizar alertas de auditoría si cambian horarios, grupos o materias
+        if(['schedule', 'groups', 'subjects'].includes(k)) renderAlerts();
     };
     Object.keys(cols).forEach(k => onSnapshot(cols[k], s => update(k, s)));
 }
-function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); }}}
+
+function checkLoading() { 
+    if (!Object.values(state.loading).some(v => v)) { 
+        const o = document.getElementById('loading-overlay'); 
+        if(o) { 
+            o.style.opacity = '0'; 
+            setTimeout(() => o.remove(), 500); 
+        }
+    }
+}
 
 auth.onAuthStateChanged(u => { if(u) initApp(); else signInAnonymously(auth).catch(console.error); });
