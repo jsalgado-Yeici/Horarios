@@ -11,6 +11,11 @@ import {
 import { showClassForm, showTeacherForm, showSubjectForm } from './actions.js';
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
+import { 
+    createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList, 
+    renderBlocksList, renderClassroomsManageList, renderFilterOptions, renderAlerts, // <--- AGREGADO AQUÍ
+    addGroup, addClassroom, addBlock 
+} from './ui.js';
 
 function initApp() {
     console.log("App v13.0 (Modularized & Fixed DragDrop)");
