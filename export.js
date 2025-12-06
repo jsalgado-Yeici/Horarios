@@ -44,7 +44,7 @@ export async function exportAllSchedules(state, renderFn) {
     const fG = zip.folder("Grupos");
     const fT = zip.folder("Docentes");
     
-    // Contenedor temporal (invisible) para que el renderFn de React/Vanilla trabaje
+    // Contenedor temporal (invisible)
     const tempContainer = document.createElement('div');
     tempContainer.className = 'schedule-grid'; 
     tempContainer.style.position = 'absolute';
@@ -58,7 +58,6 @@ export async function exportAllSchedules(state, renderFn) {
             const g = state.groups[i];
             updateOverlay(`Generando Grupo ${i+1}/${state.groups.length}: ${g.name}`);
             
-            // Renderizar horario
             renderFn(tempContainer, { groupId: g.id });
             tempContainer.querySelectorAll('button').forEach(b => b.remove());
             
@@ -161,30 +160,30 @@ async function generateOfficialImage(contentNode, title, subtitle, infoMap = {},
         </table>
     ` : '<div style="color:#999; text-align:center; padding:20px; border:1px solid #000;">Sin asignaciones</div>';
 
-    // Header
+    // === HEADER CON LOGOS ===
+    // IMPORTANTE: Asegúrate de tener las imágenes 'logo_upsrj.png' y 'logo_iaev.png' en tu carpeta
+    // O cambia los src="" por tus rutas correctas.
     const headerHTML = `
-        <div class="official-header">
-            <div style="display:flex; align-items:center; justify-content:space-between; height:100%;">
-                <div style="display:flex; align-items:center; gap:20px;">
-                    <div style="font-weight:bold; color:#000; font-size:24px;">
-                        POLITÉCNICA <span style="color:#0ea5e9">SANTA ROSA</span>
-                    </div>
-                    <div>
-                        <h1 style="font-size:22px; font-weight:900; margin:0; color:#000;">${title}</h1>
-                        <h2 style="font-size:14px; margin:0; color:#444;">${subtitle}</h2>
-                    </div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:30px; font-weight:900; line-height:1;">
-                        <span style="color:#3b82f6">I</span><span style="color:#22c55e">A</span><span style="color:#ef4444">E</span><span style="color:#eab308">V</span>
-                    </div>
-                    <div style="font-size:10px; font-weight:bold; color:#666;">INGENIERÍA EN ANIMACIÓN</div>
-                </div>
+        <div class="official-header" style="display: flex; align-items: center; justify-content: space-between; padding: 0 40px;">
+            
+            <div style="width: 200px; display:flex; align-items:center;">
+                <img src="logo_upsrj.png" alt="Logo UPSRJ" style="max-height: 80px; max-width: 100%; object-fit: contain;" onerror="this.style.display='none'; this.parentNode.innerHTML='LOGO UPSRJ';"/>
             </div>
+
+            <div style="text-align: center; flex: 1;">
+                <h1 style="font-size: 28px; font-weight: 900; margin: 0; color: #000; line-height: 1.2;">${title}</h1>
+                <h2 style="font-size: 16px; margin: 5px 0 0 0; color: #444; font-weight: bold; text-transform: uppercase;">${subtitle}</h2>
+                <div style="font-size: 11px; font-weight: bold; color: #0ea5e9; margin-top: 5px; letter-spacing: 1px;">INGENIERÍA EN ANIMACIÓN Y EFECTOS VISUALES</div>
+            </div>
+
+            <div style="width: 200px; display:flex; align-items:center; justify-content: flex-end;">
+                 <img src="logo_iaev.png" alt="Logo IAEV" style="max-height: 80px; max-width: 100%; object-fit: contain;" onerror="this.style.display='none'; this.parentNode.innerHTML='LOGO IAEV';"/>
+            </div>
+
         </div>
     `;
     
-    // USAMOS CONTENEDORES ABSOLUTOS (Definidos en style.css)
+    // USAMOS CONTENEDORES ABSOLUTOS
     tpl.innerHTML = `
         ${headerHTML}
         <div id="export-grid-container"></div>
@@ -196,7 +195,6 @@ async function generateOfficialImage(contentNode, title, subtitle, infoMap = {},
     
     // Clonar e insertar grid
     const clonedGrid = contentNode.cloneNode(true);
-    // Asegurar limpieza de estilos inline que puedan estorbar
     clonedGrid.style.width = '1000px'; 
     clonedGrid.style.border = 'none'; 
     clonedGrid.style.position = 'relative'; 
@@ -205,26 +203,25 @@ async function generateOfficialImage(contentNode, title, subtitle, infoMap = {},
     
     tpl.querySelector('#export-grid-container').appendChild(clonedGrid);
     
-    // Mostrar template para captura (z-index controla visibilidad)
+    // Renderizado
     tpl.style.opacity = '1'; 
     tpl.style.zIndex = '9999'; 
     
-    // Esperar un momento más largo para asegurar renderizado
-    await new Promise(r => setTimeout(r, 150));
+    // Espera un poco más larga para asegurar que las imágenes carguen
+    await new Promise(r => setTimeout(r, 300));
     
     // Capturar
     const canvas = await window.html2canvas(tpl, { 
         scale: 2, 
         backgroundColor: '#fff',
         logging: false,
-        useCORS: true,
-        width: 1500, // Coincide con CSS
-        height: 1200, // Coincide con CSS
+        useCORS: true, // Importante para imágenes locales/externas
+        width: 1500, 
+        height: 1200, 
         windowWidth: 1500,
         windowHeight: 1200
     });
     
-    // Ocultar
     tpl.style.opacity = '0'; 
     tpl.style.zIndex = '-1';
     
