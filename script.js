@@ -131,16 +131,39 @@ function checkLoading() { if (!Object.values(state.loading).some(v => v)) { cons
 // RENDER GRID (AHORA REUTILIZABLE)
 export function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
     if (!targetElement) return;
+    
+    // Limpieza
+    targetElement.innerHTML = '';
     const frag = document.createDocumentFragment();
 
-    const corner = document.createElement('div'); corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; corner.innerText = 'HORA'; frag.appendChild(corner);
-    days.forEach(d => { const h = document.createElement('div'); h.className = 'grid-header sticky top-0 bg-gray-50'; h.innerText = d; frag.appendChild(h); });
+    // Headers
+    const corner = document.createElement('div'); 
+    corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; 
+    corner.innerText = 'HORA'; 
+    frag.appendChild(corner);
+    
+    days.forEach(d => { 
+        const h = document.createElement('div'); 
+        h.className = 'grid-header sticky top-0 bg-gray-50'; 
+        h.innerText = d; 
+        frag.appendChild(h); 
+    });
 
+    // Cells
     timeSlots.forEach(h => {
-        const tc = document.createElement('div'); tc.className = 'grid-time-slot sticky left-0 bg-white'; tc.innerText = `${h}:00`; frag.appendChild(tc);
+        const tc = document.createElement('div'); 
+        tc.className = 'grid-time-slot sticky left-0 bg-white'; 
+        tc.innerText = `${h}:00`; 
+        frag.appendChild(tc);
+        
         days.forEach(d => {
-            const cell = document.createElement('div'); cell.className = 'grid-cell'; cell.dataset.day = d; cell.dataset.hour = h;
-            if(!customFilters) { // Solo añadir eventos si es el grid principal interactivo
+            const cell = document.createElement('div'); 
+            cell.className = 'grid-cell'; 
+            cell.dataset.day = d; 
+            cell.dataset.hour = h;
+            
+            // Solo añadimos interacción si NO estamos exportando (si es el grid principal)
+            if(!customFilters && targetElement.id === 'schedule-grid') { 
                 cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
                 cell.ondragleave = () => cell.classList.remove('droppable-hover');
                 cell.ondrop = e => handleDrop(e, d, h);
@@ -150,18 +173,25 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // Filtros: Usar personalizados o leer del DOM
+    // LOGICA DE FILTRADO PARA EXPORTACIÓN
+    // Si customFilters existe (exportación), usamos esos IDs. Si no, leemos del DOM.
     const fTch = customFilters ? customFilters.teacherId : document.getElementById('filter-teacher')?.value;
     const fGrp = customFilters ? customFilters.groupId : document.getElementById('filter-group')?.value;
-    const fTrim = customFilters ? customFilters.trimester : document.getElementById('filter-trimester')?.value;
+    
+    // Nota: En exportación ignoramos el filtro de trimestre global para que salga todo lo del grupo
+    const fTrim = customFilters ? null : document.getElementById('filter-trimester')?.value;
 
     const visible = state.schedule.filter(c => {
         if(fTch && c.teacherId !== fTch) return false;
         if(fGrp && c.groupId !== fGrp) return false;
-        if(fTrim) { const g = state.groups.find(x => x.id === c.groupId); if(!g || g.trimester != fTrim) return false; }
+        if(fTrim) { 
+            const g = state.groups.find(x => x.id === c.groupId); 
+            if(!g || g.trimester != fTrim) return false; 
+        }
         return true;
     });
 
+    // Render Items
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
@@ -172,20 +202,28 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
+    // Render Blocks
     state.blocks.forEach(b => {
         if(fTrim && b.trimester != fTrim) return;
         const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
         dIndices.forEach(di => {
             const el = document.createElement('div'); el.className = 'schedule-block';
-            el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; el.style.height = `${(b.endTime - b.startTime)*60}px`;
-            el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; el.style.width = `calc(((100% - 60px)/5) - 2px)`;
-            el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
-            if(!customFilters && el.children[1]) el.children[1].style.pointerEvents = "auto";
+            el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; 
+            el.style.height = `${(b.endTime - b.startTime)*60}px`;
+            el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; 
+            el.style.width = `calc(((100% - 60px)/5) - 2px)`;
+            
+            el.innerHTML = `<span>BLOQ C${b.trimester}</span>`;
+            // Solo botón de borrar si no estamos exportando
+            if(!customFilters) {
+                el.innerHTML += `<button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
+                el.children[1].style.pointerEvents = "auto";
+            }
             frag.appendChild(el);
         });
     });
 
-    targetElement.innerHTML = ''; targetElement.appendChild(frag);
+    targetElement.appendChild(frag);
 }
 
 function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
