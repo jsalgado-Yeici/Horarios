@@ -22,7 +22,12 @@
 
     <div class="h-screen flex flex-col">
         <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-30">
-            <h1 class="text-2xl font-bold text-indigo-700 tracking-tight">Planificador IAEV</h1>
+            
+            <div class="flex items-center">
+                <img src="logo_iaev.png" alt="Planificador IAEV" class="h-12 w-auto object-contain hover:opacity-90 transition-opacity" onerror="this.style.display='none'; document.getElementById('fallback-title').classList.remove('hidden');">
+                <h1 id="fallback-title" class="hidden text-2xl font-bold text-indigo-700 tracking-tight ml-2">Planificador IAEV</h1>
+            </div>
+
             <nav class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                 <button id="tab-btn-horario" data-tab="horario" class="tab-button active px-4 py-1.5 rounded-md text-sm font-medium transition-all">Horario</button>
                 <button id="tab-btn-mapa" data-tab="mapa" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Mapa</button>
@@ -166,5 +171,6 @@
     <script type="module" src="grid.js"></script>
     <script type="module" src="export.js"></script>
     <script type="module" src="maps.js"></script>
-    <script type="module" src="main.js"></script> </body>
+    <script type="module" src="main.js"></script>
+</body>
 </html>
