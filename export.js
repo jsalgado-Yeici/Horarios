@@ -1,4 +1,4 @@
-import { PALETTE } from './config.js'; // Importamos la paleta para usar los mismos colores
+import { PALETTE } from './config.js';
 
 // UI Helpers
 function createOverlay() {
@@ -12,74 +12,106 @@ function createOverlay() {
     }
     return overlay;
 }
-function updateOverlay(msg) { const o = createOverlay(); requestAnimationFrame(() => o.style.opacity = '1'); const t = o.querySelector('#loading-text') || o.querySelector('h2'); if(t) t.textContent = msg; }
-function hideOverlay() { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(()=>o.remove(),500); } }
+
+function updateOverlay(msg) { 
+    const o = createOverlay(); 
+    requestAnimationFrame(() => o.style.opacity = '1'); 
+    const t = o.querySelector('#loading-text') || o.querySelector('h2'); 
+    if(t) t.textContent = msg; 
+}
+
+function hideOverlay() { 
+    const o = document.getElementById('loading-overlay'); 
+    if(o) { 
+        o.style.opacity = '0'; 
+        setTimeout(()=>o.remove(),500); 
+    } 
+}
 
 // Exportación Masiva
 export async function exportAllSchedules(state, renderFn) {
-    if(!state.groups.length && !state.teachers.length) return alert("No hay datos.");
+    if(!state.groups.length && !state.teachers.length) {
+        alert("No hay datos para exportar.");
+        return;
+    }
+    
     const p = prompt("Nombre del Periodo:", "Enero-Abril 2026");
     if(!p) return;
     const cleanP = p.replace(/\s+/g,'');
 
-    updateOverlay("Iniciando...");
+    updateOverlay("Iniciando exportación...");
     const zip = new JSZip();
     const fG = zip.folder("Grupos");
     const fT = zip.folder("Docentes");
     
+    // Contenedor temporal para renderizado
     const tempContainer = document.createElement('div');
     tempContainer.className = 'schedule-grid bg-white';
-    tempContainer.style.width = '900px'; 
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.width = '900px';
+    document.body.appendChild(tempContainer);
     
     try {
-        // Grupos
-        for (let i=0; i<state.groups.length; i++) {
+        // === EXPORTAR GRUPOS ===
+        for (let i = 0; i < state.groups.length; i++) {
             const g = state.groups[i];
-            updateOverlay(`Grupo ${i+1}/${state.groups.length}: ${g.name}`);
+            updateOverlay(`Generando Grupo ${i+1}/${state.groups.length}: ${g.name}`);
             
+            // Renderizar horario del grupo
             renderFn(tempContainer, { groupId: g.id });
-            tempContainer.querySelectorAll('button').forEach(b=>b.remove());
             
-            // Recolectar info para tabla lateral con colores
+            // Limpiar botones de interacción
+            tempContainer.querySelectorAll('button').forEach(b => b.remove());
+            
+            // Recolectar info para tabla lateral (Materias -> Docentes)
             const groupClasses = state.schedule.filter(c => c.groupId === g.id);
             const teacherMap = {};
+            
             groupClasses.forEach(c => {
                 const s = state.subjects.find(x => x.id === c.subjectId);
                 const t = state.teachers.find(x => x.id === c.teacherId);
                 if(s && t) {
-                    const cIdx = s.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
+                    const cIdx = s.id.split('').reduce((a,x) => a + x.charCodeAt(0), 0) % PALETTE.length;
                     teacherMap[s.name] = { 
                         name: t.fullName || t.name, 
-                        color: PALETTE[cIdx] + '99' // Mismo color sólido que el horario
+                        color: PALETTE[cIdx] + '99'
                     };
                 }
             });
 
+            // Generar imagen oficial
             const blob = await generateOfficialImage(
                 tempContainer, 
                 `HORARIO ${p.toUpperCase()}`, 
                 `${g.name} - ${g.trimester}° Cuatrimestre`,
-                teacherMap
+                teacherMap,
+                "DOCENTES"
             );
+            
             fG.file(`${g.name}_Cuatri${g.trimester}_${cleanP}.png`, blob);
         }
         
-        // Docentes (Misma lógica)
-        for (let i=0; i<state.teachers.length; i++) {
+        // === EXPORTAR DOCENTES ===
+        for (let i = 0; i < state.teachers.length; i++) {
             const t = state.teachers[i];
-            updateOverlay(`Docente ${i+1}/${state.teachers.length}: ${t.name}`);
+            updateOverlay(`Generando Docente ${i+1}/${state.teachers.length}: ${t.name}`);
             
+            // Renderizar horario del docente
             renderFn(tempContainer, { teacherId: t.id });
-            tempContainer.querySelectorAll('button').forEach(b=>b.remove());
             
-            // Para docentes, la tabla lateral muestra Materia -> Grupo
+            // Limpiar botones
+            tempContainer.querySelectorAll('button').forEach(b => b.remove());
+            
+            // Recolectar info para tabla lateral (Materias -> Grupos)
             const teachClasses = state.schedule.filter(c => c.teacherId === t.id);
             const subMap = {};
+            
             teachClasses.forEach(c => {
                 const s = state.subjects.find(x => x.id === c.subjectId);
                 const g = state.groups.find(x => x.id === c.groupId);
                 if(s && g) {
-                    const cIdx = s.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
+                    const cIdx = s.id.split('').reduce((a,x) => a + x.charCodeAt(0), 0) % PALETTE.length;
                     subMap[s.name] = { 
                         name: g.name, 
                         color: PALETTE[cIdx] + '99' 
@@ -92,51 +124,69 @@ export async function exportAllSchedules(state, renderFn) {
                 `HORARIO DOCENTE ${p.toUpperCase()}`, 
                 t.fullName || t.name,
                 subMap,
-                "GRUPOS" // Título de la columna derecha
+                "GRUPOS"
             );
-            const n = t.name.replace(/\s+/g,'');
+            
+            const n = (t.fullName || t.name).replace(/\s+/g, '_');
             fT.file(`${n}_${cleanP}.png`, blob);
         }
         
-        updateOverlay("Comprimiendo...");
-        const content = await zip.generateAsync({type:"blob"});
+        // Comprimir y descargar
+        updateOverlay("Comprimiendo archivos...");
+        const content = await zip.generateAsync({type: "blob"});
         window.saveAs(content, `Horarios_${cleanP}.zip`);
         
-    } catch(e) { console.error(e); alert("Error exportando."); } 
-    finally { hideOverlay(); }
+        alert(`✓ Exportación completada!\n\n${state.groups.length} grupos y ${state.teachers.length} docentes exportados.`);
+        
+    } catch(e) { 
+        console.error(e); 
+        alert("Error durante la exportación: " + e.message); 
+    } finally { 
+        // Limpiar contenedor temporal
+        document.body.removeChild(tempContainer);
+        hideOverlay(); 
+    }
 }
 
 async function generateOfficialImage(contentNode, title, subtitle, infoMap = {}, rightColTitle = "DOCENTES") {
     const tpl = document.getElementById('export-template');
     
-    // Generar Tabla Lateral con Colores
-    const rows = Object.entries(infoMap).map(([leftText, data]) => 
-        `<tr>
-            <td class="subject-col" style="background-color: ${data.color}; border:1px solid #000;">${leftText}</td>
-            <td class="teacher-col" style="border:1px solid #000;">${data.name}</td>
-         </tr>`
-    ).join('');
+    // Generar tabla lateral con colores
+    const rows = Object.entries(infoMap)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([leftText, data]) => 
+            `<tr>
+                <td class="subject-col" style="background-color: ${data.color}; border:1px solid #000; padding: 4px; font-weight: bold;">${leftText}</td>
+                <td class="teacher-col" style="border:1px solid #000; padding: 4px;">${data.name}</td>
+             </tr>`
+        ).join('');
 
     const sideTableHTML = rows ? `
         <table class="teachers-table">
-            <thead><tr><th colspan="2" style="background:#d1d5db; border:1px solid #000;">${rightColTitle}</th></tr></thead>
+            <thead>
+                <tr><th colspan="2" style="background:#d1d5db; border:1px solid #000; padding:6px; text-align:center;">${rightColTitle}</th></tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
-    ` : '';
+    ` : '<div style="color:#999; font-style:italic; text-align:center; padding:20px;">Sin asignaciones</div>';
 
-    // HEADER LOGOS
+    // Header con logos
     const headerHTML = `
         <div class="official-header" style="display:flex; align-items:center; justify-content:space-between; border-bottom:4px solid #3b82f6; padding-bottom:15px; margin-bottom:20px;">
             <div style="display:flex; align-items:center; gap:20px;">
-                <div style="font-weight:bold; color:#000; font-size:24px;">POLITÉCNICA <span style="color:#0ea5e9">SANTA ROSA</span></div>
+                <div style="font-weight:bold; color:#000; font-size:24px;">
+                    POLITÉCNICA <span style="color:#0ea5e9">SANTA ROSA</span>
+                </div>
                 <div>
-                    <h1 style="font-size:22px; font-weight:900; margin:0;">${title}</h1>
+                    <h1 style="font-size:22px; font-weight:900; margin:0; color:#000;">${title}</h1>
                     <h2 style="font-size:14px; margin:0; color:#444;">${subtitle}</h2>
                 </div>
             </div>
             <div style="text-align:right;">
-                <div style="font-size:30px; font-weight:900; color:#facc15;"><span style="color:#3b82f6">I</span><span style="color:#22c55e">A</span><span style="color:#ef4444">E</span><span style="color:#eab308">V</span></div>
-                <div style="font-size:10px; font-weight:bold;">INGENIERÍA EN ANIMACIÓN</div>
+                <div style="font-size:30px; font-weight:900; line-height:1;">
+                    <span style="color:#3b82f6">I</span><span style="color:#22c55e">A</span><span style="color:#ef4444">E</span><span style="color:#eab308">V</span>
+                </div>
+                <div style="font-size:10px; font-weight:bold; color:#666;">INGENIERÍA EN ANIMACIÓN</div>
             </div>
         </div>
     `;
@@ -148,21 +198,42 @@ async function generateOfficialImage(contentNode, title, subtitle, infoMap = {},
             <div style="width: 300px;">${sideTableHTML}</div>
         </div>
         <div style="margin-top:20px; text-align:center; font-size:10px; color:#666; border-top:1px solid #ccc; padding-top:5px;">
-            Documento generado automáticamente por Planificador IAEV | ${new Date().toLocaleDateString()}
+            Documento generado automáticamente por Planificador IAEV | ${new Date().toLocaleDateString('es-MX')}
         </div>
     `;
     
-    tpl.querySelector('#grid-slot').appendChild(contentNode.cloneNode(true));
-    tpl.style.opacity = '1'; tpl.style.zIndex = '9999'; tpl.style.width = '1400px';
+    // Insertar grid clonado
+    const clonedGrid = contentNode.cloneNode(true);
+    tpl.querySelector('#grid-slot').appendChild(clonedGrid);
     
-    await new Promise(r => setTimeout(r, 100)); // Render wait
+    // Mostrar template temporalmente
+    tpl.style.opacity = '1'; 
+    tpl.style.zIndex = '9999'; 
+    tpl.style.width = '1400px';
+    tpl.style.position = 'fixed';
+    tpl.style.top = '0';
+    tpl.style.left = '0';
     
-    const canvas = await window.html2canvas(tpl, { scale: 2, backgroundColor:'#fff' });
-    tpl.style.opacity = '0'; tpl.style.zIndex = '-1';
+    // Esperar renderizado
+    await new Promise(r => setTimeout(r, 200));
+    
+    // Capturar con html2canvas
+    const canvas = await window.html2canvas(tpl, { 
+        scale: 2, 
+        backgroundColor: '#fff',
+        logging: false,
+        useCORS: true
+    });
+    
+    // Ocultar template
+    tpl.style.opacity = '0'; 
+    tpl.style.zIndex = '-1';
+    
+    // Retornar blob
     return new Promise(r => canvas.toBlob(r, 'image/png'));
 }
 
-// Single Export
+// Exportación Individual (simplificada)
 export async function exportSchedule(type) {
-    alert("Por favor usa la Exportación Masiva para obtener el formato oficial completo.");
+    alert("Por favor usa la Exportación Masiva (ZIP) para obtener el formato oficial completo con todos los horarios.");
 }
