@@ -31,7 +31,7 @@
                 <aside class="w-full md:w-72 bg-white border-r border-gray-200 flex flex-col shadow-lg z-20">
                     <div class="p-4 border-b border-gray-100 bg-gray-50">
                         <h2 class="font-bold text-gray-800">Materias Pendientes</h2>
-                        <p class="text-xs text-gray-500">Agrupadas por Cuatrimestre</p>
+                        <p class="text-xs text-gray-500">Arrastra al calendario</p>
                     </div>
                     <div id="unassigned-subjects-container" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white"></div>
                 </aside>
@@ -56,7 +56,7 @@
                 <div class="w-full max-w-6xl bg-white rounded-xl shadow-lg border border-gray-200 p-4 mb-4 flex justify-between items-center sticky top-0 z-40">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">Mapa de Instalaciones</h2>
-                        <p class="text-sm text-gray-500">Selecciona un salón para ver su horario.</p>
+                        <p class="text-sm text-gray-500">Haz clic en un aula para ver detalles.</p>
                     </div>
                     <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
                         <button id="floor-btn-pb" class="px-4 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 transition-all">Planta Baja</button>
@@ -93,7 +93,7 @@
 
             <div id="tab-content-configuracion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
                  <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow border">
-                     <h2 class="text-lg font-bold mb-4">Aulas Activas y Bloqueos</h2>
+                     <h2 class="text-lg font-bold mb-4">Configuración General</h2>
                      <div class="grid grid-cols-2 gap-6">
                         <div>
                              <h3 class="font-bold text-sm mb-2">Bloqueos de Horario</h3>
@@ -102,10 +102,13 @@
                              <div id="blocks-list" class="mt-2 space-y-1"></div>
                         </div>
                         <div>
-                            <h3 class="font-bold text-sm mb-2">Lista Aulas (Sistema)</h3>
+                            <h3 class="font-bold text-sm mb-2">Aulas (Lista Simple)</h3>
                             <div class="flex gap-2 mb-2"><input id="classroom-name" class="border p-1 w-full" placeholder="Nombre"><button id="add-classroom-btn" class="bg-teal-600 text-white px-3 rounded">Ok</button></div>
                             <div id="classrooms-list" class="max-h-40 overflow-y-auto space-y-1"></div>
                         </div>
+                     </div>
+                     <div class="mt-6 border-t pt-4">
+                         <button id="advance-trimester-btn" class="text-red-600 border border-red-200 px-4 py-2 rounded hover:bg-red-50 text-sm font-bold">⚠️ Avanzar Cuatrimestre</button>
                      </div>
                  </div>
             </div>
@@ -118,6 +121,7 @@
     </div>
 
     <script type="module" src="config.js"></script>
-    <script type="module" src="map.js"></script> <script type="module" src="script.js"></script>
+    <script type="module" src="map.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>
