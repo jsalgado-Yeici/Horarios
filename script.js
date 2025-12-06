@@ -27,7 +27,7 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 // === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v12.0 (Final Script)");
+    console.log("App v12.1 (Script Completo)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -130,8 +130,8 @@ function setupRealtimeListeners() {
 }
 function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); }}}
 
-// === RENDER GRID (EXPORT VERSION) ===
-export function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
+// === RENDER GRID ===
+function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
     if (!targetElement) return;
     
     // Limpieza de estilos para exportación
@@ -209,7 +209,7 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
                 const el = document.createElement('div'); el.className = 'schedule-block';
                 el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; el.style.height = `${(b.endTime - b.startTime)*60}px`;
                 el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; el.style.width = `calc(((100% - 60px)/5) - 2px)`;
-                el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
+                el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="window.delDoc('blocks','${b.id}')">×</button>`;
                 if(el.children[1]) el.children[1].style.pointerEvents = "auto";
                 frag.appendChild(el);
             });
@@ -229,10 +229,10 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!subj || !grp || !teach) return null;
 
     const el = document.createElement('div'); el.className = 'schedule-item';
-    const rowH = isExporting ? 55 : 60; // Altura fija exportación vs web
+    const rowH = isExporting ? 55 : 60;
     const colW = `((100% - ${isExporting?80:60}px)/5)`;
     
-    el.style.top = `${(tIdx * rowH) + rowH}px`; // Fix posición vertical
+    el.style.top = `${(tIdx * rowH) + rowH}px`;
     el.style.height = `${(c.duration * rowH) - (isExporting?0:4)}px`;
     el.style.left = `calc(${isExporting?80:60}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
     el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting?0:4}px)`;
@@ -240,14 +240,13 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     
     if(isExporting) {
-        el.style.backgroundColor = PALETTE[cIdx] + '99'; // Color sólido
+        el.style.backgroundColor = PALETTE[cIdx] + '99';
         el.style.border = '1px solid #000';
         el.style.borderLeft = '1px solid #000'; 
     } else {
         el.style.borderLeftColor = PALETTE[cIdx];
     }
 
-    // DATOS DE TEXTO
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
     const roomName = room ? room.name : "N/A";
     const isNarrow = totalOverlaps >= 3 && !isExporting;
@@ -266,7 +265,6 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
         el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
         
-        // Tooltip reactivado
         el.onmouseenter = () => showTooltip(`
             <strong>${subj.name}</strong><br>
             👨‍🏫 ${teacherName}<br>
@@ -290,35 +288,312 @@ function showClassForm(defs = {}) {
         const payload = { subjectId: document.getElementById('f-sub').value, groupId: document.getElementById('f-grp').value, teacherId: document.getElementById('f-tch').value, classroomId: document.getElementById('f-rm').value, day: document.getElementById('f-day').value, startTime: parseInt(document.getElementById('f-time').value), duration: parseInt(document.getElementById('f-dur').value) };
         const conflicts = validateConflicts(payload, defs.id);
         if (conflicts.length > 0) {
-            const div = document.getElementById('conflict-warnings'); div.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-3 text-red-700 font-bold mb-2">Conflictos:</div><ul class="list-disc pl-5 text-red-600 text-xs">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul><button id="btn-force" class="mt-2 text-red-800 underline text-xs font-bold">Guardar Igual</button>`; div.classList.remove('hidden'); document.getElementById('btn-force').onclick = async () => { await commitSave(payload, defs.id); }; return;
+            const div = document.getElementById('conflict-warnings'); div.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-3 text-red-700 font-bold mb-2">⚠️ Conflictos Detectados:</div><ul class="list-disc pl-5 text-red-600 text-xs">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul><button id="btn-force" class="mt-2 text-red-800 underline text-xs font-bold">Guardar de Todas Formas</button>`; div.classList.remove('hidden'); document.getElementById('btn-force').onclick = async () => { await commitSave(payload, defs.id); }; return;
         }
         await commitSave(payload, defs.id);
     };
 }
-async function commitSave(data, id) { try { if(id) await updateDoc(doc(cols.schedule, id), data); else await addDoc(cols.schedule, data); document.getElementById('modal').classList.add('hidden'); } catch(e){ console.error(e); } }
-function showTeacherForm(teacher = null) { const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!teacher; document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2><input id="t-name" value="${teacher ? teacher.name : ''}" class="w-full border p-2 mb-2" placeholder="Apodo (Ej: Alex)"><input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 mb-4" placeholder="Nombre Completo Real"><button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button></div>`; document.getElementById('btn-t-save').onclick = async () => { const n = document.getElementById('t-name').value; const f = document.getElementById('t-full').value; if(n) { const data = {name: n, fullName: f}; if(isEdit) await updateDoc(doc(cols.teachers, teacher.id), data); else await addDoc(cols.teachers, data); modal.classList.add('hidden'); } }; }
-function showSubjectForm(sub = null) { const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!sub; const defT = sub ? sub.defaultTeacherId : ''; const genOpts = (arr) => arr.map(i => `<option value="${i.id}" ${defT===i.id?'selected':''}>${i.name}</option>`).join(''); document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit?'Editar':'Nueva'} Materia</h2><input id="s-name" value="${sub?sub.name:''}" class="w-full border p-2 mb-2" placeholder="Nombre Materia"><select id="s-trim" class="w-full border p-2 mb-2">${[1,2,3,4,5,6,7,8,9].map(i=>`<option value="${i}" ${sub&&sub.trimester==i?'selected':''}>Cuatri ${i}</option>`).join('')}</select><select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select><button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button></div>`; document.getElementById('btn-s-save').onclick = async () => { const n = document.getElementById('s-name').value; const data = { name: n, trimester: parseInt(document.getElementById('s-trim').value), defaultTeacherId: document.getElementById('s-def').value }; if(n) { if(isEdit) await updateDoc(doc(cols.subjects, sub.id), data); else await addDoc(cols.subjects, data); modal.classList.add('hidden'); } }; }
-async function handleDrop(e, day, hour) { e.preventDefault(); document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover')); try { const d = JSON.parse(e.dataTransfer.getData('application/json')); if(d.type === 'subject') { const s = state.subjects.find(x => x.id === d.id); showClassForm({day, startTime: hour, subjectId: d.id, teacherId: s ? s.defaultTeacherId : null}); } } catch(err){} }
-function validateConflicts(newClass, ignoreId) { const conflicts = []; const ns = newClass.startTime; const ne = ns + newClass.duration; state.schedule.forEach(e => { if(e.id === ignoreId || e.day !== newClass.day) return; const es = e.startTime; const ee = es + e.duration; if(ns < ee && ne > es) { if(e.teacherId === newClass.teacherId) conflicts.push("El docente ya tiene clase"); if(e.groupId === newClass.groupId) conflicts.push("El grupo ya tiene clase"); if(newClass.classroomId && e.classroomId === newClass.classroomId) conflicts.push("El aula está ocupada"); } }); return conflicts; }
-function createTooltip() { tooltipEl = document.createElement('div'); tooltipEl.id = 'custom-tooltip'; document.body.appendChild(tooltipEl); document.addEventListener('mousemove', e => { if(tooltipEl.classList.contains('visible')) { tooltipEl.style.left = (e.clientX + 15) + 'px'; tooltipEl.style.top = (e.clientY + 15) + 'px'; } }); }
-function showTooltip(html) { tooltipEl.innerHTML = html; tooltipEl.classList.add('visible'); }
-function hideTooltip() { tooltipEl.classList.remove('visible'); }
-function renderFilterOptions() { const fill = (id, arr, l) => { const el = document.getElementById(id); if(el) { const v = el.value; el.innerHTML = `<option value="">${l}</option>` + arr.map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); el.value = v; }}; fill('filter-teacher', state.teachers, 'Todos los Docentes'); fill('filter-group', state.groups, 'Todos los Grupos'); const t = document.getElementById('filter-trimester'); if(t) { const val = t.value; t.innerHTML = '<option value="">Todos los Cuatris</option>'; for(let i=1;i<=9;i++) t.add(new Option(`C${i}`,i)); t.value = val; } }
-function renderTeachersList() { const l = document.getElementById('teachers-list'); if(!l) return; l.innerHTML = ''; state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => { const full = t.fullName ? `<span class="text-[10px] text-gray-400 block">${t.fullName}</span>` : ''; l.innerHTML += `<div class="p-2 border-b text-sm flex justify-between items-center bg-white hover:bg-gray-50"><div class="leading-tight"><span class="font-bold text-gray-700 cursor-pointer" onclick="window.editTeacher('${t.id}')">${t.name}</span>${full}</div><div class="flex gap-1"><button class="text-blue-400 px-1" onclick="window.editTeacher('${t.id}')">✎</button><button class="text-red-400 px-1" onclick="delDoc('teachers','${t.id}')">×</button></div></div>`; }); }
-function renderSubjectsList() { const c = document.getElementById('unassigned-subjects-container'); if(c) { c.innerHTML = ''; const grouped = {}; state.subjects.forEach(s => { const t = s.trimester||0; if(!grouped[t]) grouped[t]=[]; grouped[t].push(s); }); Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).forEach(t => { c.innerHTML += `<details class="trimester-group" open><summary>Cuatri ${t}</summary><div class="content">${grouped[t].map(s => `<div class="draggable-subject" draggable="true" ondragstart="event.dataTransfer.setData('application/json', '{\\'type\\':\\'subject\\',\\'id\\':\\'${s.id}\\'}')">${s.name}</div>`).join('')}</div></details>`; }); } const l2 = document.getElementById('subjects-by-trimester'); if(l2) { l2.innerHTML = ''; const grouped = {}; state.subjects.forEach(s => { const t = s.trimester||0; if(!grouped[t]) grouped[t]=[]; grouped[t].push(s); }); Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).forEach(t => { const items = grouped[t].map(s => `<div class="flex justify-between items-center p-1 border-b last:border-0 border-gray-100 hover:bg-white text-xs"><span class="truncate" title="${s.name}">${s.name}</span><button onclick="window.editSub('${s.id}')" class="text-blue-400 px-1">✎</button></div>`).join(''); l2.innerHTML += `<div class="bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-sm h-fit"><h3 class="font-bold text-[10px] text-gray-500 uppercase mb-2 pb-1 border-b border-gray-200 sticky top-0 bg-gray-50">Cuatrimestre ${t}</h3><div class="space-y-0.5 max-h-48 overflow-y-auto">${items}</div></div>`; }); } }
-function renderGroupsList() { const l = document.getElementById('groups-by-trimester'); if(l) l.innerHTML = state.groups.map(g => `<div class="p-2 border bg-white text-sm">${g.name}</div>`).join(''); }
-function renderClassroomsManageList() { const l = document.getElementById('classrooms-list-manage'); if(l) l.innerHTML = state.classrooms.map(c => `<div class="p-1 border-b text-xs flex justify-between">${c.name} <button class="text-red-500" onclick="delDoc('classrooms','${c.id}')">x</button></div>`).join(''); }
-function renderBlocksList() { const l = document.getElementById('blocks-list'); if(l) l.innerHTML = state.blocks.map(b => `<div class="text-xs p-2 border rounded bg-slate-50 flex justify-between items-center"><div><div class="font-bold">Bloqueo C${b.trimester}</div><div class="text-[10px] text-gray-500">${b.startTime}:00 - ${b.endTime}:00</div></div><button class="text-red-500 font-bold px-2" onclick="delDoc('blocks','${b.id}')">×</button></div>`).join(''); }
-window.delDoc = (c, id) => { if(confirm('¿Seguro de borrar?')) deleteDoc(doc(cols[c], id)); };
+
+async function commitSave(data, id) { 
+    try { 
+        if(id) await updateDoc(doc(cols.schedule, id), data); 
+        else await addDoc(cols.schedule, data); 
+        document.getElementById('modal').classList.add('hidden'); 
+    } catch(e){ 
+        console.error(e); 
+        alert('Error al guardar: ' + e.message);
+    } 
+}
+
+function showTeacherForm(teacher = null) { 
+    const modal = document.getElementById('modal'); 
+    modal.classList.remove('hidden'); 
+    const isEdit = !!teacher; 
+    document.getElementById('modal-content').innerHTML = `
+        <div class="p-6 bg-white">
+            <h2 class="font-bold mb-4 text-lg">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2>
+            <input id="t-name" value="${teacher ? teacher.name : ''}" class="w-full border p-2 mb-2 rounded" placeholder="Apodo (Ej: Alex)">
+            <input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 mb-4 rounded" placeholder="Nombre Completo Real">
+            <div class="flex gap-2 justify-end">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Guardar</button>
+            </div>
+        </div>
+    `; 
+    document.getElementById('btn-t-save').onclick = async () => { 
+        const n = document.getElementById('t-name').value; 
+        const f = document.getElementById('t-full').value; 
+        if(n) { 
+            const data = {name: n, fullName: f}; 
+            if(isEdit) await updateDoc(doc(cols.teachers, teacher.id), data); 
+            else await addDoc(cols.teachers, data); 
+            modal.classList.add('hidden'); 
+        } else {
+            alert('El nombre corto es obligatorio');
+        }
+    }; 
+}
+
+function showSubjectForm(sub = null) { 
+    const modal = document.getElementById('modal'); 
+    modal.classList.remove('hidden'); 
+    const isEdit = !!sub; 
+    const defT = sub ? sub.defaultTeacherId : ''; 
+    const genOpts = (arr) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${defT===i.id?'selected':''}>${i.name}</option>`).join(''); 
+    document.getElementById('modal-content').innerHTML = `
+        <div class="p-6 bg-white">
+            <h2 class="font-bold mb-4 text-lg">${isEdit?'Editar':'Nueva'} Materia</h2>
+            <input id="s-name" value="${sub?sub.name:''}" class="w-full border p-2 mb-2 rounded" placeholder="Nombre Materia">
+            <select id="s-trim" class="w-full border p-2 mb-2 rounded">
+                ${[1,2,3,4,5,6,7,8,9].map(i=>`<option value="${i}" ${sub&&sub.trimester==i?'selected':''}>Cuatrimestre ${i}</option>`).join('')}
+            </select>
+            <select id="s-def" class="w-full border p-2 mb-4 rounded">
+                <option value="">-- Profesor por Defecto --</option>
+                ${genOpts(state.teachers)}
+            </select>
+            <div class="flex gap-2 justify-end">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Guardar</button>
+            </div>
+        </div>
+    `; 
+    document.getElementById('btn-s-save').onclick = async () => { 
+        const n = document.getElementById('s-name').value; 
+        const data = { 
+            name: n, 
+            trimester: parseInt(document.getElementById('s-trim').value), 
+            defaultTeacherId: document.getElementById('s-def').value 
+        }; 
+        if(n) { 
+            if(isEdit) await updateDoc(doc(cols.subjects, sub.id), data); 
+            else await addDoc(cols.subjects, data); 
+            modal.classList.add('hidden'); 
+        } else {
+            alert('El nombre de la materia es obligatorio');
+        }
+    }; 
+}
+
+async function handleDrop(e, day, hour) { 
+    e.preventDefault(); 
+    document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover')); 
+    try { 
+        const d = JSON.parse(e.dataTransfer.getData('application/json')); 
+        if(d.type === 'subject') { 
+            const s = state.subjects.find(x => x.id === d.id); 
+            showClassForm({day, startTime: hour, subjectId: d.id, teacherId: s ? s.defaultTeacherId : null}); 
+        } 
+    } catch(err){
+        console.error('Error en drop:', err);
+    } 
+}
+
+function validateConflicts(newClass, ignoreId) { 
+    const conflicts = []; 
+    const ns = newClass.startTime; 
+    const ne = ns + newClass.duration; 
+    state.schedule.forEach(e => { 
+        if(e.id === ignoreId || e.day !== newClass.day) return; 
+        const es = e.startTime; 
+        const ee = es + e.duration; 
+        if(ns < ee && ne > es) { 
+            if(e.teacherId === newClass.teacherId) conflicts.push("⚠️ El docente ya tiene clase en este horario"); 
+            if(e.groupId === newClass.groupId) conflicts.push("⚠️ El grupo ya tiene clase en este horario"); 
+            if(newClass.classroomId && e.classroomId === newClass.classroomId) conflicts.push("⚠️ El aula está ocupada en este horario"); 
+        } 
+    }); 
+    return conflicts; 
+}
+
+function createTooltip() { 
+    tooltipEl = document.createElement('div'); 
+    tooltipEl.id = 'custom-tooltip'; 
+    document.body.appendChild(tooltipEl); 
+    document.addEventListener('mousemove', e => { 
+        if(tooltipEl.classList.contains('visible')) { 
+            tooltipEl.style.left = (e.clientX + 15) + 'px'; 
+            tooltipEl.style.top = (e.clientY + 15) + 'px'; 
+        } 
+    }); 
+}
+
+function showTooltip(html) { 
+    tooltipEl.innerHTML = html; 
+    tooltipEl.classList.add('visible'); 
+}
+
+function hideTooltip() { 
+    tooltipEl.classList.remove('visible'); 
+}
+
+function renderFilterOptions() { 
+    const fill = (id, arr, l) => { 
+        const el = document.getElementById(id); 
+        if(el) { 
+            const v = el.value; 
+            el.innerHTML = `<option value="">${l}</option>` + arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); 
+            el.value = v; 
+        }
+    }; 
+    fill('filter-teacher', state.teachers, 'Todos los Docentes'); 
+    fill('filter-group', state.groups, 'Todos los Grupos'); 
+    fill('filter-classroom', state.classrooms, 'Todas las Aulas');
+    const t = document.getElementById('filter-trimester'); 
+    if(t) { 
+        const val = t.value; 
+        t.innerHTML = '<option value="">Todos los Cuatrimestres</option>'; 
+        for(let i=1;i<=9;i++) t.add(new Option(`Cuatri ${i}`,i)); 
+        t.value = val; 
+    }
+    const bt = document.getElementById('block-trimester');
+    if(bt) {
+        const val = bt.value;
+        bt.innerHTML = '<option value="">-- Cuatrimestre --</option>';
+        for(let i=1;i<=9;i++) bt.add(new Option(`Cuatri ${i}`,i));
+        bt.value = val;
+    }
+    const btime = document.getElementById('block-time');
+    if(btime && btime.children.length === 0) {
+        btime.innerHTML = '<option value="">-- Hora Inicio --</option>';
+        timeSlots.forEach(t => {
+            btime.add(new Option(`${t}:00`, t));
+        });
+    }
+}
+
+function renderTeachersList() { 
+    const l = document.getElementById('teachers-list'); 
+    if(!l) return; 
+    l.innerHTML = ''; 
+    state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => { 
+        const full = t.fullName ? `<span class="text-[10px] text-gray-400 block">${t.fullName}</span>` : ''; 
+        l.innerHTML += `<div class="p-2 border-b text-sm flex justify-between items-center bg-white hover:bg-gray-50"><div class="leading-tight"><span class="font-bold text-gray-700 cursor-pointer" onclick="window.editTeacher('${t.id}')">${t.name}</span>${full}</div><div class="flex gap-1"><button class="text-blue-400 px-1 hover:text-blue-600" onclick="window.editTeacher('${t.id}')">✎</button><button class="text-red-400 px-1 hover:text-red-600" onclick="window.delDoc('teachers','${t.id}')">×</button></div></div>`; 
+    }); 
+}
+
+function renderSubjectsList() { 
+    const c = document.getElementById('unassigned-subjects-container'); 
+    if(c) { 
+        c.innerHTML = ''; 
+        const grouped = {}; 
+        state.subjects.forEach(s => { 
+            const t = s.trimester||0; 
+            if(!grouped[t]) grouped[t]=[]; 
+            grouped[t].push(s); 
+        }); 
+        Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).forEach(t => { 
+            c.innerHTML += `<details class="trimester-group" open><summary>Cuatrimestre ${t}</summary><div class="content">${grouped[t].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<div class="draggable-subject" draggable="true" ondragstart="event.dataTransfer.setData('application/json', '{\\'type\\':\\'subject\\',\\'id\\':\\'${s.id}\\'}')">${s.name}</div>`).join('')}</div></details>`; 
+        }); 
+    } 
+    const l2 = document.getElementById('subjects-by-trimester'); 
+    if(l2) { 
+        l2.innerHTML = ''; 
+        const grouped = {}; 
+        state.subjects.forEach(s => { 
+            const t = s.trimester||0; 
+            if(!grouped[t]) grouped[t]=[]; 
+            grouped[t].push(s); 
+        }); 
+        Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).forEach(t => { 
+            const items = grouped[t].sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<div class="flex justify-between items-center p-1 border-b last:border-0 border-gray-100 hover:bg-white text-xs"><span class="truncate" title="${s.name}">${s.name}</span><div class="flex gap-1"><button onclick="window.editSub('${s.id}')" class="text-blue-400 px-1 hover:text-blue-600">✎</button><button onclick="window.delDoc('subjects','${s.id}')" class="text-red-400 px-1 hover:text-red-600">×</button></div></div>`).join(''); 
+            l2.innerHTML += `<div class="bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-sm h-fit"><h3 class="font-bold text-[10px] text-gray-500 uppercase mb-2 pb-1 border-b border-gray-200 sticky top-0 bg-gray-50">Cuatrimestre ${t}</h3><div class="space-y-0.5 max-h-48 overflow-y-auto">${items}</div></div>`; 
+        }); 
+    } 
+}
+
+function renderGroupsList() { 
+    const l = document.getElementById('groups-by-trimester'); 
+    if(l) {
+        const grouped = {};
+        state.groups.forEach(g => {
+            const t = g.trimester || 1;
+            if(!grouped[t]) grouped[t] = [];
+            grouped[t].push(g);
+        });
+        l.innerHTML = Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).map(t => {
+            const items = grouped[t].sort((a,b)=>a.name.localeCompare(b.name)).map(g => 
+                `<div class="p-1 border-b text-xs flex justify-between items-center hover:bg-gray-50">
+                    <span>${g.name}</span>
+                    <button class="text-red-400 hover:text-red-600" onclick="window.delDoc('groups','${g.id}')">×</button>
+                </div>`
+            ).join('');
+            return `<div class="bg-gray-50 border border-gray-200 rounded-lg p-2 mb-2">
+                <h4 class="font-bold text-[10px] text-gray-500 uppercase mb-1">Cuatri ${t}</h4>
+                ${items}
+            </div>`;
+        }).join('');
+    }
+}
+
+function renderClassroomsManageList() { 
+    const l = document.getElementById('classrooms-list-manage'); 
+    if(l) l.innerHTML = state.classrooms.sort((a,b)=>a.name.localeCompare(b.name)).map(c => `<div class="p-1 border-b text-xs flex justify-between hover:bg-gray-50"><span>${c.name}</span><button class="text-red-500 hover:text-red-700" onclick="window.delDoc('classrooms','${c.id}')">×</button></div>`).join(''); 
+}
+
+function renderBlocksList() { 
+    const l = document.getElementById('blocks-list'); 
+    if(l) l.innerHTML = state.blocks.sort((a,b)=>a.trimester-b.trimester || a.startTime-b.startTime).map(b => `<div class="text-xs p-2 border rounded bg-slate-50 flex justify-between items-center"><div><div class="font-bold">Bloqueo C${b.trimester}</div><div class="text-[10px] text-gray-500">${b.startTime}:00 - ${b.endTime}:00 (${b.days})</div></div><button class="text-red-500 font-bold px-2 hover:text-red-700" onclick="window.delDoc('blocks','${b.id}')">×</button></div>`).join(''); 
+}
+
+window.delDoc = (c, id) => { 
+    if(confirm('¿Estás seguro de eliminar este elemento?')) {
+        deleteDoc(doc(cols[c], id)).catch(err => {
+            console.error('Error al eliminar:', err);
+            alert('Error al eliminar: ' + err.message);
+        });
+    }
+};
+
 window.editSub = (id) => showSubjectForm(state.subjects.find(s=>s.id===id));
 window.editTeacher = (id) => showTeacherForm(state.teachers.find(t=>t.id===id));
-function addGroup() { const n=document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
-function addClassroom() { const n=document.getElementById('classroom-name-input').value; if(n) addDoc(cols.classrooms, {name: n}); }
-function addBlock() { const t=document.getElementById('block-time').value; const tr=document.getElementById('block-trimester').value; if(t&&tr) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tr, days:'L-V'}); }
-window.exportScheduleWrapper = function() {
-    // Importar la función de exportación
-    import('./export.js').then(module => {
-        module.exportAllSchedules(state, renderScheduleGrid);
-    });
-};
-auth.onAuthStateChanged(u => { if(u) initApp(); else signInAnonymously(auth).catch(console.error); });
+
+function addGroup() { 
+    const n = document.getElementById('group-number-input').value; 
+    if(n) {
+        addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}).then(() => {
+            document.getElementById('group-number-input').value = '';
+        });
+    } else {
+        alert('Ingresa un número de grupo');
+    }
+}
+
+function addClassroom() { 
+    const n = document.getElementById('classroom-name-input').value; 
+    if(n) {
+        addDoc(cols.classrooms, {name: n}).then(() => {
+            document.getElementById('classroom-name-input').value = '';
+        });
+    } else {
+        alert('Ingresa un nombre de aula');
+    }
+}
+
+function addBlock() { 
+    const t = document.getElementById('block-time').value; 
+    const tr = document.getElementById('block-trimester').value; 
+    if(t && tr) {
+        addDoc(cols.blocks, {
+            startTime: parseInt(t), 
+            endTime: parseInt(t) + 2, 
+            trimester: tr, 
+            days: 'L-V'
+        });
+    } else {
+        alert('Selecciona hora y cuatrimestre para el bloqueo');
+    }
+}
+
+// === AUTENTICACIÓN ===
+auth.onAuthStateChanged(u => { 
+    if(u) {
+        console.log('Usuario autenticado:', u.uid);
+        initApp(); 
+    } else {
+        console.log('Autenticando...');
+        signInAnonymously(auth).catch(err => {
+            console.error('Error de autenticación:', err);
+            alert('Error al conectar con Firebase. Recarga la página.');
+        });
+    }
+});
