@@ -28,7 +28,6 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7); // 7:00 a 20:00
 let tooltipEl = null;
 
 function initTooltip() {
-    // Evitar duplicados
     const existing = document.getElementById('custom-tooltip');
     if (existing) existing.remove();
 
@@ -40,7 +39,6 @@ function initTooltip() {
         if (tooltipEl.classList.contains('visible')) {
             const x = e.clientX + 15;
             const y = e.clientY + 15;
-            // Ajuste para que no se salga de la pantalla
             tooltipEl.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
             tooltipEl.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
         }
@@ -59,50 +57,48 @@ function hideTooltip() {
 
 // === INICIO APP ===
 function initApp() {
-    console.log("App Iniciada v3.1 (Fixed)");
+    console.log("App Iniciada v3.2 (Nombres Reales)");
     initTooltip();
-    setupListeners(); // ¡Ahora sí existe!
+    setupListeners();
     setupRealtimeListeners();
 }
 
-// === LISTENERS DE INTERFAZ (ESTA FUE LA QUE FALTÓ) ===
+// === LISTENERS INTERFAZ ===
 function setupListeners() {
-    // Navegación de Pestañas (Tabs)
+    // Tabs
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.onclick = () => {
-            // Desactivar todos
             document.querySelectorAll('.tab-button').forEach(b => {
                 b.classList.remove('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
                 b.classList.add('text-gray-600');
             });
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             
-            // Activar actual
             btn.classList.add('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
             btn.classList.remove('text-gray-600');
             
             const target = document.getElementById(`tab-content-${btn.dataset.tab}`);
             if(target) target.classList.remove('hidden');
             
-            // Renderizado bajo demanda
             if(btn.dataset.tab === 'horario') renderScheduleGrid();
         };
     });
 
-    // Filtros del Horario
+    // Filtros
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = renderScheduleGrid;
     });
 
-    // Botones de Acción
+    // Botones
     const bindClick = (id, fn) => {
         const el = document.getElementById(id);
         if(el) el.onclick = fn;
     };
 
     bindClick('open-class-modal-btn', () => showClassForm());
-    bindClick('add-teacher-btn', showTeacherForm);
+    // IMPORTANTE: Ahora pasamos una función vacía para que no pase el evento como "teacher"
+    bindClick('add-teacher-btn', () => showTeacherForm()); 
     bindClick('open-subject-modal-btn', showSubjectForm);
     bindClick('add-group-btn', addGroup);
     bindClick('add-classroom-btn', addClassroom);
@@ -110,15 +106,12 @@ function setupListeners() {
     bindClick('toggle-map-edit-btn', toggleMapEdit);
     bindClick('open-preset-modal-btn', showPresetForm);
     
-    // Peligro
     bindClick('advance-trimester-btn', () => {
         if(confirm('¿Seguro? Esto avanzará todos los grupos.')) {
-            // Lógica simple de avance
-            alert('Funcionalidad de avance pendiente de implementación segura.');
+            alert('Funcionalidad de avance pendiente.');
         }
     });
 
-    // Cerrar Modal al hacer clic fuera
     const modal = document.getElementById('modal');
     if(modal) {
         modal.onclick = (e) => {
@@ -127,7 +120,7 @@ function setupListeners() {
     }
 }
 
-// === LISTENERS FIREBASE ===
+// === FIREBASE LISTENERS ===
 function setupRealtimeListeners() {
     const update = (k, s) => {
         state[k] = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -139,7 +132,6 @@ function setupRealtimeListeners() {
         if(k === 'teachers') renderTeachersList();
         if(k === 'subjects') renderSubjectsList();
         if(k === 'groups') renderGroupsList();
-        // Presets y bloques
         if(k === 'presets') renderPresetsList();
         if(k === 'blocks') renderBlocksList();
     };
@@ -154,27 +146,26 @@ function checkLoading() {
     }
 }
 
-// === CONFLICT DETECTION ===
+// === CONFLICTOS ===
 function validateConflicts(newClass, ignoreId = null) {
     const conflicts = [];
-    
     const ncStart = newClass.startTime;
     const ncEnd = newClass.startTime + newClass.duration;
 
     state.schedule.forEach(existing => {
-        if (existing.id === ignoreId) return; // Ignorar si es la misma
-        if (existing.day !== newClass.day) return; // Ignorar otro día
+        if (existing.id === ignoreId) return;
+        if (existing.day !== newClass.day) return;
 
         const exStart = existing.startTime;
         const exEnd = existing.startTime + existing.duration;
-
-        // Verificar superposición
         const overlap = (ncStart < exEnd) && (ncEnd > exStart);
         
         if (overlap) {
             if (existing.teacherId === newClass.teacherId) {
                 const t = state.teachers.find(x => x.id === existing.teacherId);
-                conflicts.push(`El docente <b>${t?.name}</b> ya tiene clase.`);
+                // Muestra Nombre Real si existe, si no el corto
+                const tName = t ? (t.fullName || t.name) : 'Docente';
+                conflicts.push(`<b>${tName}</b> ya tiene clase.`);
             }
             if (existing.groupId === newClass.groupId) {
                 const g = state.groups.find(x => x.id === existing.groupId);
@@ -187,14 +178,12 @@ function validateConflicts(newClass, ignoreId = null) {
         }
     });
     
-    // Bloqueos
     const group = state.groups.find(g => g.id === newClass.groupId);
     if(group) {
         state.blocks.forEach(block => {
             if(block.trimester != group.trimester) return;
             const daysArr = block.days === 'L-V' ? days : days.slice(0,4);
             if(!daysArr.includes(newClass.day)) return;
-
             const bStart = block.startTime;
             const bEnd = block.endTime;
             if ((ncStart < bEnd) && (ncEnd > bStart)) {
@@ -213,7 +202,6 @@ function renderScheduleGrid() {
     
     const frag = document.createDocumentFragment();
 
-    // Headers
     const corner = document.createElement('div');
     corner.className = 'grid-header sticky top-0 left-0 bg-gray-50';
     corner.innerText = 'HORA';
@@ -226,7 +214,6 @@ function renderScheduleGrid() {
         frag.appendChild(h);
     });
 
-    // Grid Slots
     timeSlots.forEach(h => {
         const tc = document.createElement('div');
         tc.className = 'grid-time-slot sticky left-0 bg-white';
@@ -238,7 +225,6 @@ function renderScheduleGrid() {
             cell.className = 'grid-cell';
             cell.dataset.day = d;
             cell.dataset.hour = h;
-            // Drag
             cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
             cell.ondragleave = () => cell.classList.remove('droppable-hover');
             cell.ondrop = e => handleDrop(e, d, h);
@@ -247,7 +233,6 @@ function renderScheduleGrid() {
         });
     });
 
-    // Filters
     const fTeacher = document.getElementById('filter-teacher')?.value;
     const fGroup = document.getElementById('filter-group')?.value;
     const fRoom = document.getElementById('filter-classroom')?.value;
@@ -264,19 +249,16 @@ function renderScheduleGrid() {
         return true;
     });
 
-    // Items
     days.forEach((day, dIdx) => {
         const dayItems = visible.filter(c => c.day === day);
         dayItems.forEach(c => {
             const overlaps = dayItems.filter(o => c.startTime < (o.startTime + o.duration) && (c.startTime + c.duration) > o.startTime);
             overlaps.sort((a,b) => a.id.localeCompare(b.id)); 
-            
             const item = createItem(c, dIdx, overlaps.length, overlaps.indexOf(c));
             if(item) frag.appendChild(item);
         });
     });
 
-    // Blocks
     state.blocks.forEach(b => {
         if(fTrim && b.trimester != fTrim) return;
         const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
@@ -288,7 +270,6 @@ function renderScheduleGrid() {
             el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`;
             el.style.width = `calc(((100% - 60px)/5) - 2px)`;
             el.innerHTML = `<span>BLOQ C${b.trimester}</span><button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
-            // Hack pointer events
             if(el.children[1]) el.children[1].style.pointerEvents = "auto";
             frag.appendChild(el);
         });
@@ -336,11 +317,13 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
     el.querySelector('.edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); };
     el.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
     
+    // TOOLTIP MEJORADO CON NOMBRE COMPLETO
     el.onmouseenter = () => {
+        const fullTeacherName = teach.fullName ? `${teach.name} <span style="opacity:0.6; font-size:0.7em">(${teach.fullName})</span>` : teach.name;
         showTooltip(`
             <strong>${subj.name}</strong>
             <div class="mb-1">${c.startTime}:00 - ${c.startTime + c.duration}:00</div>
-            <div>👨‍🏫 ${teach.name}</div>
+            <div>👨‍🏫 ${fullTeacherName}</div>
             <div>👥 ${grp.name}</div>
             <div>🏫 ${room ? room.name : '<span class="text-red-300">Sin Aula</span>'}</div>
             <div class="meta">Clic para editar</div>
@@ -352,7 +335,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
     return el;
 }
 
-// === FORMULARIO ===
+// === FORMULARIOS DE CLASES ===
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal');
     modal.classList.remove('hidden');
@@ -396,7 +379,6 @@ function showClassForm(defs = {}) {
         };
 
         const conflicts = validateConflicts(payload, defs.id);
-        
         if (conflicts.length > 0) {
             const warningDiv = document.getElementById('conflict-warnings');
             warningDiv.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-3 text-red-700"><p class="font-bold">¡Conflicto Detectado!</p><ul class="list-disc pl-4 mt-1">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul><div class="mt-2 text-xs text-right"><button id="btn-force" class="text-red-800 underline font-bold">Guardar de todos modos</button></div></div>`;
@@ -407,7 +389,6 @@ function showClassForm(defs = {}) {
             };
             return;
         }
-
         await commitSave(payload, defs.id);
     };
 }
@@ -422,6 +403,54 @@ async function commitSave(data, id) {
         notify("Error al guardar", true);
         console.error(e);
     }
+}
+
+// === NUEVO FORMULARIO DE DOCENTE (MODAL) ===
+function showTeacherForm(teacher = null) {
+    const modal = document.getElementById('modal');
+    modal.classList.remove('hidden');
+    const content = document.getElementById('modal-content');
+    
+    const isEdit = !!teacher;
+    const nameVal = teacher ? teacher.name : '';
+    const fullVal = teacher ? (teacher.fullName || '') : '';
+
+    content.innerHTML = `
+        <div class="p-6 bg-white rounded-lg">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1 text-xs uppercase">Apodo / Nombre Corto</label>
+                    <input type="text" id="t-name" value="${nameVal}" class="w-full border p-2 rounded" placeholder="Ej: Alex (Se muestra en el horario)">
+                </div>
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1 text-xs uppercase">Nombre Completo Real</label>
+                    <input type="text" id="t-full" value="${fullVal}" class="w-full border p-2 rounded" placeholder="Ej: Alejandro Hernández (Para reportes)">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="btn-t-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-t-save" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow">Guardar Docente</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btn-t-cancel').onclick = () => modal.classList.add('hidden');
+    
+    document.getElementById('btn-t-save').onclick = async () => {
+        const newName = document.getElementById('t-name').value.trim();
+        const newFull = document.getElementById('t-full').value.trim();
+        
+        if(!newName) return notify("El apodo es obligatorio", true);
+
+        const data = { name: newName, fullName: newFull };
+        try {
+            if(isEdit) await updateDoc(doc(cols.teachers, teacher.id), data);
+            else await addDoc(cols.teachers, data);
+            modal.classList.add('hidden');
+            notify("Docente guardado");
+        } catch(e) { notify("Error al guardar", true); }
+    };
 }
 
 async function handleDrop(e, day, hour) {
@@ -443,7 +472,7 @@ function notify(msg, err) {
     setTimeout(()=>n.remove(), 3000);
 }
 
-// === UTILS RENDER ===
+// === RENDERIZADORES DE LISTAS ===
 function renderFilterOptions() {
     const fill = (id, arr, lbl) => {
         const el = document.getElementById(id); 
@@ -455,7 +484,6 @@ function renderFilterOptions() {
     fill('filter-teacher', state.teachers, 'Todos los Docentes');
     fill('filter-group', state.groups, 'Todos los Grupos');
     fill('filter-classroom', state.classrooms, 'Todas las Aulas');
-    
     const t = document.getElementById('filter-trimester');
     if(t && t.children.length < 2) { t.innerHTML='<option value="">Todos los Cuatris</option>'; for(let i=1;i<=9;i++) t.add(new Option(`C${i}`,i)); }
 }
@@ -472,7 +500,6 @@ function renderSubjectsList() {
             c.appendChild(d);
         });
     }
-    // Lista completa
     const list = document.getElementById('subjects-by-trimester'); 
     if(list) {
         list.innerHTML='';
@@ -484,18 +511,38 @@ function renderSubjectsList() {
     }
 }
 
-// Helpers globales para gestión (se inyectan en window para los onclicks de HTML plano)
-window.delDoc = (col, id) => { if(confirm('¿Eliminar?')) deleteDoc(doc(cols[col], id)); };
-
+// LISTA DE DOCENTES MEJORADA (MUESTRA AMBOS NOMBRES)
 function renderTeachersList() { 
     const l = document.getElementById('teachers-list'); if(!l) return;
     l.innerHTML='';
-    state.teachers.forEach(t => {
-        const d = document.createElement('div'); d.className='flex justify-between p-2 border-b text-sm';
-        d.innerHTML=`${t.name} <button onclick="delDoc('teachers','${t.id}')" class="text-red-500">×</button>`;
+    state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => {
+        const d = document.createElement('div'); 
+        d.className='flex justify-between items-center p-2 border-b text-sm hover:bg-gray-50';
+        
+        // Renderizado inteligente de nombres
+        const displayName = `
+            <div class="flex flex-col">
+                <span class="font-bold text-gray-800">${t.name}</span>
+                ${t.fullName ? `<span class="text-xs text-gray-500">${t.fullName}</span>` : ''}
+            </div>
+        `;
+        
+        d.innerHTML=`
+            ${displayName} 
+            <div class="flex gap-2">
+                <button class="btn-edit-t text-blue-500 hover:text-blue-700 p-1">✎</button>
+                <button class="btn-del-t text-red-500 hover:text-red-700 p-1">×</button>
+            </div>
+        `;
+        
+        // Bindings directos para evitar problemas de scope
+        d.querySelector('.btn-edit-t').onclick = () => showTeacherForm(t);
+        d.querySelector('.btn-del-t').onclick = () => delDoc('teachers', t.id);
+        
         l.appendChild(d);
     });
 }
+
 function renderGroupsList() {
     const l = document.getElementById('groups-by-trimester'); if(!l) return;
     l.innerHTML='';
@@ -514,11 +561,7 @@ function renderClassroomsList() {
         l.appendChild(d);
     });
 }
-function renderPresetsList() {
-    const l = document.getElementById('presets-list'); if(!l) return;
-    l.innerHTML = '';
-    // Placeholder de presets
-}
+function renderPresetsList() { /* Placeholder */ }
 function renderBlocksList() {
     const l = document.getElementById('blocks-list'); if(!l) return;
     l.innerHTML = '';
@@ -530,18 +573,14 @@ function renderBlocksList() {
     });
 }
 
-// Actions
+// Helpers
+window.delDoc = (col, id) => { if(confirm('¿Eliminar?')) deleteDoc(doc(cols[col], id)); };
 function addGroup() { const n = document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 function addClassroom() { const n = document.getElementById('classroom-name').value; if(n) addDoc(cols.classrooms, {name: n}); }
-function addBlock() { 
-    const t = document.getElementById('block-time')?.value;
-    const tri = document.getElementById('block-trimester')?.value;
-    if(t && tri) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tri, days:'L-V'}); 
-}
-function showTeacherForm() { const n = prompt('Nombre docente:'); if(n) addDoc(cols.teachers, {name: n}); }
+function addBlock() { const t = document.getElementById('block-time')?.value; const tri = document.getElementById('block-trimester')?.value; if(t && tri) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tri, days:'L-V'}); }
 function showSubjectForm() { const n = prompt('Materia:'); if(n) addDoc(cols.subjects, {name: n, trimester: 1}); }
-function showPresetForm() { alert('Función de presets en construcción'); }
-function toggleMapEdit() { alert('Mapa en construcción'); }
+function showPresetForm() { alert('En construcción'); }
+function toggleMapEdit() { alert('En construcción'); }
 
 // START
 auth.onAuthStateChanged(u => { 
