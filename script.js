@@ -27,7 +27,7 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 // === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v12.1 (Fixed Grid)");
+    console.log("App v12.2 (Absolute Export)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -35,7 +35,6 @@ function initApp() {
 
 // === LISTENERS ===
 function setupListeners() {
-    // Tabs
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.tab-button').forEach(b => {
@@ -223,28 +222,19 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
 
     const el = document.createElement('div'); el.className = 'schedule-item';
     
-    // === FIX DESFASE AQUÍ ===
-    // En exportación, la fila es exactamente 55px.
-    // Usamos (rowH * tIdx) + rowH para saltar el header.
+    // === MATH EXACTA ===
     const rowH = isExporting ? 55 : 60; 
     
-    // Anchos de columna
-    // En exportación: primera col 80px, resto (1000px - 80px) / 5
-    // En web: primera col 60px, resto flex.
+    // Anchos
     const leftOffset = isExporting ? 80 : 60;
     const colW = `((100% - ${leftOffset}px)/5)`;
     
-    // Calculo TOP
-    // + rowH para saltar el header
-    // Exportación: sumamos 1px a veces para tapar el borde si es necesario, 
-    // pero con box-sizing y alturas exactas, el cálculo directo debería funcionar.
+    // Posicion Vertical: Header + (Index * Height)
+    // El header de exportacion tiene height 55px (ver style.css .grid-header)
+    // El header web tiene height 60px
     el.style.top = `${(tIdx * rowH) + rowH}px`; 
     
-    // Calculo HEIGHT
-    // Restamos un poco para ver los bordes de la celda si queremos, o taparlos.
-    // En exportación (isExporting), queremos que llene casi todo pero no se salga.
     el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
-    
     el.style.left = `calc(${leftOffset}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
     el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting ? 1 : 4}px)`;
     
@@ -253,7 +243,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(isExporting) {
         el.style.backgroundColor = PALETTE[cIdx] + '99'; 
         el.style.border = '1px solid #000';
-        el.style.zIndex = '20'; // Asegurar que quede encima de las lineas
+        el.style.zIndex = '20'; 
     } else {
         el.style.borderLeftColor = PALETTE[cIdx];
     }
