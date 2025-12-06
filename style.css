@@ -116,6 +116,16 @@ body { font-family: 'Inter', sans-serif; }
 }
 .schedule-item .actions button:hover { color: #dc2626; border-color: #fca5a5; }
 
+.schedule-item .subject-name { 
+    font-weight: 700; 
+    color: #1e293b; 
+    display: block; 
+    margin-bottom: 2px;
+    white-space: nowrap;      /* IMPORTANTE: No permite saltos de línea */
+    overflow: hidden;         /* Oculta lo que sobra */
+    text-overflow: ellipsis;  /* Pone '...' al final */
+}
+
 /* BLOQUEOS */
 .schedule-block {
     position: absolute;
