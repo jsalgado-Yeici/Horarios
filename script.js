@@ -1,5 +1,5 @@
 import { db, auth, collection, APP_ID, PALETTE } from './config.js';
-import { renderMap } from './maps.js'; // <--- OJO: maps.js con 's'
+import { renderMap } from './maps.js';
 import { signInAnonymously } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { doc, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
@@ -26,7 +26,7 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 // INIT
 let tooltipEl = null;
 function initApp() {
-    console.log("App v5.0 (Multi-File Fixed)");
+    console.log("App v5.1 (Gestión Fix)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -115,11 +115,9 @@ function renderScheduleGrid() {
     const grid = document.getElementById('schedule-grid'); if (!grid) return;
     const frag = document.createDocumentFragment();
 
-    // Headers
     const corner = document.createElement('div'); corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; corner.innerText = 'HORA'; frag.appendChild(corner);
     days.forEach(d => { const h = document.createElement('div'); h.className = 'grid-header sticky top-0 bg-gray-50'; h.innerText = d; frag.appendChild(h); });
 
-    // Cells
     timeSlots.forEach(h => {
         const tc = document.createElement('div'); tc.className = 'grid-time-slot sticky left-0 bg-white'; tc.innerText = `${h}:00`; frag.appendChild(tc);
         days.forEach(d => {
@@ -133,7 +131,6 @@ function renderScheduleGrid() {
         });
     });
 
-    // Items
     const fTch = document.getElementById('filter-teacher')?.value;
     const fGrp = document.getElementById('filter-group')?.value;
     const fTrim = document.getElementById('filter-trimester')?.value;
@@ -155,7 +152,6 @@ function renderScheduleGrid() {
         });
     });
 
-    // Blocks
     state.blocks.forEach(b => {
         if(fTrim && b.trimester != fTrim) return;
         const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
@@ -251,17 +247,23 @@ async function commitSave(data, id) {
     try { if(id) await updateDoc(doc(cols.schedule, id), data); else await addDoc(cols.schedule, data); document.getElementById('modal').classList.add('hidden'); } catch(e){ console.error(e); }
 }
 
-function showTeacherForm() {
+function showTeacherForm(teacher = null) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden');
+    const isEdit = !!teacher;
     document.getElementById('modal-content').innerHTML = `
-        <div class="p-6 bg-white"><h2 class="font-bold mb-4">Nuevo Docente</h2>
-        <input id="t-name" class="w-full border p-2 mb-2" placeholder="Apodo (Ej: Alex)">
-        <input id="t-full" class="w-full border p-2 mb-4" placeholder="Nombre Completo">
+        <div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2>
+        <input id="t-name" value="${teacher ? teacher.name : ''}" class="w-full border p-2 mb-2" placeholder="Apodo (Ej: Alex)">
+        <input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 mb-4" placeholder="Nombre Completo Real">
         <button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button>
         </div>`;
     document.getElementById('btn-t-save').onclick = async () => {
         const n = document.getElementById('t-name').value; const f = document.getElementById('t-full').value;
-        if(n) { await addDoc(cols.teachers, {name: n, fullName: f}); modal.classList.add('hidden'); }
+        if(n) { 
+            const data = {name: n, fullName: f};
+            if(isEdit) await updateDoc(doc(cols.teachers, teacher.id), data);
+            else await addDoc(cols.teachers, data); 
+            modal.classList.add('hidden'); 
+        }
     };
 }
 
@@ -324,35 +326,77 @@ function createTooltip() {
 function showTooltip(html) { tooltipEl.innerHTML = html; tooltipEl.classList.add('visible'); }
 function hideTooltip() { tooltipEl.classList.remove('visible'); }
 
-// LISTS
+// LISTS (AQUÍ ESTÁN LOS CAMBIOS)
 function renderFilterOptions() {
     const fill = (id, arr, l) => { const el = document.getElementById(id); if(el) { const v = el.value; el.innerHTML = `<option value="">${l}</option>` + arr.map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); el.value = v; }};
     fill('filter-teacher', state.teachers, 'Todos los Docentes'); fill('filter-group', state.groups, 'Todos los Grupos');
     const t = document.getElementById('filter-trimester'); if(t && t.children.length < 2) for(let i=1;i<=9;i++) t.add(new Option(`C${i}`,i));
 }
+
+// CORRECCIÓN 1: DOCENTES CON NOMBRE COMPLETO
 function renderTeachersList() {
     const l = document.getElementById('teachers-list'); if(!l) return; l.innerHTML = '';
-    state.teachers.forEach(t => { l.innerHTML += `<div class="p-2 border-b text-sm flex justify-between">${t.name} <button class="text-red-500" onclick="delDoc('teachers','${t.id}')">x</button></div>`; });
-}
-function renderSubjectsList() {
-    const c = document.getElementById('unassigned-subjects-container'); if(!c) return; c.innerHTML = '';
-    const grouped = {}; state.subjects.forEach(s => { const t = s.trimester||0; if(!grouped[t]) grouped[t]=[]; grouped[t].push(s); });
-    Object.keys(grouped).sort().forEach(t => {
-        c.innerHTML += `<details class="trimester-group" open><summary>Cuatri ${t}</summary><div class="content">${grouped[t].map(s => 
-            `<div class="draggable-subject" draggable="true" ondragstart="event.dataTransfer.setData('application/json', '{\\'type\\':\\'subject\\',\\'id\\':\\'${s.id}\\'}')">${s.name}</div>`
-        ).join('')}</div></details>`;
+    state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => {
+        const full = t.fullName ? `<span class="text-[10px] text-gray-400 block">${t.fullName}</span>` : '';
+        l.innerHTML += `
+            <div class="p-2 border-b text-sm flex justify-between items-center bg-white hover:bg-gray-50">
+                <div class="leading-tight">
+                    <span class="font-bold text-gray-700 cursor-pointer hover:text-blue-600" onclick="window.editTeacher('${t.id}')">${t.name}</span>
+                    ${full}
+                </div>
+                <div class="flex gap-1">
+                    <button class="text-blue-400 hover:text-blue-600 px-1" onclick="window.editTeacher('${t.id}')">✎</button>
+                    <button class="text-red-400 hover:text-red-600 px-1" onclick="delDoc('teachers','${t.id}')">×</button>
+                </div>
+            </div>`;
     });
-    // Lista completa
-    const l2 = document.getElementById('subjects-by-trimester'); if(l2) {
-        l2.innerHTML = state.subjects.map(s => `<div class="p-1 border text-xs flex justify-between">${s.name} <button onclick="window.editSub('${s.id}')">✎</button></div>`).join('');
+}
+
+// CORRECCIÓN 2: MATERIAS AGRUPADAS POR CUATRI EN GESTIÓN
+function renderSubjectsList() {
+    // Sidebar Drag & Drop (Mantiene su estilo)
+    const c = document.getElementById('unassigned-subjects-container'); 
+    if(c) {
+        c.innerHTML = '';
+        const grouped = {}; state.subjects.forEach(s => { const t = s.trimester||0; if(!grouped[t]) grouped[t]=[]; grouped[t].push(s); });
+        Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).forEach(t => {
+            c.innerHTML += `<details class="trimester-group" open><summary>Cuatri ${t}</summary><div class="content">${grouped[t].map(s => 
+                `<div class="draggable-subject" draggable="true" ondragstart="event.dataTransfer.setData('application/json', '{\\'type\\':\\'subject\\',\\'id\\':\\'${s.id}\\'}')">${s.name}</div>`
+            ).join('')}</div></details>`;
+        });
+    }
+
+    // Lista Gestión (AHORA AGRUPADA EN GRID)
+    const l2 = document.getElementById('subjects-by-trimester'); 
+    if(l2) {
+        l2.innerHTML = '';
+        const grouped = {}; state.subjects.forEach(s => { const t = s.trimester||0; if(!grouped[t]) grouped[t]=[]; grouped[t].push(s); });
+        
+        Object.keys(grouped).sort((a,b)=>Number(a)-Number(b)).forEach(t => {
+            const items = grouped[t].map(s => 
+                `<div class="flex justify-between items-center p-1 border-b last:border-0 border-gray-100 hover:bg-white text-xs">
+                    <span class="truncate" title="${s.name}">${s.name}</span>
+                    <button onclick="window.editSub('${s.id}')" class="text-blue-400 hover:text-blue-600 px-1">✎</button>
+                 </div>`
+            ).join('');
+            
+            l2.innerHTML += `
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-sm h-fit">
+                    <h3 class="font-bold text-[10px] text-gray-500 uppercase mb-2 pb-1 border-b border-gray-200 sticky top-0 bg-gray-50">Cuatrimestre ${t}</h3>
+                    <div class="space-y-0.5 max-h-48 overflow-y-auto">${items}</div>
+                </div>`;
+        });
     }
 }
+
 function renderGroupsList() { const l = document.getElementById('groups-by-trimester'); if(l) l.innerHTML = state.groups.map(g => `<div class="p-2 border bg-white text-sm">${g.name}</div>`).join(''); }
 function renderBlocksList() { const l = document.getElementById('blocks-list'); if(l) l.innerHTML = state.blocks.map(b => `<div class="text-xs p-1 border mb-1 flex justify-between">Bloqueo C${b.trimester} <button onclick="delDoc('blocks','${b.id}')">x</button></div>`).join(''); }
 
 // GLOBAL HELPERS
-window.delDoc = (c, id) => { if(confirm('Borrar?')) deleteDoc(doc(cols[c], id)); };
+window.delDoc = (c, id) => { if(confirm('¿Seguro de borrar?')) deleteDoc(doc(cols[c], id)); };
 window.editSub = (id) => showSubjectForm(state.subjects.find(s=>s.id===id));
+window.editTeacher = (id) => showTeacherForm(state.teachers.find(t=>t.id===id)); // Nuevo Helper
+
 function addGroup() { const n=document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 function addBlock() { const t=document.getElementById('block-time').value; const tr=document.getElementById('block-trimester').value; if(t&&tr) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tr, days:'L-V'}); }
 
