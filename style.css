@@ -1,63 +1,53 @@
-/* === ESTILOS EXPORTACIÓN OFICIAL (CORREGIDO) === */
+/* === ESTILOS EXPORTACIÓN OFICIAL (VERSIÓN FINAL) === */
 #export-template { 
     font-family: 'Arial', sans-serif; 
     background: white; 
-    width: 1450px; /* Un poco más ancho para asegurar que quepa todo */
+    width: 1500px; /* Ancho sobrado para evitar cortes */
     padding: 20px; 
     box-sizing: border-box;
-    position: absolute;
+    /* Posicionamiento fijo para que sea visible durante la captura y no dependa del scroll */
+    position: fixed; 
     top: 0;
     left: 0;
+    z-index: -1; /* Oculto visualmente por defecto */
+    opacity: 0;
 }
 
 #export-template * { 
     box-sizing: border-box !important; 
 }
 
-/* Layout Principal usando Tabla para estabilidad en html2canvas */
-.layout-table {
-    width: 100%;
-    border-collapse: collapse;
-    border: none;
-}
-.layout-table td {
-    vertical-align: top;
-    padding: 0;
-    border: none;
-}
-
-/* Grid Exportación */
+/* El Grid del Horario en Exportación */
 #export-template .schedule-grid { 
+    /* Bordes externos del grid */
     border-top: 2px solid #000; 
     border-left: 2px solid #000; 
-    /* Ancho fijo para evitar compresiones */
     width: 1000px !important; 
     display: grid;
-    grid-template-columns: 80px repeat(5, 1fr);
+    grid-template-columns: 80px repeat(5, 1fr); /* 80px hora + 5 días */
     background: #fff;
-    gap: 0; /* Cero gap para cálculo exacto */
-    grid-auto-rows: 55px; /* Altura exacta */
+    gap: 0; 
+    /* Altura EXACTA por fila (debe coincidir con script.js) */
+    grid-auto-rows: 55px; 
     position: relative;
 }
 
-/* Headers Exportación */
+/* Cabeceras (Lunes, Martes...) */
 #export-template .grid-header { 
     height: 55px; 
-    line-height: 55px; /* Centrado vertical texto */
+    line-height: 55px; 
     background: #e5e7eb; 
     color: #000; 
     border-right: 2px solid #000; 
     border-bottom: 2px solid #000; 
     font-size: 14px; 
     font-weight: 900; 
-    text-transform: uppercase;
+    text-transform: uppercase; 
     text-align: center;
-    overflow: hidden;
-    margin: 0;
-    padding: 0;
+    padding: 0; margin: 0;
 }
 
-/* Time Slots Exportación */
+/* Columna de Horas */
 #export-template .grid-time-slot { 
     height: 55px; 
     background: white;
@@ -69,41 +59,40 @@
     display: flex; 
     align-items: center; 
     justify-content: center;
-    margin: 0;
-    padding: 0;
+    padding: 0; margin: 0;
 }
 
-/* Celdas Exportación */
+/* Celdas vacías */
 #export-template .grid-cell { 
     height: 55px; 
     background: white;
     border-right: 2px solid #000; 
     border-bottom: 2px solid #000; 
-    margin: 0;
-    padding: 0;
+    padding: 0; margin: 0;
     position: relative;
 }
 
-/* Items de Clase en Exportación */
+/* Bloques de Clase (Items) */
 #export-template .schedule-item {
     position: absolute;
-    border-radius: 0;
     border: 1px solid #000; 
-    padding: 2px; /* Reducido padding */
+    /* Importante: Z-index alto para estar sobre las líneas */
+    z-index: 10; 
+    padding: 2px;
     display: flex; 
     flex-direction: column; 
     justify-content: center; 
     align-items: center; 
     text-align: center;
     overflow: hidden;
-    z-index: 10;
+    background-color: rgba(255,255,255,0.9);
 }
 
 #export-template .schedule-item .subject-name {
     font-size: 11px; 
     font-weight: bold; 
     text-transform: uppercase;
-    line-height: 1; 
+    line-height: 1.1; 
     color: #000; 
     margin-bottom: 2px;
 }
@@ -112,54 +101,15 @@
     font-size: 9px; 
     font-weight: normal; 
     color: #000;
-    line-height: 1;
+    line-height: 1.1;
 }
 
-/* Tabla Lateral */
-#export-template .teachers-table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    border: 2px solid #000; 
-    font-family: 'Arial', sans-serif; 
-    margin-left: 20px; /* Separación del grid */
-}
-
-#export-template .teachers-table th { 
-    background: #d1d5db; 
-    border: 1px solid #000; 
-    padding: 8px; 
-    font-size: 12px; 
-    font-weight: bold; 
-    text-transform: uppercase; 
-    text-align: center;
-}
-
-#export-template .teachers-table td { 
-    border: 1px solid #000; 
-    padding: 5px; 
-    font-size: 11px; 
-    color: #000; 
-    font-weight: bold; 
-}
-
-#export-template .subject-col { width: 60%; background-color: #f3f4f6; }
-#export-template .teacher-col { width: 40%; background-color: white; }
-
-/* Header Oficial */
-#export-template .official-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 4px solid #3b82f6;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-}
-
-/* Estilos Web Normales (No tocar) */
+/* === Estilos Generales de la App (Sin cambios) === */
 .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .tab-content { animation: fadeIn 0.3s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+/* Estilos para el grid interactivo (pantalla) */
 .schedule-grid { display: grid; grid-template-columns: 60px repeat(5, 1fr); gap: 1px; background-color: #e5e7eb; border: 1px solid #e5e7eb; user-select: none; }
 .grid-header { background-color: #f9fafb; padding: 10px; text-align: center; font-weight: bold; font-size: 0.8rem; color: #374151; z-index: 10; height: 60px; display: flex; align-items: center; justify-content: center; }
 .grid-time-slot { background-color: white; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #6b7280; font-weight: 500; }
