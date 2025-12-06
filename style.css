@@ -198,3 +198,54 @@
     height: auto !important; 
     min-height: fit-content;
 }
+
+/* === ESTILOS MAPA (REVIVIDO) === */
+.map-room {
+    position: absolute;
+    border: 2px solid rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    font-size: 10px;
+    font-weight: bold;
+    color: #4b5563;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 2px;
+    line-height: 1.1;
+    background-color: white; /* Fallback */
+}
+
+.map-room:hover {
+    transform: scale(1.02);
+    z-index: 10;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    filter: brightness(0.95);
+}
+
+/* Colores por Tipo de Aula */
+.map-room.classroom { 
+    background-color: #dbeafe; /* Azul claro */
+    border-color: #3b82f6; 
+    color: #1e40af; 
+}
+
+.map-room.lab { 
+    background-color: #fef3c7; /* Amarillo claro */
+    border-color: #f59e0b; 
+    color: #92400e; 
+}
+
+.map-room.office { 
+    background-color: #f3f4f6; /* Gris claro */
+    border-color: #9ca3af; 
+    color: #6b7280; 
+}
+
+.map-room.stairs { 
+    background-color: #e5e7eb; 
+    border-color: #6b7280; 
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px);
+    color: #374151;
+}
