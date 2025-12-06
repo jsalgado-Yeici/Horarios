@@ -1,10 +1,10 @@
 import { db, auth, collection, APP_ID, PALETTE } from './config.js';
 import { renderMap } from './maps.js';
-import { exportSchedule, exportAllSchedules } from './export.js'; // Importamos la nueva función masiva
+import { exportSchedule, exportAllSchedules } from './export.js';
 import { signInAnonymously } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// ESTADO GLOBAL
+// === ESTADO GLOBAL ===
 const state = {
     teachers: [], subjects: [], groups: [], schedule: [], 
     presets: [], blocks: [], classrooms: [],
@@ -24,16 +24,16 @@ const cols = {
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 
-// INIT
+// === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v6.2 (ZIP Export)");
+    console.log("App v7.0 (Final Export Fix)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
 }
 
-// LISTENERS
+// === LISTENERS ===
 function setupListeners() {
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.onclick = () => {
@@ -70,14 +70,13 @@ function setupListeners() {
     // EXPORTACIÓN
     bind('btn-export-pdf', () => exportSchedule('pdf'));
     bind('btn-export-img', () => exportSchedule('img'));
-    // NUEVO: Exportación Masiva pasando el estado y la función de renderizado
     bind('btn-export-all', () => exportAllSchedules(state, renderScheduleGrid));
 
     const modal = document.getElementById('modal');
     if(modal) modal.onclick = (e) => { if(e.target.id === 'modal') modal.classList.add('hidden'); };
 }
 
-// MAPA
+// === MAPA ===
 function initMapTab() { switchFloor('pa'); }
 function switchFloor(floor) {
     const btnPb = document.getElementById('floor-btn-pb');
@@ -110,7 +109,7 @@ function showRoomDetails(room) {
     content.innerHTML = html;
 }
 
-// FIREBASE
+// === FIREBASE ===
 function setupRealtimeListeners() {
     const update = (k, s) => {
         state[k] = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -128,41 +127,23 @@ function setupRealtimeListeners() {
 }
 function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); }}}
 
-// RENDER GRID (AHORA REUTILIZABLE)
+// === RENDER GRID (CLAVE PARA EXPORTACIÓN) ===
 export function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
     if (!targetElement) return;
     
-    // Limpieza
     targetElement.innerHTML = '';
     const frag = document.createDocumentFragment();
 
     // Headers
-    const corner = document.createElement('div'); 
-    corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; 
-    corner.innerText = 'HORA'; 
-    frag.appendChild(corner);
-    
-    days.forEach(d => { 
-        const h = document.createElement('div'); 
-        h.className = 'grid-header sticky top-0 bg-gray-50'; 
-        h.innerText = d; 
-        frag.appendChild(h); 
-    });
+    const corner = document.createElement('div'); corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; corner.innerText = 'HORA'; frag.appendChild(corner);
+    days.forEach(d => { const h = document.createElement('div'); h.className = 'grid-header sticky top-0 bg-gray-50'; h.innerText = d; frag.appendChild(h); });
 
-    // Cells
+    // Grid
     timeSlots.forEach(h => {
-        const tc = document.createElement('div'); 
-        tc.className = 'grid-time-slot sticky left-0 bg-white'; 
-        tc.innerText = `${h}:00`; 
-        frag.appendChild(tc);
-        
+        const tc = document.createElement('div'); tc.className = 'grid-time-slot sticky left-0 bg-white'; tc.innerText = `${h}:00`; frag.appendChild(tc);
         days.forEach(d => {
-            const cell = document.createElement('div'); 
-            cell.className = 'grid-cell'; 
-            cell.dataset.day = d; 
-            cell.dataset.hour = h;
-            
-            // Solo añadimos interacción si NO estamos exportando (si es el grid principal)
+            const cell = document.createElement('div'); cell.className = 'grid-cell'; cell.dataset.day = d; cell.dataset.hour = h;
+            // Solo interactivo si NO es exportación
             if(!customFilters && targetElement.id === 'schedule-grid') { 
                 cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
                 cell.ondragleave = () => cell.classList.remove('droppable-hover');
@@ -173,48 +154,39 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // LOGICA DE FILTRADO PARA EXPORTACIÓN
-    // Si customFilters existe (exportación), usamos esos IDs. Si no, leemos del DOM.
+    // Filtros
     const fTch = customFilters ? customFilters.teacherId : document.getElementById('filter-teacher')?.value;
     const fGrp = customFilters ? customFilters.groupId : document.getElementById('filter-group')?.value;
-    
-    // Nota: En exportación ignoramos el filtro de trimestre global para que salga todo lo del grupo
     const fTrim = customFilters ? null : document.getElementById('filter-trimester')?.value;
 
     const visible = state.schedule.filter(c => {
         if(fTch && c.teacherId !== fTch) return false;
         if(fGrp && c.groupId !== fGrp) return false;
-        if(fTrim) { 
-            const g = state.groups.find(x => x.id === c.groupId); 
-            if(!g || g.trimester != fTrim) return false; 
-        }
+        if(fTrim) { const g = state.groups.find(x => x.id === c.groupId); if(!g || g.trimester != fTrim) return false; }
         return true;
     });
 
-    // Render Items
+    // Items
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
             const overlaps = items.filter(o => c.startTime < (o.startTime + o.duration) && (c.startTime + c.duration) > o.startTime);
             overlaps.sort((a,b) => a.id.localeCompare(b.id)); 
-            const el = createItem(c, dIdx, overlaps.length, overlaps.indexOf(c));
+            // Pasamos "!!customFilters" como bandera de "isExporting"
+            const el = createItem(c, dIdx, overlaps.length, overlaps.indexOf(c), !!customFilters);
             if(el) frag.appendChild(el);
         });
     });
 
-    // Render Blocks
+    // Blocks
     state.blocks.forEach(b => {
         if(fTrim && b.trimester != fTrim) return;
         const dIndices = b.days==='L-V' ? [0,1,2,3,4] : [0,1,2,3];
         dIndices.forEach(di => {
             const el = document.createElement('div'); el.className = 'schedule-block';
-            el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; 
-            el.style.height = `${(b.endTime - b.startTime)*60}px`;
-            el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; 
-            el.style.width = `calc(((100% - 60px)/5) - 2px)`;
-            
+            el.style.top = `${(timeSlots.indexOf(b.startTime)+1)*60}px`; el.style.height = `${(b.endTime - b.startTime)*60}px`;
+            el.style.left = `calc(60px + ((100% - 60px)/5)*${di})`; el.style.width = `calc(((100% - 60px)/5) - 2px)`;
             el.innerHTML = `<span>BLOQ C${b.trimester}</span>`;
-            // Solo botón de borrar si no estamos exportando
             if(!customFilters) {
                 el.innerHTML += `<button class="ml-2 text-red-500 font-bold" onclick="delDoc('blocks','${b.id}')">×</button>`;
                 el.children[1].style.pointerEvents = "auto";
@@ -226,30 +198,69 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
     targetElement.appendChild(frag);
 }
 
-function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
+function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     const tIdx = timeSlots.indexOf(c.startTime); if(tIdx === -1) return null;
-    const subj = state.subjects.find(s => s.id === c.subjectId); const teach = state.teachers.find(t => t.id === c.teacherId); const grp = state.groups.find(g => g.id === c.groupId);
+    const subj = state.subjects.find(s => s.id === c.subjectId);
+    const teach = state.teachers.find(t => t.id === c.teacherId);
+    const grp = state.groups.find(g => g.id === c.groupId);
     if(!subj || !grp || !teach) return null;
+
     const el = document.createElement('div'); el.className = 'schedule-item';
     const rowH = 60; const colW = `((100% - 60px)/5)`;
-    el.style.top = `${(tIdx + 1) * rowH}px`; el.style.height = `${(c.duration * rowH) - 4}px`;
-    el.style.left = `calc(60px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`; el.style.width = `calc((${colW} / ${totalOverlaps}) - 4px)`;
-    const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length; el.style.borderLeftColor = PALETTE[cIdx];
-    const isNarrow = totalOverlaps >= 3; const fullTeacher = teach.fullName ? `${teach.name} (${teach.fullName})` : teach.name;
-    el.innerHTML = `<div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>${!isNarrow ? `<div class="item-details">${teach.name}<br>${grp.name}</div>` : ''}<div class="actions"><button class="btn-edt">✎</button><button class="btn-del">×</button></div>`;
-    el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
-    el.onmouseenter = () => showTooltip(`<strong>${subj.name}</strong><div class="mb-1">${c.startTime}:00 - ${c.startTime + c.duration}:00</div><div>👨‍🏫 ${fullTeacher}</div><div>👥 ${grp.name}</div>`);
-    el.onmouseleave = hideTooltip; el.onclick = () => showClassForm(c);
+    
+    el.style.top = `${(tIdx + 1) * rowH}px`;
+    el.style.height = `${(c.duration * rowH) - 4}px`;
+    el.style.left = `calc(60px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
+    el.style.width = `calc((${colW} / ${totalOverlaps}) - 4px)`;
+    
+    const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
+    
+    // Estilos de exportación (fondo claro para legibilidad)
+    if(isExporting) {
+        el.style.backgroundColor = PALETTE[cIdx] + '20'; // Pastel
+        el.style.border = `1px solid ${PALETTE[cIdx]}`;
+        el.style.borderLeft = `4px solid ${PALETTE[cIdx]}`;
+    } else {
+        el.style.borderLeftColor = PALETTE[cIdx];
+    }
+
+    // LÓGICA DE TEXTO: Si es exportación, mostrar nombre completo y forzar visualización
+    const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
+    const isNarrow = totalOverlaps >= 3 && !isExporting; // No comprimir en export
+
+    el.innerHTML = `
+        <div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>
+        ${!isNarrow ? `
+            <div class="item-details">
+                ${teacherName}<br>${grp.name}
+            </div>` : ''}
+        ${!isExporting ? `<div class="actions"><button class="btn-edt">✎</button><button class="btn-del">×</button></div>` : ''}
+    `;
+
+    if(!isExporting) {
+        el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
+        el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
+        el.onmouseenter = () => showTooltip(`<strong>${subj.name}</strong><br>${teacherName}`);
+        el.onmouseleave = hideTooltip; 
+        el.onclick = () => showClassForm(c);
+    }
     return el;
 }
 
-// FORMS (Sin cambios, mantener igual)
+// === FORMULARIOS Y LISTAS (Igual que antes) ===
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const content = document.getElementById('modal-content');
     const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
     content.innerHTML = `<div class="p-6 bg-white rounded-lg"><h2 class="text-xl font-bold mb-4 text-gray-800">${defs.id ? 'Editar' : 'Nueva'} Clase</h2><div id="conflict-warnings" class="mb-4 hidden"></div><div class="grid grid-cols-2 gap-4 text-sm"><div><label class="block font-bold text-gray-500 mb-1">Materia</label><select id="f-sub" class="w-full border p-2 rounded">${genOpts(state.subjects, defs.subjectId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Grupo</label><select id="f-grp" class="w-full border p-2 rounded">${genOpts(state.groups, defs.groupId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Docente</label><select id="f-tch" class="w-full border p-2 rounded">${genOpts(state.teachers, defs.teacherId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Aula</label><select id="f-rm" class="w-full border p-2 rounded"><option value="">-- Sin Aula --</option>${genOpts(state.classrooms, defs.classroomId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Día</label><select id="f-day" class="w-full border p-2 rounded">${days.map(d=>`<option ${d===defs.day?'selected':''}>${d}</option>`).join('')}</select></div><div><label class="block font-bold text-gray-500 mb-1">Inicio</label><select id="f-time" class="w-full border p-2 rounded">${timeSlots.map(t=>`<option value="${t}" ${t==defs.startTime?'selected':''}>${t}:00</option>`).join('')}</select></div><div><label class="block font-bold text-gray-500 mb-1">Duración (hrs)</label><input type="number" id="f-dur" value="${defs.duration||2}" min="1" max="6" class="w-full border p-2 rounded"></div></div><div class="flex justify-end gap-3 mt-6"><button id="btn-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button><button id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow">Guardar</button></div></div>`;
     document.getElementById('btn-cancel').onclick = () => modal.classList.add('hidden');
-    document.getElementById('btn-save').onclick = async () => { const payload = { subjectId: document.getElementById('f-sub').value, groupId: document.getElementById('f-grp').value, teacherId: document.getElementById('f-tch').value, classroomId: document.getElementById('f-rm').value, day: document.getElementById('f-day').value, startTime: parseInt(document.getElementById('f-time').value), duration: parseInt(document.getElementById('f-dur').value) }; const conflicts = validateConflicts(payload, defs.id); if (conflicts.length > 0) { const div = document.getElementById('conflict-warnings'); div.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-3 text-red-700 font-bold mb-2">Conflictos:</div><ul class="list-disc pl-5 text-red-600 text-xs">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul><button id="btn-force" class="mt-2 text-red-800 underline text-xs font-bold">Guardar Igual</button>`; div.classList.remove('hidden'); document.getElementById('btn-force').onclick = async () => { await commitSave(payload, defs.id); }; return; } await commitSave(payload, defs.id); };
+    document.getElementById('btn-save').onclick = async () => {
+        const payload = { subjectId: document.getElementById('f-sub').value, groupId: document.getElementById('f-grp').value, teacherId: document.getElementById('f-tch').value, classroomId: document.getElementById('f-rm').value, day: document.getElementById('f-day').value, startTime: parseInt(document.getElementById('f-time').value), duration: parseInt(document.getElementById('f-dur').value) };
+        const conflicts = validateConflicts(payload, defs.id);
+        if (conflicts.length > 0) {
+            const div = document.getElementById('conflict-warnings'); div.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-3 text-red-700 font-bold mb-2">Conflictos:</div><ul class="list-disc pl-5 text-red-600 text-xs">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul><button id="btn-force" class="mt-2 text-red-800 underline text-xs font-bold">Guardar Igual</button>`; div.classList.remove('hidden'); document.getElementById('btn-force').onclick = async () => { await commitSave(payload, defs.id); }; return;
+        }
+        await commitSave(payload, defs.id);
+    };
 }
 async function commitSave(data, id) { try { if(id) await updateDoc(doc(cols.schedule, id), data); else await addDoc(cols.schedule, data); document.getElementById('modal').classList.add('hidden'); } catch(e){ console.error(e); } }
 function showTeacherForm(teacher = null) { const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!teacher; document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2><input id="t-name" value="${teacher ? teacher.name : ''}" class="w-full border p-2 mb-2" placeholder="Apodo (Ej: Alex)"><input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 mb-4" placeholder="Nombre Completo Real"><button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button></div>`; document.getElementById('btn-t-save').onclick = async () => { const n = document.getElementById('t-name').value; const f = document.getElementById('t-full').value; if(n) { const data = {name: n, fullName: f}; if(isEdit) await updateDoc(doc(cols.teachers, teacher.id), data); else await addDoc(cols.teachers, data); modal.classList.add('hidden'); } }; }
