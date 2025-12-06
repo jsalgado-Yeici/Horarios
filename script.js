@@ -27,7 +27,7 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 // === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v12.2 (Absolute Export)");
+    console.log("App v12.3 (UI Tweaks + Export Fix)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -222,47 +222,25 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
 
     const el = document.createElement('div'); el.className = 'schedule-item';
     
-    // === MATH EXACTA ===
+    // === EXPORT MATH ===
     const rowH = isExporting ? 55 : 60; 
-    
-    // Anchos
     const leftOffset = isExporting ? 80 : 60;
     const colW = `((100% - ${leftOffset}px)/5)`;
     
-    // Posicion Vertical: Header + (Index * Height)
-    // El header de exportacion tiene height 55px (ver style.css .grid-header)
-    // El header web tiene height 60px
     el.style.top = `${(tIdx * rowH) + rowH}px`; 
-    
     el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
     el.style.left = `calc(${leftOffset}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
     el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting ? 1 : 4}px)`;
     
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     
-    if(!isExporting) {
-        el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
-        el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
-        
-        // --- NUEVO: Permitir soltar materias ENCIMA de otras tarjetas ---
-        el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
-        el.ondrop = (e) => handleDrop(e, c.day, c.startTime); // Usa el horario de la tarjeta base
-        
-        // --- Tooltip Reactivado ---
-        el.onmouseenter = () => showTooltip(`
-            <div class="font-bold text-sm mb-1 text-indigo-300 border-b pb-1">${subj.name}</div>
-            <div class="text-xs space-y-1">
-                <div>👨‍🏫 <span class="text-gray-300">Docente:</span> ${teacherName}</div>
-                <div>👥 <span class="text-gray-300">Grupo:</span> ${grp.name}</div>
-                <div>🏫 <span class="text-gray-300">Aula:</span> ${roomName}</div>
-                <div>🕒 <span class="text-gray-300">Horario:</span> ${c.startTime}:00 - ${c.startTime + c.duration}:00</div>
-            </div>
-        `);
-        el.onmouseleave = hideTooltip; 
-        el.onclick = () => showClassForm(c);
+    if(isExporting) {
+        el.style.backgroundColor = PALETTE[cIdx] + '99'; 
+        el.style.border = '1px solid #000';
+        el.style.zIndex = '20'; 
+    } else {
+        el.style.borderLeftColor = PALETTE[cIdx];
     }
-    return el;
-}
 
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
     const roomName = room ? room.name : "N/A";
@@ -282,12 +260,19 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
         el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
         
+        // --- Drag & Drop sobre tarjetas ---
+        el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
+        el.ondrop = (e) => handleDrop(e, c.day, c.startTime);
+
+        // --- Tooltip Detallado ---
         el.onmouseenter = () => showTooltip(`
-            <strong>${subj.name}</strong><br>
-            👨‍🏫 ${teacherName}<br>
-            👥 ${grp.name}<br>
-            🏫 ${roomName}<br>
-            🕒 ${c.startTime}:00 - ${c.startTime + c.duration}:00
+            <div class="font-bold text-sm mb-1 text-indigo-300 border-b pb-1">${subj.name}</div>
+            <div class="text-xs space-y-1">
+                <div>👨‍🏫 <span class="text-gray-300">Docente:</span> ${teacherName}</div>
+                <div>👥 <span class="text-gray-300">Grupo:</span> ${grp.name}</div>
+                <div>🏫 <span class="text-gray-300">Aula:</span> ${roomName}</div>
+                <div>🕒 <span class="text-gray-300">Horario:</span> ${c.startTime}:00 - ${c.startTime + c.duration}:00</div>
+            </div>
         `);
         el.onmouseleave = hideTooltip; 
         el.onclick = () => showClassForm(c);
