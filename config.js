@@ -24,16 +24,16 @@ const APP_ID = 'default-scheduler-app-v2';
 // Paleta de colores PROFESIONAL (Tonos pastel fuertes para bordes)
 // Cada objeto tiene: { border: colorFuerte, bg: colorSuave }
 const PALETTE = [
-    '#0ea5e9', // Azul Cielo
-    '#f59e0b', // Ambar
-    '#10b981', // Esmeralda
-    '#8b5cf6', // Violeta
-    '#f43f5e', // Rosa
+    '#3b82f6', // Azul Real
+    '#8b5cf6', // Violeta Suave
+    '#f43f5e', // Rosa Coral
+    '#10b981', // Verde Esmeralda
+    '#f59e0b', // Ámbar Profundo
+    '#06b6d4', // Cian Océano
+    '#ec4899', // Rosa Fucsia
     '#6366f1', // Índigo
     '#84cc16', // Lima
-    '#ec4899', // Pink
-    '#06b6d4', // Cyan
-    '#d946ef', // Fucsia
+    '#14b8a6', // Turquesa
 ];
 
 export { app, db, auth, collection, APP_ID, PALETTE };
