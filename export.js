@@ -1,6 +1,6 @@
-// export.js - Modulo Oficial
+// export.js - Módulo Oficial
 
-function createOverlay() { /* ... igual ... */ 
+function createOverlay() {
     let overlay = document.getElementById('loading-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -11,10 +11,10 @@ function createOverlay() { /* ... igual ... */
     }
     return overlay;
 }
-function updateOverlay(msg) { const o = createOverlay(); requestAnimationFrame(() => o.style.opacity = '1'); o.querySelector('h2').textContent = msg; }
+function updateOverlay(msg) { const o = createOverlay(); requestAnimationFrame(() => o.style.opacity = '1'); const t = o.querySelector('#loading-text') || o.querySelector('h2'); if(t) t.textContent = msg; }
 function hideOverlay() { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(()=>o.remove(),500); } }
 
-export async function exportSchedule(type) { /* ... igual ... */ 
+export async function exportSchedule(type) {
     const originalGrid = document.getElementById('schedule-grid');
     if (!originalGrid) return alert("No hay horario.");
     updateOverlay("Exportando...");
@@ -29,9 +29,10 @@ export async function exportSchedule(type) { /* ... igual ... */
 }
 
 export async function exportAllSchedules(state, renderFn) {
-    if(!state.groups.length) return alert("No hay datos.");
+    if(!state.groups.length && !state.teachers.length) return alert("No hay datos.");
     const p = prompt("Nombre del Periodo:", "Enero-Abril 2026");
     if(!p) return;
+    // Eliminamos espacios del periodo para el nombre de archivo
     const cleanP = p.replace(/\s+/g,'');
 
     updateOverlay("Iniciando...");
@@ -39,23 +40,22 @@ export async function exportAllSchedules(state, renderFn) {
     const fG = zip.folder("Grupos");
     const fT = zip.folder("Docentes");
     
-    // Contenedor temporal (Ancho fijo para consistencia)
+    // Contenedor temporal
     const tempContainer = document.createElement('div');
     tempContainer.className = 'schedule-grid bg-white';
     tempContainer.style.width = '1200px'; 
+    tempContainer.style.position = 'absolute'; tempContainer.style.left = '-9999px';
+    document.body.appendChild(tempContainer);
     
     try {
         // Grupos
         for (let i=0; i<state.groups.length; i++) {
             const g = state.groups[i];
             updateOverlay(`Grupo ${i+1}/${state.groups.length}: ${g.name}`);
-            
-            // Render limpio
             renderFn(tempContainer, { groupId: g.id });
-            // Limpieza extra por si acaso
             tempContainer.querySelectorAll('button').forEach(b=>b.remove());
-            
             const blob = await generateImageBlob(tempContainer, `HORARIO ${p.toUpperCase()}`, `${g.name} - ${g.trimester}° Cuatrimestre`);
+            // NOMBRE ARCHIVO: IAEV-41_Cuatri8_Enero-Abril2026.png
             fG.file(`${g.name}_Cuatri${g.trimester}_${cleanP}.png`, blob);
         }
         
@@ -63,13 +63,12 @@ export async function exportAllSchedules(state, renderFn) {
         for (let i=0; i<state.teachers.length; i++) {
             const t = state.teachers[i];
             updateOverlay(`Docente ${i+1}/${state.teachers.length}: ${t.name}`);
-            
             renderFn(tempContainer, { teacherId: t.id });
             tempContainer.querySelectorAll('button').forEach(b=>b.remove());
-            
             const blob = await generateImageBlob(tempContainer, `HORARIO DOCENTE ${p.toUpperCase()}`, t.fullName || t.name);
-            const n = t.name.replace(/\s+/g,'');
-            fT.file(`${n}_${cleanP}.png`, blob);
+            // NOMBRE ARCHIVO: ProfeJuan_Enero-Abril2026.png
+            const cleanName = t.name.replace(/\s+/g, '');
+            fT.file(`Profe${cleanName}_${cleanP}.png`, blob);
         }
         
         updateOverlay("Comprimiendo...");
@@ -77,43 +76,48 @@ export async function exportAllSchedules(state, renderFn) {
         window.saveAs(content, `Horarios_${cleanP}.zip`);
         
     } catch(e) { console.error(e); alert("Error exportando."); } 
-    finally { hideOverlay(); }
+    finally { 
+        document.body.removeChild(tempContainer);
+        hideOverlay(); 
+    }
 }
 
 async function generateImageBlob(content, title, subtitle) {
     const tpl = document.getElementById('export-template');
     const ph = document.getElementById('export-grid-placeholder');
     
-    // Configurar encabezado oficial
-    // Reconstruimos el header para que se vea como la imagen enviada
+    // Encabezado Oficial Limpio
     const headerHTML = `
-        <div class="official-header" style="display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #000; padding-bottom:10px; margin-bottom:15px;">
-            <div style="display:flex; align-items:center; gap:15px;">
-                <div style="width:50px; height:50px; background:#ccc; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; color:#fff;">LOGO</div>
-                <div>
-                    <h1 style="font-size:24px; font-weight:800; margin:0; line-height:1;">${title}</h1>
-                    <h2 style="font-size:16px; font-weight:600; color:#555; margin:5px 0 0 0;">${subtitle}</h2>
+        <div class="official-header" style="display:flex; align-items:center; justify-content:space-between; border-bottom:4px solid #3b82f6; padding-bottom:15px; margin-bottom:20px;">
+            <div style="display:flex; align-items:center; gap:20px;">
+                <div style="display:flex; flex-direction:column;">
+                    <h1 style="font-family:'Arial',sans-serif; font-size:32px; font-weight:900; color:#1e293b; margin:0; letter-spacing:-0.5px;">${title}</h1>
+                    <h2 style="font-family:'Arial',sans-serif; font-size:18px; font-weight:600; color:#64748b; margin:5px 0 0 0; text-transform:uppercase;">${subtitle}</h2>
                 </div>
             </div>
             <div style="text-align:right;">
-                <div style="font-size:12px; color:#666;">Generado:</div>
-                <div style="font-size:14px; font-weight:bold;">${new Date().toLocaleDateString()}</div>
+                <div style="font-size:12px; color:#94a3b8; font-family:'Arial',sans-serif;">FECHA DE EMISIÓN</div>
+                <div style="font-size:16px; font-weight:bold; color:#334155; font-family:'Arial',sans-serif;">${new Date().toLocaleDateString()}</div>
             </div>
         </div>
     `;
     
-    tpl.innerHTML = headerHTML + '<div id="temp-grid-slot"></div>';
-    tpl.querySelector('#temp-grid-slot').appendChild(content);
+    tpl.innerHTML = headerHTML + '<div id="temp-grid-slot"></div><div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:10px; display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; font-family:Arial,sans-serif;"><p>Ingeniería en Animación y Efectos Visuales</p><p>Documento Oficial</p></div>';
     
-    tpl.style.opacity = '1'; tpl.style.zIndex = '9999'; tpl.style.width = '1400px'; // Ancho fijo HD
+    // Inyectar contenido
+    const slot = tpl.querySelector('#temp-grid-slot');
+    slot.innerHTML = '';
+    slot.appendChild(content); // Movemos el nodo limpio aquí
     
-    const canvas = await window.html2canvas(tpl, { scale: 2, backgroundColor:'#fff' });
+    tpl.style.opacity = '1'; tpl.style.zIndex = '9999'; tpl.style.width = '1400px'; 
+    
+    const canvas = await window.html2canvas(tpl, { scale: 2, backgroundColor:'#ffffff' });
     
     tpl.style.opacity = '0'; tpl.style.zIndex = '-1';
     return new Promise(r => canvas.toBlob(r, 'image/png'));
 }
 
-function savePdf(blob, name) { /* ...igual... */ 
+function savePdf(blob, name) {
     const url = URL.createObjectURL(blob);
     const img = new Image(); img.src = url;
     img.onload = () => {
@@ -122,7 +126,9 @@ function savePdf(blob, name) { /* ...igual... */
         const w = pdf.internal.pageSize.getWidth();
         const h = pdf.internal.pageSize.getHeight();
         const ratio = img.width/img.height;
-        pdf.addImage(img, 'PNG', 0, 10, w, w/ratio);
+        const printH = w/ratio;
+        if (printH > h) { const printW = h*ratio; pdf.addImage(img, 'PNG', (w-printW)/2, 0, printW, h); }
+        else { pdf.addImage(img, 'PNG', 0, 10, w, printH); }
         pdf.save(name);
     };
 }
