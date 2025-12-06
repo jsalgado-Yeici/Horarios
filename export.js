@@ -1,6 +1,6 @@
 import { PALETTE } from './config.js';
 
-// UI Helpers (Overlay de carga)
+// UI Helpers
 function createOverlay() {
     let overlay = document.getElementById('loading-overlay');
     if (!overlay) {
@@ -28,7 +28,7 @@ function hideOverlay() {
     } 
 }
 
-// === EXPORTACIÓN MASIVA (ZIP) ===
+// Exportación Masiva
 export async function exportAllSchedules(state, renderFn) {
     if(!state.groups.length && !state.teachers.length) {
         alert("No hay datos para exportar.");
@@ -44,7 +44,7 @@ export async function exportAllSchedules(state, renderFn) {
     const fG = zip.folder("Grupos");
     const fT = zip.folder("Docentes");
     
-    // Contenedor temporal: Ancho 1000px fijo para coincidir con CSS
+    // Contenedor temporal (invisible) para que el renderFn de React/Vanilla trabaje
     const tempContainer = document.createElement('div');
     tempContainer.className = 'schedule-grid'; 
     tempContainer.style.position = 'absolute';
@@ -53,16 +53,16 @@ export async function exportAllSchedules(state, renderFn) {
     document.body.appendChild(tempContainer);
     
     try {
-        // --- GRUPOS ---
+        // === EXPORTAR GRUPOS ===
         for (let i = 0; i < state.groups.length; i++) {
             const g = state.groups[i];
             updateOverlay(`Generando Grupo ${i+1}/${state.groups.length}: ${g.name}`);
             
-            // Renderizar en contenedor temporal
+            // Renderizar horario
             renderFn(tempContainer, { groupId: g.id });
             tempContainer.querySelectorAll('button').forEach(b => b.remove());
             
-            // Recolectar datos tabla lateral
+            // Datos Tabla Lateral
             const groupClasses = state.schedule.filter(c => c.groupId === g.id);
             const teacherMap = {};
             
@@ -89,7 +89,7 @@ export async function exportAllSchedules(state, renderFn) {
             fG.file(`${g.name}_Cuatri${g.trimester}_${cleanP}.png`, blob);
         }
         
-        // --- DOCENTES ---
+        // === EXPORTAR DOCENTES ===
         for (let i = 0; i < state.teachers.length; i++) {
             const t = state.teachers[i];
             updateOverlay(`Generando Docente ${i+1}/${state.teachers.length}: ${t.name}`);
@@ -134,109 +134,97 @@ export async function exportAllSchedules(state, renderFn) {
         console.error(e); 
         alert("Error durante la exportación: " + e.message); 
     } finally { 
-        if(document.body.contains(tempContainer)) document.body.removeChild(tempContainer);
+        document.body.removeChild(tempContainer);
         hideOverlay(); 
     }
 }
 
-// === GENERADOR DE IMAGEN ===
 async function generateOfficialImage(contentNode, title, subtitle, infoMap = {}, rightColTitle = "DOCENTES") {
     const tpl = document.getElementById('export-template');
     
-    // Generar filas de la tabla lateral con estilos INLINE para asegurar renderizado
+    // Generar Filas Tabla
     const rows = Object.entries(infoMap)
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([leftText, data]) => 
             `<tr>
-                <td style="background-color: ${data.color}; border: 1px solid #000; padding: 6px; width: 60%; font-weight: bold; font-size: 11px;">${leftText}</td>
-                <td style="background-color: white; border: 1px solid #000; padding: 6px; width: 40%; font-size: 11px;">${data.name}</td>
+                <td class="subject-col" style="background-color: ${data.color};">${leftText}</td>
+                <td class="teacher-col">${data.name}</td>
              </tr>`
         ).join('');
 
-    // Si no hay datos, mostrar mensaje
-    const tbodyContent = rows || `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #666; font-style: italic; border: 1px solid #000;">Sin asignaciones registradas</td></tr>`;
-
-    // Tabla lateral completa con estilos explícitos
-    const sideTableHTML = `
-        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-family: Arial, sans-serif; background: white;">
+    const sideTableHTML = rows ? `
+        <table class="teachers-table">
             <thead>
-                <tr><th colspan="2" style="background:#d1d5db; border:1px solid #000; padding:8px; text-align:center; font-weight:900; font-size: 12px;">${rightColTitle}</th></tr>
+                <tr><th colspan="2">${rightColTitle}</th></tr>
             </thead>
-            <tbody>
-                ${tbodyContent}
-            </tbody>
+            <tbody>${rows}</tbody>
         </table>
-    `;
+    ` : '<div style="color:#999; text-align:center; padding:20px; border:1px solid #000;">Sin asignaciones</div>';
 
+    // Header
     const headerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:4px solid #3b82f6; padding-bottom:15px; margin-bottom:20px;">
-            <div style="display:flex; align-items:center; gap:20px;">
-                <div style="font-weight:bold; color:#000; font-size:24px;">
-                    POLITÉCNICA <span style="color:#0ea5e9">SANTA ROSA</span>
+        <div class="official-header">
+            <div style="display:flex; align-items:center; justify-content:space-between; height:100%;">
+                <div style="display:flex; align-items:center; gap:20px;">
+                    <div style="font-weight:bold; color:#000; font-size:24px;">
+                        POLITÉCNICA <span style="color:#0ea5e9">SANTA ROSA</span>
+                    </div>
+                    <div>
+                        <h1 style="font-size:22px; font-weight:900; margin:0; color:#000;">${title}</h1>
+                        <h2 style="font-size:14px; margin:0; color:#444;">${subtitle}</h2>
+                    </div>
                 </div>
-                <div>
-                    <h1 style="font-size:22px; font-weight:900; margin:0; color:#000;">${title}</h1>
-                    <h2 style="font-size:14px; margin:0; color:#444;">${subtitle}</h2>
+                <div style="text-align:right;">
+                    <div style="font-size:30px; font-weight:900; line-height:1;">
+                        <span style="color:#3b82f6">I</span><span style="color:#22c55e">A</span><span style="color:#ef4444">E</span><span style="color:#eab308">V</span>
+                    </div>
+                    <div style="font-size:10px; font-weight:bold; color:#666;">INGENIERÍA EN ANIMACIÓN</div>
                 </div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:30px; font-weight:900; line-height:1;">
-                    <span style="color:#3b82f6">I</span><span style="color:#22c55e">A</span><span style="color:#ef4444">E</span><span style="color:#eab308">V</span>
-                </div>
-                <div style="font-size:10px; font-weight:bold; color:#666;">INGENIERÍA EN ANIMACIÓN</div>
             </div>
         </div>
     `;
     
-    // LAYOUT MAESTRO USANDO TABLA HTML (Evita problemas de flexbox en canvas)
+    // USAMOS CONTENEDORES ABSOLUTOS (Definidos en style.css)
     tpl.innerHTML = `
         ${headerHTML}
-        <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
-            <tr>
-                <td style="width: 1000px; vertical-align: top; padding: 0;">
-                    <div id="grid-slot" style="width: 1000px;"></div>
-                </td>
-                
-                <td style="width: 20px;"></td>
-                
-                <td style="vertical-align: top; padding: 0;">
-                    ${sideTableHTML}
-                </td>
-            </tr>
-        </table>
-        
-        <div style="margin-top:20px; text-align:center; font-size:10px; color:#666; border-top:1px solid #ccc; padding-top:5px;">
+        <div id="export-grid-container"></div>
+        <div id="export-table-container">${sideTableHTML}</div>
+        <div id="export-footer">
             Documento generado automáticamente por Planificador IAEV | ${new Date().toLocaleDateString('es-MX')}
         </div>
     `;
     
-    // Insertar el horario
+    // Clonar e insertar grid
     const clonedGrid = contentNode.cloneNode(true);
-    // Asegurar que el grid clonado se comporte bien
-    clonedGrid.style.position = 'relative';
+    // Asegurar limpieza de estilos inline que puedan estorbar
+    clonedGrid.style.width = '1000px'; 
+    clonedGrid.style.border = 'none'; 
+    clonedGrid.style.position = 'relative'; 
     clonedGrid.style.left = '0';
     clonedGrid.style.top = '0';
-    clonedGrid.style.width = '1000px';
-    tpl.querySelector('#grid-slot').appendChild(clonedGrid);
     
-    // Hacer visible temporalmente para la captura
+    tpl.querySelector('#export-grid-container').appendChild(clonedGrid);
+    
+    // Mostrar template para captura (z-index controla visibilidad)
     tpl.style.opacity = '1'; 
-    tpl.style.zIndex = '9999';
+    tpl.style.zIndex = '9999'; 
     
-    // Pequeño delay para asegurar renderizado de fuentes
+    // Esperar un momento más largo para asegurar renderizado
     await new Promise(r => setTimeout(r, 150));
     
     // Capturar
     const canvas = await window.html2canvas(tpl, { 
-        scale: 2, // Calidad alta
+        scale: 2, 
         backgroundColor: '#fff',
         logging: false,
         useCORS: true,
-        width: 1500, // Forzar ancho total
-        windowWidth: 1500
+        width: 1500, // Coincide con CSS
+        height: 1200, // Coincide con CSS
+        windowWidth: 1500,
+        windowHeight: 1200
     });
     
-    // Ocultar de nuevo
+    // Ocultar
     tpl.style.opacity = '0'; 
     tpl.style.zIndex = '-1';
     
