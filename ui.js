@@ -138,3 +138,57 @@ export function renderFilterOptions() {
 export function addGroup() { const n=document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 export function addClassroom() { const n=document.getElementById('classroom-name-input').value; if(n) addDoc(cols.classrooms, {name: n}); }
 export function addBlock() { const t=document.getElementById('block-time').value; const tr=document.getElementById('block-trimester').value; if(t&&tr) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tr, days:'L-V'}); }
+
+export function renderAlerts() {
+    const container = document.getElementById('alerts-container');
+    if(!container) return;
+    
+    container.innerHTML = '';
+
+    // 1. Verificar cada grupo
+    state.groups.forEach(g => {
+        // ¿Qué materias debería tener este grupo según su cuatri?
+        const requiredSubjects = state.subjects.filter(s => s.trimester === g.trimester);
+        
+        // ¿Qué materias ya tiene asignadas en el horario?
+        const assignedSubjectIds = state.schedule
+            .filter(c => c.groupId === g.id)
+            .map(c => c.subjectId);
+        
+        // ¿Cuáles faltan?
+        const missing = requiredSubjects.filter(s => !assignedSubjectIds.includes(s.id));
+
+        // Si falta algo, crear tarjeta de alerta
+        if (missing.length > 0) {
+            const card = document.createElement('div');
+            card.className = "bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r shadow-sm flex flex-col gap-2 transition-all hover:shadow-md";
+            
+            // Lista bonita de materias faltantes
+            const missingList = missing.map(s => `<span class="inline-block bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-orange-200">${s.name}</span>`).join(' ');
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-orange-800 text-sm flex items-center gap-2">
+                        ⚠️ Grupo ${g.name} <span class="text-orange-600 font-normal text-xs">(Cuatri ${g.trimester})</span>
+                    </h3>
+                </div>
+                <div class="text-xs text-orange-700">
+                    <p class="mb-1 font-semibold">Faltan ${missing.length} materias:</p>
+                    <div class="flex flex-wrap gap-1">${missingList}</div>
+                </div>
+            `;
+            container.appendChild(card);
+        }
+    });
+
+    // Mensaje si todo está perfecto
+    if(container.children.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full bg-green-50 border border-green-200 rounded-lg p-6 text-center shadow-sm">
+                <div class="text-2xl mb-2">🎉</div>
+                <h3 class="text-green-800 font-bold">¡Todo completo!</h3>
+                <p class="text-green-600 text-sm">Todos los grupos tienen sus materias asignadas.</p>
+            </div>
+        `;
+    }
+}
