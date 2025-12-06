@@ -1,6 +1,6 @@
-// export.js - Módulo de Exportación Individual y Masiva
+// export.js - Módulo de Exportación Robusto
 
-// HELPERS
+// --- HELPERS DE UI ---
 function createOverlay() {
     let overlay = document.getElementById('loading-overlay');
     if (!overlay) {
@@ -15,7 +15,8 @@ function createOverlay() {
 
 function updateOverlay(msg) {
     const overlay = createOverlay();
-    overlay.style.opacity = '1';
+    // Forzamos un reflow para asegurar que se muestre
+    requestAnimationFrame(() => overlay.style.opacity = '1');
     const txt = overlay.querySelector('#loading-text') || overlay.querySelector('h2');
     if(txt) txt.textContent = msg;
 }
@@ -28,115 +29,175 @@ function hideOverlay() {
     }
 }
 
-// EXPORTACIÓN INDIVIDUAL (Lo que ves en pantalla)
+// --- EXPORTACIÓN INDIVIDUAL (Lo que ves en pantalla) ---
 export async function exportSchedule(type) {
     const originalGrid = document.getElementById('schedule-grid');
-    if (!originalGrid) return alert("No hay horario para exportar.");
+    if (!originalGrid || originalGrid.children.length === 0) return alert("No hay horario visible para exportar.");
     
-    updateOverlay(type === 'pdf' ? "Generando PDF..." : "Generando Imagen...");
-    
-    try {
-        await new Promise(r => setTimeout(r, 100)); // UI refresh
-        const blob = await generateImageBlob(originalGrid, "Horario Actual");
-        
-        if (type === 'pdf') savePdf(blob, "Horario_Actual.pdf");
-        else window.saveAs(blob, "Horario_Actual.png");
-        
-    } catch (e) { console.error(e); alert("Error al exportar."); } 
-    finally { hideOverlay(); }
-}
-
-// EXPORTACIÓN MASIVA (ZIP)
-export async function exportAllSchedules(state, renderFunction) {
-    if(!state.groups.length && !state.teachers.length) return alert("No hay datos para exportar.");
-    if(!window.JSZip) return alert("Error: Librería JSZip no cargada.");
-
-    updateOverlay("Iniciando exportación masiva...");
-    const zip = new JSZip();
-    const folderGroups = zip.folder("Grupos");
-    const folderTeachers = zip.folder("Docentes");
-
-    // Contenedor temporal fuera de pantalla
-    const tempContainer = document.createElement('div');
-    tempContainer.style.width = "1200px"; 
-    tempContainer.style.position = "absolute";
-    tempContainer.style.left = "-9999px";
-    tempContainer.className = "schedule-grid bg-white"; // Estilos base
-    document.body.appendChild(tempContainer);
+    updateOverlay("Preparando documento...");
 
     try {
-        // 1. Exportar Grupos
-        for (let i = 0; i < state.groups.length; i++) {
-            const g = state.groups[i];
-            updateOverlay(`Procesando Grupo (${i+1}/${state.groups.length}): ${g.name}`);
-            
-            // Renderizar en contenedor oculto usando la función de script.js
-            renderFunction(tempContainer, { groupId: g.id });
-            
-            // Generar Blob
-            const blob = await generateImageBlob(tempContainer, `Horario: ${g.name}`);
-            folderGroups.file(`${g.name}.png`, blob);
-        }
+        // Esperamos un momento para que la UI respire
+        await new Promise(r => setTimeout(r, 200)); 
+        
+        // Clonamos el grid actual para la foto
+        const clone = originalGrid.cloneNode(true);
+        // Limpiamos botones del clon
+        clone.querySelectorAll('button, .actions').forEach(el => el.remove());
+        // Forzamos estilos para que se vea completo
+        clone.style.height = 'auto';
+        clone.style.overflow = 'visible';
+        clone.style.maxHeight = 'none';
 
-        // 2. Exportar Docentes
-        for (let i = 0; i < state.teachers.length; i++) {
-            const t = state.teachers[i];
-            updateOverlay(`Procesando Docente (${i+1}/${state.teachers.length}): ${t.name}`);
-            
-            renderFunction(tempContainer, { teacherId: t.id });
-            const blob = await generateImageBlob(tempContainer, `Horario: ${t.name}`);
-            folderTeachers.file(`${t.name}.png`, blob);
-        }
-
-        updateOverlay("Comprimiendo archivos...");
-        const content = await zip.generateAsync({type:"blob"});
-        window.saveAs(content, "Horarios_Completos_IAEV.zip");
-
+        const blob = await generateImageBlob(clone, "Horario Actual", "Vista Previa");
+        
+        if (type === 'pdf') savePdf(blob, "Horario_Vista_Actual.pdf");
+        else window.saveAs(blob, "Horario_Vista_Actual.png");
+        
     } catch (e) {
         console.error(e);
-        alert("Hubo un error en la exportación masiva.");
+        alert("Error al exportar. Revisa la consola.");
     } finally {
-        document.body.removeChild(tempContainer);
         hideOverlay();
     }
 }
 
-// LÓGICA COMÚN DE CAPTURA
-async function generateImageBlob(element, titleText) {
+// --- EXPORTACIÓN MASIVA (ZIP) ---
+export async function exportAllSchedules(state, renderFunction) {
+    if(!state.groups.length && !state.teachers.length) return alert("No hay datos para exportar.");
+    if(!window.JSZip) return alert("Error: Librería JSZip no cargada.");
+
+    // 1. Pedir el Periodo para los nombres de archivo
+    const periodoRaw = prompt("Ingresa el nombre del periodo para los archivos:", "Enero-Abril2026");
+    if(!periodoRaw) return; // Cancelado por usuario
+    const periodo = periodoRaw.replace(/\s+/g, ''); // Quitamos espacios para el nombre de archivo (Opcional)
+
+    updateOverlay("Iniciando motor de exportación...");
+    const zip = new JSZip();
+    const folderGroups = zip.folder("Grupos");
+    const folderTeachers = zip.folder("Docentes");
+
+    // Usamos el template que ya existe en el HTML
     const template = document.getElementById('export-template');
     const placeholder = document.getElementById('export-grid-placeholder');
-    const title = document.getElementById('export-subtitle'); // Usamos el subtítulo para nombre dinámico
+    const title = document.getElementById('export-subtitle');
     const dateField = document.getElementById('export-date');
 
-    // Preparar template
-    title.textContent = titleText || "Ingeniería en Animación";
+    // Configurar template para captura
     dateField.textContent = new Date().toLocaleDateString();
+    template.style.position = 'fixed';
+    template.style.top = '0';
+    template.style.left = '0'; // Lo ponemos visible (pero tapado por el overlay) para que html2canvas no falle
+    template.style.zIndex = '50'; // Debajo del overlay (100) pero encima del resto
+    template.style.opacity = '1';
+
+    try {
+        // --- PROCESAR GRUPOS ---
+        for (let i = 0; i < state.groups.length; i++) {
+            const g = state.groups[i];
+            updateOverlay(`Generando Grupo (${i+1}/${state.groups.length}): ${g.name}`);
+            
+            // 1. Limpiar contenedor
+            placeholder.innerHTML = '';
+            
+            // 2. Crear un div limpio para renderizar
+            const tempGrid = document.createElement('div');
+            tempGrid.className = 'schedule-grid bg-white';
+            tempGrid.style.border = 'none'; // Estilos limpios
+            
+            // 3. LLAMAR A LA FUNCIÓN DE SCRIPT.JS PARA DIBUJAR EL HORARIO
+            // Esto genera las cajas de colores desde cero
+            renderFunction(tempGrid, { groupId: g.id });
+            
+            // 4. Limpiar botones del grid generado
+            tempGrid.querySelectorAll('button').forEach(b => b.remove());
+            
+            // 5. Pegarlo en el template
+            placeholder.appendChild(tempGrid);
+            
+            // 6. Actualizar Título del Template
+            title.textContent = `Horario Grupo: ${g.name}`;
+
+            // 7. Esperar a que el navegador dibuje (Crucial)
+            await new Promise(r => setTimeout(r, 150)); 
+
+            // 8. FOTO
+            const canvas = await window.html2canvas(template, { scale: 1.5, useCORS: true, logging: false });
+            const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+            
+            // 9. NOMBRE DEL ARCHIVO: "IAEV-41_Cuatri8_Enero-Abril2026.png"
+            const filename = `${g.name}_Cuatri${g.trimester}_${periodo}.png`;
+            folderGroups.file(filename, blob);
+        }
+
+        // --- PROCESAR DOCENTES ---
+        for (let i = 0; i < state.teachers.length; i++) {
+            const t = state.teachers[i];
+            updateOverlay(`Generando Docente (${i+1}/${state.teachers.length}): ${t.name}`);
+            
+            placeholder.innerHTML = '';
+            const tempGrid = document.createElement('div');
+            tempGrid.className = 'schedule-grid bg-white';
+            
+            renderFunction(tempGrid, { teacherId: t.id });
+            
+            tempGrid.querySelectorAll('button').forEach(b => b.remove());
+            placeholder.appendChild(tempGrid);
+            
+            title.textContent = `Horario Docente: ${t.name}`;
+            await new Promise(r => setTimeout(r, 150));
+
+            const canvas = await window.html2canvas(template, { scale: 1.5, useCORS: true, logging: false });
+            const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+            
+            // NOMBRE DEL ARCHIVO: "ProfeJuan_Enero-Abril2026.png"
+            const saneName = t.name.replace(/\s+/g, '');
+            const filename = `${saneName}_${periodo}.png`;
+            folderTeachers.file(filename, blob);
+        }
+
+        updateOverlay("Comprimiendo ZIP...");
+        const content = await zip.generateAsync({type:"blob"});
+        window.saveAs(content, `Horarios_IAEV_${periodo}.zip`);
+
+    } catch (e) {
+        console.error(e);
+        alert("Hubo un error en la generación masiva. Revisa la consola (F12).");
+    } finally {
+        // Restaurar estado
+        template.style.opacity = '0';
+        template.style.zIndex = '-1';
+        placeholder.innerHTML = '';
+        hideOverlay();
+    }
+}
+
+// --- UTILIDAD INTERNA PARA SINGLE EXPORT ---
+async function generateImageBlob(contentNode, titleText, subtitleText) {
+    const template = document.getElementById('export-template');
+    const placeholder = document.getElementById('export-grid-placeholder');
+    const title = document.querySelector('#export-template h1');
+    const subtitle = document.getElementById('export-subtitle');
     
+    // Configurar
     placeholder.innerHTML = '';
-    const clone = element.cloneNode(true);
-    
-    // Limpieza visual
-    clone.style.border = 'none';
-    clone.style.boxShadow = 'none';
-    clone.querySelectorAll('.actions, button').forEach(e => e.remove());
-    
-    placeholder.appendChild(clone);
-    
-    // Mostrar template para captura
+    placeholder.appendChild(contentNode);
+    if(titleText) title.textContent = titleText;
+    if(subtitleText) subtitle.textContent = subtitleText;
+
+    // Mostrar
     template.style.opacity = '1';
     template.style.zIndex = '9999';
 
-    const canvas = await window.html2canvas(template, {
-        scale: 1.5, // Calidad media-alta para velocidad
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false
-    });
-
-    // Ocultar template
+    const canvas = await window.html2canvas(template, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    
+    // Ocultar
     template.style.opacity = '0';
     template.style.zIndex = '-1';
     placeholder.innerHTML = '';
+    
+    // Resetear título por si acaso
+    title.textContent = "Horario Académico"; 
 
     return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
@@ -151,14 +212,16 @@ function savePdf(imgBlob, filename) {
         const w = pdf.internal.pageSize.getWidth();
         const h = pdf.internal.pageSize.getHeight();
         const ratio = img.width / img.height;
-        const printH = w / ratio;
         
-        if (printH > h) { // Si es muy alto, ajustar por alto
-             const printW = h * ratio;
-             pdf.addImage(img, 'PNG', (w - printW)/2, 0, printW, h);
-        } else {
-             pdf.addImage(img, 'PNG', 0, 10, w, printH);
+        let printW = w;
+        let printH = w / ratio;
+        
+        if (printH > h) {
+             printH = h;
+             printW = h * ratio;
         }
+        
+        pdf.addImage(img, 'PNG', (w - printW)/2, (h-printH)/2, printW, printH);
         pdf.save(filename);
         URL.revokeObjectURL(url);
     };
