@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planificador IAEV</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
-
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="loader mb-4"></div>
-        <h2 class="text-xl font-semibold text-gray-700 animate-pulse">Cargando Sistema...</h2>
+        <h2 class="text-xl font-semibold text-gray-700 animate-pulse">Cargando...</h2>
     </div>
 
     <div class="h-screen flex flex-col">
@@ -29,99 +27,60 @@
         <main class="flex-1 overflow-hidden relative">
             <div id="tab-content-horario" class="tab-content h-full flex flex-col md:flex-row">
                 <aside class="w-full md:w-72 bg-white border-r border-gray-200 flex flex-col shadow-lg z-20">
-                    <div class="p-4 border-b border-gray-100 bg-gray-50">
-                        <h2 class="font-bold text-gray-800">Materias Pendientes</h2>
-                        <p class="text-xs text-gray-500">Arrastra al calendario</p>
-                    </div>
+                    <div class="p-4 border-b border-gray-100 bg-gray-50"><h2 class="font-bold text-gray-800">Materias Pendientes</h2></div>
                     <div id="unassigned-subjects-container" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white"></div>
                 </aside>
-
                 <section class="flex-1 flex flex-col min-w-0 bg-white relative">
                     <div class="p-3 border-b border-gray-200 flex flex-wrap gap-3 bg-white items-center justify-between shadow-sm z-10">
                         <div class="flex gap-2">
-                            <select id="filter-trimester" class="filter-select"></select>
-                            <select id="filter-classroom" class="filter-select"></select>
-                            <select id="filter-teacher" class="filter-select"></select>
-                            <select id="filter-group" class="filter-select"></select>
+                            <select id="filter-trimester" class="border rounded p-1 text-sm bg-gray-50"></select>
+                            <select id="filter-classroom" class="border rounded p-1 text-sm bg-gray-50"></select>
+                            <select id="filter-teacher" class="border rounded p-1 text-sm bg-gray-50"></select>
+                            <select id="filter-group" class="border rounded p-1 text-sm bg-gray-50"></select>
                         </div>
-                        <button id="open-class-modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-sm font-medium shadow-sm flex items-center gap-2"><span>+</span> Clase</button>
+                        <button id="open-class-modal-btn" class="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm shadow-sm flex items-center gap-2">+ Clase</button>
                     </div>
-                    <div class="flex-1 overflow-auto relative bg-slate-50 p-4" id="schedule-scroll-area">
-                        <div id="schedule-grid" class="schedule-grid bg-white min-w-[800px]"></div>
-                    </div>
+                    <div class="flex-1 overflow-auto relative bg-slate-50 p-4"><div id="schedule-grid" class="schedule-grid bg-white min-w-[800px]"></div></div>
                 </section>
             </div>
 
             <div id="tab-content-mapa" class="tab-content hidden h-full p-4 overflow-y-auto bg-slate-100 flex flex-col items-center">
-                <div class="w-full max-w-6xl bg-white rounded-xl shadow-lg border border-gray-200 p-4 mb-4 flex justify-between items-center sticky top-0 z-40">
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-800">Mapa de Instalaciones</h2>
-                        <p class="text-sm text-gray-500">Haz clic en un aula para ver detalles.</p>
-                    </div>
+                <div class="w-full max-w-6xl bg-white rounded-xl shadow p-4 mb-4 flex justify-between items-center sticky top-0 z-40">
+                    <h2 class="text-xl font-bold text-gray-800">Mapa de Instalaciones</h2>
                     <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
-                        <button id="floor-btn-pb" class="px-4 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 transition-all">Planta Baja</button>
-                        <button id="floor-btn-pa" class="px-4 py-2 rounded-md text-sm font-bold text-gray-500 hover:bg-white hover:shadow transition-all">Planta Alta</button>
+                        <button id="floor-btn-pb" class="px-4 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600">Planta Baja</button>
+                        <button id="floor-btn-pa" class="px-4 py-2 rounded-md text-sm font-bold text-gray-500">Planta Alta</button>
                     </div>
                 </div>
-
-                <div class="relative w-full max-w-6xl aspect-[16/9] bg-[#fdf6e3] rounded-xl shadow-inner border-4 border-white overflow-hidden" id="map-viewport">
-                    </div>
+                <div class="relative w-full max-w-6xl aspect-[16/9] bg-[#fdf6e3] rounded-xl shadow-inner border-4 border-white overflow-hidden" id="map-viewport"></div>
             </div>
 
             <div id="tab-content-gestion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                        <h2 class="text-lg font-bold mb-4 flex justify-between">Docentes <button id="add-teacher-btn" class="text-xs bg-blue-100 text-blue-700 px-2 rounded">+ Nuevo</button></h2>
-                        <div id="teachers-list" class="space-y-2 max-h-[500px] overflow-y-auto"></div>
-                    </div>
-                    <div class="lg:col-span-2 space-y-6">
-                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                             <h2 class="text-lg font-bold mb-4 flex justify-between">Materias <button id="open-subject-modal-btn" class="text-xs bg-indigo-100 text-indigo-700 px-2 rounded">+ Nueva</button></h2>
-                            <div id="subjects-by-trimester" class="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto"></div>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                            <h2 class="text-lg font-bold mb-4">Grupos</h2>
-                            <div id="groups-by-trimester" class="grid grid-cols-2 gap-4 mb-4"></div>
-                            <div class="flex gap-2 bg-gray-50 p-3 rounded border">
-                                <input type="number" id="group-number-input" placeholder="Num" class="p-2 border rounded w-20 text-sm">
-                                <button id="add-group-btn" class="bg-purple-600 text-white px-4 rounded text-sm">Crear Grupo</button>
-                            </div>
-                        </div>
-                    </div>
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="bg-white p-4 shadow rounded"><h2 class="font-bold mb-2 flex justify-between">Docentes <button id="add-teacher-btn" class="text-xs bg-blue-100 px-2 rounded">+</button></h2><div id="teachers-list"></div></div>
+                    <div class="bg-white p-4 shadow rounded col-span-2"><h2 class="font-bold mb-2 flex justify-between">Materias <button id="open-subject-modal-btn" class="text-xs bg-indigo-100 px-2 rounded">+</button></h2><div id="subjects-by-trimester" class="grid grid-cols-2 gap-2"></div></div>
+                    <div class="bg-white p-4 shadow rounded"><h2 class="font-bold mb-2">Grupos</h2><div id="groups-by-trimester"></div><div class="mt-2"><input id="group-number-input" placeholder="Num" class="border p-1 w-20"><button id="add-group-btn" class="bg-purple-600 text-white px-2 rounded text-sm ml-2">Crear</button></div></div>
                 </div>
             </div>
 
             <div id="tab-content-configuracion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                 <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow border">
-                     <h2 class="text-lg font-bold mb-4">Configuración General</h2>
-                     <div class="grid grid-cols-2 gap-6">
-                        <div>
-                             <h3 class="font-bold text-sm mb-2">Bloqueos de Horario</h3>
-                             <div class="flex gap-2 mb-2"><select id="block-trimester" class="border p-1 rounded w-full"></select><select id="block-time" class="border p-1 rounded w-full"></select></div>
-                             <button id="add-block-btn" class="w-full bg-amber-500 text-white rounded p-1">Bloquear</button>
-                             <div id="blocks-list" class="mt-2 space-y-1"></div>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-sm mb-2">Aulas (Lista Simple)</h3>
-                            <div class="flex gap-2 mb-2"><input id="classroom-name" class="border p-1 w-full" placeholder="Nombre"><button id="add-classroom-btn" class="bg-teal-600 text-white px-3 rounded">Ok</button></div>
-                            <div id="classrooms-list" class="max-h-40 overflow-y-auto space-y-1"></div>
-                        </div>
-                     </div>
-                     <div class="mt-6 border-t pt-4">
-                         <button id="advance-trimester-btn" class="text-red-600 border border-red-200 px-4 py-2 rounded hover:bg-red-50 text-sm font-bold">⚠️ Avanzar Cuatrimestre</button>
-                     </div>
-                 </div>
+                <div class="bg-white p-6 rounded shadow max-w-2xl mx-auto">
+                    <h2 class="font-bold mb-4">Bloqueos de Horario</h2>
+                    <div class="flex gap-2 mb-2">
+                        <select id="block-trimester" class="border p-1 w-full"><option value="1">Cuatri 1</option><option value="2">Cuatri 2</option></select>
+                        <select id="block-time" class="border p-1 w-full"><option value="7">7:00</option><option value="8">8:00</option></select>
+                        <button id="add-block-btn" class="bg-amber-500 text-white px-4 rounded">Bloquear</button>
+                    </div>
+                    <div id="blocks-list"></div>
+                </div>
             </div>
         </main>
     </div>
 
-    <div id="notification-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
     <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"></div>
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"></div>
     </div>
 
-    <script type="module" src="config.js"></script>
-    <script type="module" src="map.js"></script>
     <script type="module" src="script.js"></script>
 </body>
 </html>
