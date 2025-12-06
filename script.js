@@ -57,7 +57,7 @@ function hideTooltip() {
 
 // === INICIO APP ===
 function initApp() {
-    console.log("App Iniciada v3.2 (Nombres Reales)");
+    console.log("App Iniciada v3.3 (Auto-Docente)");
     initTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -97,9 +97,9 @@ function setupListeners() {
     };
 
     bindClick('open-class-modal-btn', () => showClassForm());
-    // IMPORTANTE: Ahora pasamos una función vacía para que no pase el evento como "teacher"
     bindClick('add-teacher-btn', () => showTeacherForm()); 
-    bindClick('open-subject-modal-btn', showSubjectForm);
+    // Ahora showSubjectForm es una función completa, no un prompt
+    bindClick('open-subject-modal-btn', () => showSubjectForm());
     bindClick('add-group-btn', addGroup);
     bindClick('add-classroom-btn', addClassroom);
     bindClick('add-block-btn', addBlock);
@@ -163,7 +163,6 @@ function validateConflicts(newClass, ignoreId = null) {
         if (overlap) {
             if (existing.teacherId === newClass.teacherId) {
                 const t = state.teachers.find(x => x.id === existing.teacherId);
-                // Muestra Nombre Real si existe, si no el corto
                 const tName = t ? (t.fullName || t.name) : 'Docente';
                 conflicts.push(`<b>${tName}</b> ya tiene clase.`);
             }
@@ -317,7 +316,6 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx) {
     el.querySelector('.edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); };
     el.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
     
-    // TOOLTIP MEJORADO CON NOMBRE COMPLETO
     el.onmouseenter = () => {
         const fullTeacherName = teach.fullName ? `${teach.name} <span style="opacity:0.6; font-size:0.7em">(${teach.fullName})</span>` : teach.name;
         showTooltip(`
@@ -405,7 +403,7 @@ async function commitSave(data, id) {
     }
 }
 
-// === NUEVO FORMULARIO DE DOCENTE (MODAL) ===
+// === FORMULARIO DE DOCENTE ===
 function showTeacherForm(teacher = null) {
     const modal = document.getElementById('modal');
     modal.classList.remove('hidden');
@@ -453,12 +451,88 @@ function showTeacherForm(teacher = null) {
     };
 }
 
+// === NUEVO FORMULARIO DE MATERIAS (CON DOCENTE PREDETERMINADO) ===
+function showSubjectForm(subject = null) {
+    const modal = document.getElementById('modal');
+    modal.classList.remove('hidden');
+    const content = document.getElementById('modal-content');
+
+    const isEdit = !!subject;
+    const nameVal = subject ? subject.name : '';
+    const trimVal = subject ? subject.trimester : 1;
+    const defTeacher = subject ? subject.defaultTeacherId : '';
+
+    const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
+
+    content.innerHTML = `
+        <div class="p-6 bg-white rounded-lg">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">${isEdit ? 'Editar' : 'Nueva'} Materia</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1 text-xs uppercase">Nombre de la Materia</label>
+                    <input type="text" id="s-name" value="${nameVal}" class="w-full border p-2 rounded">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1 text-xs uppercase">Cuatrimestre</label>
+                        <select id="s-trim" class="w-full border p-2 rounded">
+                            ${[1,2,3,4,5,6,7,8,9].map(i => `<option value="${i}" ${trimVal==i?'selected':''}>Cuatri ${i}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1 text-xs uppercase">Docente Predeterminado</label>
+                        <select id="s-def-teacher" class="w-full border p-2 rounded bg-indigo-50">
+                            <option value="">-- Sin Asignar --</option>
+                            ${genOpts(state.teachers, defTeacher)}
+                        </select>
+                        <p class="text-[10px] text-gray-400 mt-1">Este docente se seleccionará automáticamente al arrastrar la materia.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="btn-s-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-s-save" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow">Guardar Materia</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btn-s-cancel').onclick = () => modal.classList.add('hidden');
+
+    document.getElementById('btn-s-save').onclick = async () => {
+        const newName = document.getElementById('s-name').value.trim();
+        const newTrim = parseInt(document.getElementById('s-trim').value);
+        const newDefTeacher = document.getElementById('s-def-teacher').value;
+
+        if(!newName) return notify("El nombre es obligatorio", true);
+
+        const data = { name: newName, trimester: newTrim, defaultTeacherId: newDefTeacher };
+        try {
+            if(isEdit) await updateDoc(doc(cols.subjects, subject.id), data);
+            else await addDoc(cols.subjects, data);
+            modal.classList.add('hidden');
+            notify("Materia guardada");
+        } catch(e) { notify("Error al guardar", true); }
+    };
+}
+
+// === HANDLERS DEL DRAG & DROP (CON AUTO-DOCENTE) ===
 async function handleDrop(e, day, hour) {
     e.preventDefault();
     document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
     try {
         const d = JSON.parse(e.dataTransfer.getData('application/json'));
-        if(d.type === 'subject') showClassForm({day, startTime: hour, subjectId: d.id});
+        if(d.type === 'subject') {
+            // Buscar la materia en el estado para ver si tiene defaultTeacherId
+            const subjObj = state.subjects.find(s => s.id === d.id);
+            const defaultT = subjObj ? subjObj.defaultTeacherId : null;
+            
+            showClassForm({
+                day, 
+                startTime: hour, 
+                subjectId: d.id, 
+                teacherId: defaultT // ¡Aquí está la magia!
+            });
+        }
     } catch(err){}
 }
 
@@ -500,45 +574,49 @@ function renderSubjectsList() {
             c.appendChild(d);
         });
     }
+    // Lista completa en gestión
     const list = document.getElementById('subjects-by-trimester'); 
     if(list) {
         list.innerHTML='';
         state.subjects.forEach(s => {
-            const el = document.createElement('div'); el.className='text-xs p-1 border rounded bg-gray-50 mb-1 flex justify-between';
-            el.innerHTML = `<span class="truncate w-3/4">${s.name}</span><button class="text-red-500 font-bold" onclick="delDoc('subjects','${s.id}')">×</button>`;
+            const el = document.createElement('div'); el.className='text-xs p-1 border rounded bg-gray-50 mb-1 flex justify-between items-center';
+            
+            // Mostrar si tiene docente asignado con un pequeño icono
+            const hasDef = s.defaultTeacherId ? '👤' : '';
+            
+            el.innerHTML = `
+                <div class="truncate w-3/4" title="${s.name}">
+                    ${s.name} <span class="text-[10px] text-gray-400">${hasDef}</span>
+                </div>
+                <div class="flex">
+                    <button class="text-blue-500 font-bold px-1 btn-edit-s">✎</button>
+                    <button class="text-red-500 font-bold px-1 btn-del-s">×</button>
+                </div>
+            `;
+            
+            el.querySelector('.btn-edit-s').onclick = () => showSubjectForm(s);
+            el.querySelector('.btn-del-s').onclick = () => delDoc('subjects', s.id);
+            
             list.appendChild(el);
         });
     }
 }
 
-// LISTA DE DOCENTES MEJORADA (MUESTRA AMBOS NOMBRES)
 function renderTeachersList() { 
     const l = document.getElementById('teachers-list'); if(!l) return;
     l.innerHTML='';
     state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => {
         const d = document.createElement('div'); 
         d.className='flex justify-between items-center p-2 border-b text-sm hover:bg-gray-50';
-        
-        // Renderizado inteligente de nombres
         const displayName = `
             <div class="flex flex-col">
                 <span class="font-bold text-gray-800">${t.name}</span>
                 ${t.fullName ? `<span class="text-xs text-gray-500">${t.fullName}</span>` : ''}
             </div>
         `;
-        
-        d.innerHTML=`
-            ${displayName} 
-            <div class="flex gap-2">
-                <button class="btn-edit-t text-blue-500 hover:text-blue-700 p-1">✎</button>
-                <button class="btn-del-t text-red-500 hover:text-red-700 p-1">×</button>
-            </div>
-        `;
-        
-        // Bindings directos para evitar problemas de scope
+        d.innerHTML=`${displayName} <div class="flex gap-2"><button class="btn-edit-t text-blue-500 hover:text-blue-700 p-1">✎</button><button class="btn-del-t text-red-500 hover:text-red-700 p-1">×</button></div>`;
         d.querySelector('.btn-edit-t').onclick = () => showTeacherForm(t);
         d.querySelector('.btn-del-t').onclick = () => delDoc('teachers', t.id);
-        
         l.appendChild(d);
     });
 }
@@ -578,7 +656,6 @@ window.delDoc = (col, id) => { if(confirm('¿Eliminar?')) deleteDoc(doc(cols[col
 function addGroup() { const n = document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 function addClassroom() { const n = document.getElementById('classroom-name').value; if(n) addDoc(cols.classrooms, {name: n}); }
 function addBlock() { const t = document.getElementById('block-time')?.value; const tri = document.getElementById('block-trimester')?.value; if(t && tri) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tri, days:'L-V'}); }
-function showSubjectForm() { const n = prompt('Materia:'); if(n) addDoc(cols.subjects, {name: n, trimester: 1}); }
 function showPresetForm() { alert('En construcción'); }
 function toggleMapEdit() { alert('En construcción'); }
 
