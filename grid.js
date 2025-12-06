@@ -42,7 +42,7 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
             if(!customFilters && targetElement.id === 'schedule-grid') { 
                 cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
                 cell.ondragleave = () => cell.classList.remove('droppable-hover');
-                cell.ondrop = e => handleDrop(e, d, h); // Conexión limpia
+                cell.ondrop = e => handleDrop(e, d, h); 
                 cell.onclick = (e) => { if(e.target===cell) showClassForm({day: d, startTime: h}); };
             }
             frag.appendChild(cell);
@@ -120,7 +120,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     }
 
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
-    const roomName = room ? room.name : "N/A";
+    const roomName = room ? room.name : "Sin Aula"; // Texto por defecto si no hay aula
     const isNarrow = totalOverlaps >= 3 && !isExporting;
 
     el.innerHTML = `
@@ -137,18 +137,42 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
         el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDocWrapper('schedule', c.id); };
         
-        // --- DRAG & DROP ARREGLADO ---
         el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
         el.ondrop = (e) => handleDrop(e, c.day, c.startTime);
 
-        // --- TOOLTIP DETALLADO ---
+        // === TOOLTIP MEJORADO ===
+        // Aquí definimos qué se ve al pasar el mouse
         el.onmouseenter = () => showTooltip(`
-            <div class="font-bold text-sm mb-1 text-indigo-300 border-b pb-1">${subj.name}</div>
-            <div class="text-xs space-y-1">
-                <div>👨‍🏫 <span class="text-gray-300">Docente:</span> ${teacherName}</div>
-                <div>👥 <span class="text-gray-300">Grupo:</span> ${grp.name}</div>
-                <div>🏫 <span class="text-gray-300">Aula:</span> ${roomName}</div>
-                <div>🕒 <span class="text-gray-300">Horario:</span> ${c.startTime}:00 - ${c.startTime + c.duration}:00</div>
+            <div class="font-bold text-sm mb-2 text-white border-b border-gray-600 pb-1">
+                ${subj.name}
+            </div>
+            <div class="text-xs text-gray-200 space-y-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🏫</span> 
+                    <div>
+                        <span class="block text-[10px] text-gray-400 uppercase font-bold">Aula / Salón</span>
+                        <span class="text-sm font-semibold text-white">${roomName}</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🕒</span> 
+                    <div>
+                        <span class="block text-[10px] text-gray-400 uppercase font-bold">Horario</span>
+                        <span class="text-white">${c.startTime}:00 - ${c.startTime + c.duration}:00</span>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-700 pt-1 mt-1 flex justify-between">
+                    <div>
+                        <span class="text-[10px] text-gray-400 block">Docente</span>
+                        <span>${teacherName}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-gray-400 block">Grupo</span>
+                        <span>${grp.name}</span>
+                    </div>
+                </div>
             </div>
         `);
         el.onmouseleave = hideTooltip; 
