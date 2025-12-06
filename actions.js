@@ -14,7 +14,7 @@ export function handleDrop(e, day, hour) {
         if(d.type === 'subject') {
             const s = state.subjects.find(x => x.id === d.id);
             if(s) {
-                // Abrir formulario prellenado con el profe default si existe
+                // Abrir formulario prellenado
                 showClassForm({
                     day, 
                     startTime: hour, 
@@ -42,6 +42,14 @@ export function showClassForm(defs = {}) {
             <h2 class="text-xl font-bold mb-4 text-gray-800">${defs.id ? 'Editar' : 'Nueva'} Clase</h2>
             <div id="conflict-warnings" class="mb-4 hidden"></div>
             <div class="grid grid-cols-2 gap-4 text-sm">
+                
+                <div>
+                    <label class="block font-bold text-gray-500 mb-1">Grupo</label>
+                    <select id="f-grp" class="w-full border p-2 rounded">
+                        ${genOpts(state.groups, defs.groupId)}
+                    </select>
+                </div>
+
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">Docente</label>
                     <select id="f-tch" class="w-full border p-2 rounded">
@@ -49,13 +57,14 @@ export function showClassForm(defs = {}) {
                         ${genOpts(state.teachers, defs.teacherId)}
                     </select>
                 </div>
+
                 <div>
                     <label class="block font-bold text-gray-500 mb-1">Materia</label>
                     <select id="f-sub" class="w-full border p-2 rounded">
                         ${genOpts(state.subjects, defs.subjectId)}
                     </select>
                 </div>
-                <div><label class="block font-bold text-gray-500 mb-1">Grupo</label><select id="f-grp" class="w-full border p-2 rounded">${genOpts(state.groups, defs.groupId)}</select></div>
+
                 <div><label class="block font-bold text-gray-500 mb-1">Aula</label><select id="f-rm" class="w-full border p-2 rounded"><option value="">-- Sin Aula --</option>${genOpts(state.classrooms, defs.classroomId)}</select></div>
                 <div><label class="block font-bold text-gray-500 mb-1">Día</label><select id="f-day" class="w-full border p-2 rounded">${days.map(d=>`<option ${d===defs.day?'selected':''}>${d}</option>`).join('')}</select></div>
                 <div><label class="block font-bold text-gray-500 mb-1">Inicio</label><select id="f-time" class="w-full border p-2 rounded">${timeSlots.map(t=>`<option value="${t}" ${t==defs.startTime?'selected':''}>${t}:00</option>`).join('')}</select></div>
@@ -67,50 +76,65 @@ export function showClassForm(defs = {}) {
             </div>
         </div>`;
 
-    // === LÓGICA DE FILTRADO INTELIGENTE ===
+    // === LÓGICA DE FILTRADO DINÁMICO ===
     const selTch = document.getElementById('f-tch');
     const selSub = document.getElementById('f-sub');
+    const selGrp = document.getElementById('f-grp');
 
-    // Función para repoblar materias
-    const filterSubjects = (teacherId) => {
-        const currentSubId = selSub.value;
-        // Filtrar materias: Las del profe, O todas si no hay profe, O la actual (para no romper ediciones)
-        const validSubjects = state.subjects.filter(s => 
-            !teacherId || 
-            s.defaultTeacherId === teacherId || 
-            s.id === defs.subjectId 
-        );
-        
-        // Renderizar
+    // Función Central de Filtrado
+    const updateSubjectOptions = () => {
+        const selectedGrpId = selGrp.value;
+        const selectedTchId = selTch.value;
+        const currentSubId = selSub.value; 
+
+        // 1. Obtener Cuatrimestre del Grupo Seleccionado
+        const grp = state.groups.find(g => g.id === selectedGrpId);
+        const targetTrimester = grp ? grp.trimester : null;
+
+        // 2. Filtrar Materias
+        const validSubjects = state.subjects.filter(s => {
+            // A. Coincide con el Cuatri del Grupo (si hay grupo seleccionado)
+            const matchesGroup = !targetTrimester || s.trimester === targetTrimester;
+
+            // B. Coincide con el Docente (si hay docente seleccionado)
+            const matchesTeacher = !selectedTchId || s.defaultTeacherId === selectedTchId;
+
+            // C. Excepción: Siempre mostrar la materia que ya estaba seleccionada (para no romper ediciones)
+            const isCurrent = s.id === defs.subjectId;
+
+            if (isCurrent) return true;
+            return matchesGroup && matchesTeacher;
+        });
+
+        // 3. Renderizar
         selSub.innerHTML = validSubjects
             .sort((a,b) => a.name.localeCompare(b.name))
             .map(s => `<option value="${s.id}" ${s.id === currentSubId ? 'selected' : ''}>${s.name}</option>`)
             .join('');
-            
-        // Si la materia seleccionada desapareció del filtro, seleccionar la primera disponible
-        if(!validSubjects.find(s => s.id === selSub.value) && validSubjects.length > 0) {
+        
+        // Si la lista cambió y la selección actual ya no es válida, seleccionar la primera
+        if (validSubjects.length > 0 && !validSubjects.find(s => s.id === selSub.value)) {
             selSub.value = validSubjects[0].id;
+            // Opcional: Si cambiamos la materia automáticamente, podríamos querer actualizar el docente default,
+            // pero mejor no tocar el docente automáticamente aquí para evitar bucles raros.
         }
     };
 
-    // 1. Cuando cambia el Docente -> Filtrar Materias
-    selTch.onchange = () => filterSubjects(selTch.value);
+    // Listeners
+    selGrp.onchange = () => updateSubjectOptions(); // Cambio de grupo -> Filtra materias por cuatri
+    selTch.onchange = () => updateSubjectOptions(); // Cambio de docente -> Filtra materias por profe
 
-    // 2. Cuando cambia la Materia -> Poner Docente Default (si no hay uno fijo ya)
+    // Lógica inversa: Al cambiar materia manual, sugerir el docente default
     selSub.onchange = () => {
         const sub = state.subjects.find(s => s.id === selSub.value);
         if(sub && sub.defaultTeacherId) {
-            // Solo cambiamos si el usuario seleccionó "-- Cualquiera --" o si quiere que el sistema sugiera
-            // Para ser más útil, lo cambiamos siempre que coincida la lógica "Materia manda"
             selTch.value = sub.defaultTeacherId;
-            // No disparamos filterSubjects aquí para permitir cambiar de profe si es un suplente
+            // No llamamos a updateSubjectOptions() aquí para permitir cambiar al docente si es necesario
         }
     };
 
-    // Ejecutar filtro inicial SOLO si estamos creando una nueva (no editando) y ya hay profe definido
-    if(!defs.id && defs.teacherId) {
-        filterSubjects(defs.teacherId);
-    }
+    // Inicializar filtros
+    updateSubjectOptions();
     // ======================================
 
     document.getElementById('btn-cancel').onclick = () => modal.classList.add('hidden');
