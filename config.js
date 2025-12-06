@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// Configuración de Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyA5jnDVPPYhSuN7D6qzcETKWW3kzkqV1zs",
     authDomain: "planificador-horarios.firebaseapp.com",
@@ -17,18 +16,9 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const APP_ID = 'default-scheduler-app-v2';
 
-// Paleta de Colores Profesional
 const PALETTE = [
-    '#3b82f6', // Azul Real
-    '#8b5cf6', // Violeta Suave
-    '#f43f5e', // Rosa Coral
-    '#10b981', // Verde Esmeralda
-    '#f59e0b', // Ámbar Profundo
-    '#06b6d4', // Cian Océano
-    '#ec4899', // Rosa Fucsia
-    '#6366f1', // Índigo
-    '#84cc16', // Lima
-    '#14b8a6', // Turquesa
+    '#3b82f6', '#8b5cf6', '#f43f5e', '#10b981', '#f59e0b', 
+    '#06b6d4', '#ec4899', '#6366f1', '#84cc16', '#14b8a6'
 ];
 
 export { app, db, auth, collection, APP_ID, PALETTE };
