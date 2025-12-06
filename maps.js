@@ -15,7 +15,8 @@ export const MAP_DATA = {
         { id: 'salon2', name: 'Salón 2', type: 'classroom', x: 80, y: 35, w: 15, h: 12 },
         { id: 'salon1', name: 'Salón 1', type: 'classroom', x: 80, y: 50, w: 15, h: 12 },
         
-        { id: 'baile', name: 'Salón Baile', type: 'classroom', x: 78, y: 80, w: 18, h: 15 },
+        // CAMBIO: Baile ahora es 'office' (Inactivo)
+        { id: 'baile', name: 'Salón Baile', type: 'office', x: 78, y: 80, w: 18, h: 15 },
         { id: 'stairs_up', name: 'Escaleras', type: 'stairs', x: 20, y: 80, w: 10, h: 15 }
     ],
 
@@ -24,7 +25,8 @@ export const MAP_DATA = {
         { id: 'idiomas', name: 'Coord. Idiomas', type: 'office', x: 10, y: 5, w: 15, h: 12 },
         { id: 'juntas', name: 'Sala Juntas', type: 'office', x: 10, y: 20, w: 15, h: 15 },
         
-        { id: 'cert', name: 'Centro Cert.', type: 'lab', x: 30, y: 5, w: 18, h: 45 },
+        // CAMBIO: Certificador ahora es 'office' (Inactivo)
+        { id: 'cert', name: 'Centro Cert.', type: 'office', x: 30, y: 5, w: 18, h: 45 },
         { id: 'arte', name: 'Lab. Arte', type: 'lab', x: 50, y: 5, w: 18, h: 45 },
 
         { id: 'oficinas_div', name: 'Oficinas Admin', type: 'office', x: 75, y: 5, w: 20, h: 40 },
@@ -47,9 +49,14 @@ export function renderMap(floorId, container, scheduleData, onRoomClick) {
         el.style.height = `${item.h}%`;
         el.textContent = item.name;
 
+        // Solo permitir clic si es classroom o lab (los office como baile/cert serán ignorados)
         if (item.type === 'classroom' || item.type === 'lab') {
             el.onclick = () => onRoomClick(item);
+            el.style.cursor = "pointer"; // Asegurar cursor de mano
+        } else {
+            el.style.cursor = "default"; // Cursor normal para inactivos
         }
+        
         container.appendChild(el);
     });
 }
