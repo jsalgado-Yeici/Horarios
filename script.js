@@ -27,7 +27,7 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 // === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v10.0 (Final Stable)");
+    console.log("App v12.0 (Final Script)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -143,7 +143,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
     targetElement.innerHTML = '';
     const frag = document.createDocumentFragment();
 
-    // Headers
     const corner = document.createElement('div'); 
     corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; 
     corner.innerText = 'HORA'; 
@@ -156,7 +155,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         frag.appendChild(h); 
     });
 
-    // Grid
     timeSlots.forEach(h => {
         const tc = document.createElement('div'); 
         tc.className = 'grid-time-slot sticky left-0 bg-white'; 
@@ -191,7 +189,7 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         return true;
     });
 
-    // Items
+    // Render Items
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
@@ -202,8 +200,7 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // Render Blocks (Ocultar o simplificar en exportación si se desea)
-    // En este caso, los ocultamos en exportación para limpiar la vista
+    // Render Blocks (Ocultar en exportación)
     if(!customFilters) {
         state.blocks.forEach(b => {
             if(fTrim && b.trimester != fTrim) return;
@@ -232,19 +229,18 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!subj || !grp || !teach) return null;
 
     const el = document.createElement('div'); el.className = 'schedule-item';
-    const rowH = isExporting ? 55 : 60; 
+    const rowH = isExporting ? 55 : 60; // Altura fija exportación vs web
     const colW = `((100% - ${isExporting?80:60}px)/5)`;
     
-    el.style.top = `${(tIdx + 1) * rowH}px`;
+    el.style.top = `${(tIdx * rowH) + rowH}px`; // Fix posición vertical
     el.style.height = `${(c.duration * rowH) - (isExporting?0:4)}px`;
     el.style.left = `calc(${isExporting?80:60}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
     el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting?0:4}px)`;
     
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     
-    // FORMATO DE EXPORTACIÓN (Sólido y limpio)
     if(isExporting) {
-        el.style.backgroundColor = PALETTE[cIdx] + '99'; // Color pastel sólido
+        el.style.backgroundColor = PALETTE[cIdx] + '99'; // Color sólido
         el.style.border = '1px solid #000';
         el.style.borderLeft = '1px solid #000'; 
     } else {
@@ -253,15 +249,15 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
 
     // DATOS DE TEXTO
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
-    const roomName = room ? room.name : "N/A"; // Mostrar "N/A" si no hay salón
+    const roomName = room ? room.name : "N/A";
     const isNarrow = totalOverlaps >= 3 && !isExporting;
 
     el.innerHTML = `
         <div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>
         ${!isNarrow ? `
             <div class="item-details" ${isExporting?'style="font-size:9px;"':''}>
-                <div style="font-weight:normal;">${teacherName}</div>
-                ${isExporting ? `<div style="margin-top:2px; font-weight:bold;">${roomName}</div>` : `<div>${grp.name}</div>`}
+                ${isExporting ? `<div style="margin-bottom:2px; font-weight:normal;">${teacherName}</div>` : `<div>${teacherName}</div>`}
+                ${isExporting ? `<div style="font-weight:bold; border-top:1px solid #000; display:inline-block; padding-top:2px;">Aula: ${roomName}</div>` : `<div>${grp.name}</div>`}
             </div>` : ''}
         ${!isExporting ? `<div class="actions"><button class="btn-edt">✎</button><button class="btn-del">×</button></div>` : ''}
     `;
@@ -269,14 +265,22 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!isExporting) {
         el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
-        el.onmouseenter = () => showTooltip(`<strong>${subj.name}</strong><br>👨‍🏫 ${teacherName}<br>🏫 ${roomName}`);
+        
+        // Tooltip reactivado
+        el.onmouseenter = () => showTooltip(`
+            <strong>${subj.name}</strong><br>
+            👨‍🏫 ${teacherName}<br>
+            👥 ${grp.name}<br>
+            🏫 ${roomName}<br>
+            🕒 ${c.startTime}:00 - ${c.startTime + c.duration}:00
+        `);
         el.onmouseleave = hideTooltip; 
         el.onclick = () => showClassForm(c);
     }
     return el;
 }
 
-// === FORMULARIOS ===
+// === FORMULARIOS Y LISTAS ===
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const content = document.getElementById('modal-content');
     const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
