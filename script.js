@@ -27,7 +27,7 @@ const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 // === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v10.0 (Final Stable)");
+    console.log("App v12.1 (Fixed Grid)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -53,13 +53,11 @@ function setupListeners() {
         };
     });
 
-    // Filtros
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = () => renderScheduleGrid();
     });
 
-    // Botones
     const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
     bind('open-class-modal-btn', () => showClassForm());
     bind('add-teacher-btn', () => showTeacherForm()); 
@@ -70,7 +68,6 @@ function setupListeners() {
     bind('floor-btn-pb', () => switchFloor('pb'));
     bind('floor-btn-pa', () => switchFloor('pa'));
     
-    // EXPORTACIÓN
     bind('btn-export-pdf', () => exportSchedule('pdf'));
     bind('btn-export-img', () => exportSchedule('img'));
     bind('btn-export-all', () => exportAllSchedules(state, renderScheduleGrid));
@@ -130,11 +127,10 @@ function setupRealtimeListeners() {
 }
 function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); }}}
 
-// === RENDER GRID (EXPORT VERSION) ===
+// === RENDER GRID ===
 export function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
     if (!targetElement) return;
     
-    // Limpieza de estilos para exportación
     if(customFilters) {
         targetElement.style.border = "none";
         targetElement.style.boxShadow = "none";
@@ -143,7 +139,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
     targetElement.innerHTML = '';
     const frag = document.createDocumentFragment();
 
-    // Headers
     const corner = document.createElement('div'); 
     corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; 
     corner.innerText = 'HORA'; 
@@ -156,7 +151,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         frag.appendChild(h); 
     });
 
-    // Grid
     timeSlots.forEach(h => {
         const tc = document.createElement('div'); 
         tc.className = 'grid-time-slot sticky left-0 bg-white'; 
@@ -169,7 +163,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
             cell.dataset.day = d; 
             cell.dataset.hour = h;
             
-            // Interacción solo si NO es exportación
             if(!customFilters && targetElement.id === 'schedule-grid') { 
                 cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
                 cell.ondragleave = () => cell.classList.remove('droppable-hover');
@@ -191,7 +184,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         return true;
     });
 
-    // Items
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
@@ -202,8 +194,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // Render Blocks (Ocultar o simplificar en exportación si se desea)
-    // En este caso, los ocultamos en exportación para limpiar la vista
     if(!customFilters) {
         state.blocks.forEach(b => {
             if(fTrim && b.trimester != fTrim) return;
@@ -232,36 +222,52 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!subj || !grp || !teach) return null;
 
     const el = document.createElement('div'); el.className = 'schedule-item';
-    const rowH = isExporting ? 55 : 60; 
-    const colW = `((100% - ${isExporting?80:60}px)/5)`;
     
-    el.style.top = `${(tIdx + 1) * rowH}px`;
-    el.style.height = `${(c.duration * rowH) - (isExporting?0:4)}px`;
-    el.style.left = `calc(${isExporting?80:60}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
-    el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting?0:4}px)`;
+    // === FIX DESFASE AQUÍ ===
+    // En exportación, la fila es exactamente 55px.
+    // Usamos (rowH * tIdx) + rowH para saltar el header.
+    const rowH = isExporting ? 55 : 60; 
+    
+    // Anchos de columna
+    // En exportación: primera col 80px, resto (1000px - 80px) / 5
+    // En web: primera col 60px, resto flex.
+    const leftOffset = isExporting ? 80 : 60;
+    const colW = `((100% - ${leftOffset}px)/5)`;
+    
+    // Calculo TOP
+    // + rowH para saltar el header
+    // Exportación: sumamos 1px a veces para tapar el borde si es necesario, 
+    // pero con box-sizing y alturas exactas, el cálculo directo debería funcionar.
+    el.style.top = `${(tIdx * rowH) + rowH}px`; 
+    
+    // Calculo HEIGHT
+    // Restamos un poco para ver los bordes de la celda si queremos, o taparlos.
+    // En exportación (isExporting), queremos que llene casi todo pero no se salga.
+    el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
+    
+    el.style.left = `calc(${leftOffset}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
+    el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting ? 1 : 4}px)`;
     
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     
-    // FORMATO DE EXPORTACIÓN (Sólido y limpio)
     if(isExporting) {
-        el.style.backgroundColor = PALETTE[cIdx] + '99'; // Color pastel sólido
+        el.style.backgroundColor = PALETTE[cIdx] + '99'; 
         el.style.border = '1px solid #000';
-        el.style.borderLeft = '1px solid #000'; 
+        el.style.zIndex = '20'; // Asegurar que quede encima de las lineas
     } else {
         el.style.borderLeftColor = PALETTE[cIdx];
     }
 
-    // DATOS DE TEXTO
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
-    const roomName = room ? room.name : "N/A"; // Mostrar "N/A" si no hay salón
+    const roomName = room ? room.name : "N/A";
     const isNarrow = totalOverlaps >= 3 && !isExporting;
 
     el.innerHTML = `
         <div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>
         ${!isNarrow ? `
             <div class="item-details" ${isExporting?'style="font-size:9px;"':''}>
-                <div style="font-weight:normal;">${teacherName}</div>
-                ${isExporting ? `<div style="margin-top:2px; font-weight:bold;">${roomName}</div>` : `<div>${grp.name}</div>`}
+                ${isExporting ? `<div style="margin-bottom:2px; font-weight:normal;">${teacherName}</div>` : `<div>${teacherName}</div>`}
+                ${isExporting ? `<div style="font-weight:bold; border-top:1px solid #000; display:inline-block; padding-top:2px;">Aula: ${roomName}</div>` : `<div>${grp.name}</div>`}
             </div>` : ''}
         ${!isExporting ? `<div class="actions"><button class="btn-edt">✎</button><button class="btn-del">×</button></div>` : ''}
     `;
@@ -269,14 +275,21 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!isExporting) {
         el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
-        el.onmouseenter = () => showTooltip(`<strong>${subj.name}</strong><br>👨‍🏫 ${teacherName}<br>🏫 ${roomName}`);
+        
+        el.onmouseenter = () => showTooltip(`
+            <strong>${subj.name}</strong><br>
+            👨‍🏫 ${teacherName}<br>
+            👥 ${grp.name}<br>
+            🏫 ${roomName}<br>
+            🕒 ${c.startTime}:00 - ${c.startTime + c.duration}:00
+        `);
         el.onmouseleave = hideTooltip; 
         el.onclick = () => showClassForm(c);
     }
     return el;
 }
 
-// === FORMULARIOS ===
+// === RESTO DE FUNCIONES (Sin cambios mayores) ===
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const content = document.getElementById('modal-content');
     const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
