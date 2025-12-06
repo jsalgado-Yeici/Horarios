@@ -4,7 +4,7 @@ import { exportSchedule, exportAllSchedules } from './export.js';
 import { signInAnonymously } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// ESTADO
+// === ESTADO GLOBAL ===
 const state = {
     teachers: [], subjects: [], groups: [], schedule: [], 
     presets: [], blocks: [], classrooms: [],
@@ -24,17 +24,18 @@ const cols = {
 const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 
-// INIT
+// === INIT ===
 let tooltipEl = null;
 function initApp() {
-    console.log("App v8.0 (Official Export Style)");
+    console.log("App v10.0 (Final Stable)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
 }
 
-// LISTENERS
+// === LISTENERS ===
 function setupListeners() {
+    // Tabs
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.tab-button').forEach(b => {
@@ -52,11 +53,13 @@ function setupListeners() {
         };
     });
 
+    // Filtros
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = () => renderScheduleGrid();
     });
 
+    // Botones
     const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
     bind('open-class-modal-btn', () => showClassForm());
     bind('add-teacher-btn', () => showTeacherForm()); 
@@ -70,13 +73,13 @@ function setupListeners() {
     // EXPORTACIÓN
     bind('btn-export-pdf', () => exportSchedule('pdf'));
     bind('btn-export-img', () => exportSchedule('img'));
-    bind('btn-export-all', () => exportAllSchedules(state, renderScheduleGrid)); // Pasamos la función de renderizado
+    bind('btn-export-all', () => exportAllSchedules(state, renderScheduleGrid));
 
     const modal = document.getElementById('modal');
     if(modal) modal.onclick = (e) => { if(e.target.id === 'modal') modal.classList.add('hidden'); };
 }
 
-// MAPA
+// === MAPA ===
 function initMapTab() { switchFloor('pa'); }
 function switchFloor(floor) {
     const btnPb = document.getElementById('floor-btn-pb');
@@ -109,7 +112,7 @@ function showRoomDetails(room) {
     content.innerHTML = html;
 }
 
-// FIREBASE
+// === FIREBASE ===
 function setupRealtimeListeners() {
     const update = (k, s) => {
         state[k] = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -127,11 +130,11 @@ function setupRealtimeListeners() {
 }
 function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if(o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); }}}
 
-// RENDER GRID (EXPORT VERSION)
+// === RENDER GRID (EXPORT VERSION) ===
 export function renderScheduleGrid(targetElement = document.getElementById('schedule-grid'), customFilters = null) {
     if (!targetElement) return;
     
-    // Si es exportación, limpiamos el estilo para evitar herencias
+    // Limpieza de estilos para exportación
     if(customFilters) {
         targetElement.style.border = "none";
         targetElement.style.boxShadow = "none";
@@ -141,14 +144,32 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
     const frag = document.createDocumentFragment();
 
     // Headers
-    const corner = document.createElement('div'); corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; corner.innerText = 'HORA'; frag.appendChild(corner);
-    days.forEach(d => { const h = document.createElement('div'); h.className = 'grid-header sticky top-0 bg-gray-50'; h.innerText = d; frag.appendChild(h); });
+    const corner = document.createElement('div'); 
+    corner.className = 'grid-header sticky top-0 left-0 bg-gray-50'; 
+    corner.innerText = 'HORA'; 
+    frag.appendChild(corner);
+    
+    days.forEach(d => { 
+        const h = document.createElement('div'); 
+        h.className = 'grid-header sticky top-0 bg-gray-50'; 
+        h.innerText = d; 
+        frag.appendChild(h); 
+    });
 
     // Grid
     timeSlots.forEach(h => {
-        const tc = document.createElement('div'); tc.className = 'grid-time-slot sticky left-0 bg-white'; tc.innerText = `${h}:00 - ${h+1}:00`; frag.appendChild(tc);
+        const tc = document.createElement('div'); 
+        tc.className = 'grid-time-slot sticky left-0 bg-white'; 
+        tc.innerText = `${h}:00 - ${h+1}:00`; 
+        frag.appendChild(tc);
+        
         days.forEach(d => {
-            const cell = document.createElement('div'); cell.className = 'grid-cell'; cell.dataset.day = d; cell.dataset.hour = h;
+            const cell = document.createElement('div'); 
+            cell.className = 'grid-cell'; 
+            cell.dataset.day = d; 
+            cell.dataset.hour = h;
+            
+            // Interacción solo si NO es exportación
             if(!customFilters && targetElement.id === 'schedule-grid') { 
                 cell.ondragover = e => { e.preventDefault(); cell.classList.add('droppable-hover'); };
                 cell.ondragleave = () => cell.classList.remove('droppable-hover');
@@ -170,6 +191,7 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         return true;
     });
 
+    // Items
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
@@ -180,7 +202,8 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // En exportación NO mostramos bloqueos (limpieza) o los mostramos como celdas grises simples
+    // Render Blocks (Ocultar o simplificar en exportación si se desea)
+    // En este caso, los ocultamos en exportación para limpiar la vista
     if(!customFilters) {
         state.blocks.forEach(b => {
             if(fTrim && b.trimester != fTrim) return;
@@ -204,52 +227,56 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     const subj = state.subjects.find(s => s.id === c.subjectId);
     const teach = state.teachers.find(t => t.id === c.teacherId);
     const grp = state.groups.find(g => g.id === c.groupId);
+    const room = state.classrooms.find(r => r.id === c.classroomId);
+    
     if(!subj || !grp || !teach) return null;
 
     const el = document.createElement('div'); el.className = 'schedule-item';
-    const rowH = isExporting ? 55 : 60; // Ajuste para grid compacto
+    const rowH = isExporting ? 55 : 60; 
     const colW = `((100% - ${isExporting?80:60}px)/5)`;
     
-    el.style.top = `${(tIdx + 1) * rowH}px`; 
-    el.style.height = `${(c.duration * rowH) - (isExporting?2:4)}px`;
-    el.style.left = `calc(${isExporting?80:60}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`; 
-    el.style.width = `calc((${colW} / ${totalOverlaps}) - 2px)`;
+    el.style.top = `${(tIdx + 1) * rowH}px`;
+    el.style.height = `${(c.duration * rowH) - (isExporting?0:4)}px`;
+    el.style.left = `calc(${isExporting?80:60}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
+    el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting?0:4}px)`;
     
     const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
     
-    // FORMATO OFICIAL: Colores Pastel Sólidos
+    // FORMATO DE EXPORTACIÓN (Sólido y limpio)
     if(isExporting) {
-        el.style.backgroundColor = PALETTE[cIdx] + '60'; // Mas fuerte que antes
+        el.style.backgroundColor = PALETTE[cIdx] + '99'; // Color pastel sólido
         el.style.border = '1px solid #000';
-        el.style.borderLeft = '1px solid #000'; // Quitar barra lateral
+        el.style.borderLeft = '1px solid #000'; 
     } else {
         el.style.borderLeftColor = PALETTE[cIdx];
     }
 
-    // TEXTO: Nombre completo para exportación
+    // DATOS DE TEXTO
     const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
+    const roomName = room ? room.name : "N/A"; // Mostrar "N/A" si no hay salón
     const isNarrow = totalOverlaps >= 3 && !isExporting;
 
     el.innerHTML = `
         <div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>
-        ${!isNarrow ? `<div class="item-details" style="${isExporting?'display:none':''}">${teacherName}<br>${grp.name}</div>` : ''}
+        ${!isNarrow ? `
+            <div class="item-details" ${isExporting?'style="font-size:9px;"':''}>
+                <div style="font-weight:normal;">${teacherName}</div>
+                ${isExporting ? `<div style="margin-top:2px; font-weight:bold;">${roomName}</div>` : `<div>${grp.name}</div>`}
+            </div>` : ''}
         ${!isExporting ? `<div class="actions"><button class="btn-edt">✎</button><button class="btn-del">×</button></div>` : ''}
     `;
 
     if(!isExporting) {
         el.querySelector('.btn-edt').onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); deleteDoc(doc(cols.schedule, c.id)); };
-        el.onmouseenter = () => showTooltip(`<strong>${subj.name}</strong><br>${teacherName}`);
+        el.onmouseenter = () => showTooltip(`<strong>${subj.name}</strong><br>👨‍🏫 ${teacherName}<br>🏫 ${roomName}`);
         el.onmouseleave = hideTooltip; 
         el.onclick = () => showClassForm(c);
     }
     return el;
 }
 
-// ... (El resto del archivo script.js, funciones de formularios y helpers, SE MANTIENE IGUAL)
-// Asegúrate de copiar las funciones showClassForm, commitSave, etc. del archivo anterior si copiaste y pegaste este bloque.
-// Para que sea completo, agrego las funciones restantes aquí abajo:
-
+// === FORMULARIOS ===
 function showClassForm(defs = {}) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const content = document.getElementById('modal-content');
     const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
