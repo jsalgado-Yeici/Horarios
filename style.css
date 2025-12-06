@@ -2,15 +2,14 @@
 #export-template { 
     font-family: 'Arial', sans-serif; 
     background: white; 
-    /* Tamaño fijo y grande para asegurar que quepa todo */
     width: 1500px; 
     height: 1200px; 
     padding: 20px; 
     box-sizing: border-box;
-    position: fixed; /* Fixed para que no afecte el scroll del body */
+    position: fixed; 
     top: 0;
     left: 0;
-    z-index: -1; /* Oculto detrás */
+    z-index: -1; 
 }
 
 #export-template * { 
@@ -20,7 +19,7 @@
 /* Header Oficial */
 #export-template .official-header {
     width: 100%;
-    height: 120px; /* Altura fija reservada */
+    height: 120px; 
     border-bottom: 4px solid #3b82f6;
     margin-bottom: 0;
     position: absolute;
@@ -32,17 +31,16 @@
 /* Contenedor del Horario (Grid) */
 #export-grid-container {
     position: absolute;
-    top: 160px; /* Debajo del header */
+    top: 160px; 
     left: 20px;
     width: 1000px;
-    /* Sin bordes aquí, los tiene el grid interno */
 }
 
 /* Contenedor de la Tabla Lateral */
 #export-table-container {
     position: absolute;
-    top: 160px; /* Misma altura que el grid */
-    left: 1040px; /* 20px (izq) + 1000px (grid) + 20px (gap) */
+    top: 160px; 
+    left: 1040px; 
     width: 400px;
     background: white;
 }
@@ -60,7 +58,7 @@
     padding-top: 5px;
 }
 
-/* Grid Exportación - Ajustes finos */
+/* Grid Exportación */
 #export-template .schedule-grid { 
     border-top: 2px solid #000; 
     border-left: 2px solid #000; 
@@ -69,7 +67,7 @@
     grid-template-columns: 80px repeat(5, 1fr);
     background: #fff;
     gap: 0;
-    grid-auto-rows: 55px; /* Altura exacta */
+    grid-auto-rows: 55px; 
     position: relative;
 }
 
@@ -185,16 +183,18 @@
 .grid-cell { background-color: white; height: 60px; position: relative; transition: background-color 0.2s; }
 .grid-cell.droppable-hover { background-color: #eff6ff; }
 .schedule-item { position: absolute; margin: 1px; border-radius: 4px; padding: 4px; font-size: 0.75rem; color: #1e3a8a; overflow: hidden; cursor: pointer; transition: all 0.2s; border-left: 3px solid; background-color: rgba(255,255,255,0.95); box-shadow: 0 1px 2px rgba(0,0,0,0.1); z-index: 5; display: flex; flex-direction: column; justify-content: center; }
-.schedule-item:hover { 
-    transform: scale(1.05); 
-    z-index: 50 !important; /* Prioridad máxima al pasar el mouse */
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2); 
-    min-width: 140px; /* Ancho mínimo legible al pasar el mouse */
-    width: auto !important; /* Se expande si el texto es largo */
-    white-space: normal; /* Permite que el texto baje de renglón */
-    height: auto !important; /* Se estira hacia abajo si hay mucho texto */
-    min-height: fit-content;
-}
 .schedule-block { position: absolute; background: repeating-linear-gradient(45deg, #fef2f2, #fef2f2 10px, #fee2e2 10px, #fee2e2 20px); border: 1px dashed #ef4444; z-index: 4; display: flex; align-items: center; justify-content: center; color: #b91c1c; font-weight: bold; font-size: 0.7rem; pointer-events: none; opacity: 0.8; }
 .custom-tooltip { position: fixed; background: #1f2937; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 1000; display: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); max-width: 200px; }
 .custom-tooltip.visible { display: block; }
+
+/* === MEJORA VISUAL HOVER TARJETAS === */
+.schedule-item:hover { 
+    transform: scale(1.05); 
+    z-index: 50 !important; 
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2); 
+    min-width: 140px; 
+    width: auto !important; 
+    white-space: normal; 
+    height: auto !important; 
+    min-height: fit-content;
+}
