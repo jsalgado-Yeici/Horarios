@@ -1,6 +1,6 @@
 import { PALETTE } from './config.js';
 
-// UI Helpers
+// UI Helpers (Overlay de carga)
 function createOverlay() {
     let overlay = document.getElementById('loading-overlay');
     if (!overlay) {
@@ -28,7 +28,7 @@ function hideOverlay() {
     } 
 }
 
-// Exportación Masiva
+// === EXPORTACIÓN MASIVA (ZIP) ===
 export async function exportAllSchedules(state, renderFn) {
     if(!state.groups.length && !state.teachers.length) {
         alert("No hay datos para exportar.");
@@ -44,8 +44,7 @@ export async function exportAllSchedules(state, renderFn) {
     const fG = zip.folder("Grupos");
     const fT = zip.folder("Docentes");
     
-    // Contenedor temporal específico para renderizado de exportación
-    // IMPORTANTE: El ancho debe coincidir con el CSS de .schedule-grid en style.css (1000px)
+    // Contenedor temporal: Ancho 1000px fijo para coincidir con CSS
     const tempContainer = document.createElement('div');
     tempContainer.className = 'schedule-grid'; 
     tempContainer.style.position = 'absolute';
@@ -54,18 +53,16 @@ export async function exportAllSchedules(state, renderFn) {
     document.body.appendChild(tempContainer);
     
     try {
-        // === EXPORTAR GRUPOS ===
+        // --- GRUPOS ---
         for (let i = 0; i < state.groups.length; i++) {
             const g = state.groups[i];
             updateOverlay(`Generando Grupo ${i+1}/${state.groups.length}: ${g.name}`);
             
-            // Renderizar horario del grupo (JS generará items con rowH=55)
+            // Renderizar en contenedor temporal
             renderFn(tempContainer, { groupId: g.id });
-            
-            // Limpiar botones basura
             tempContainer.querySelectorAll('button').forEach(b => b.remove());
             
-            // Recolectar info para tabla lateral (Materias -> Docentes)
+            // Recolectar datos tabla lateral
             const groupClasses = state.schedule.filter(c => c.groupId === g.id);
             const teacherMap = {};
             
@@ -92,16 +89,14 @@ export async function exportAllSchedules(state, renderFn) {
             fG.file(`${g.name}_Cuatri${g.trimester}_${cleanP}.png`, blob);
         }
         
-        // === EXPORTAR DOCENTES ===
+        // --- DOCENTES ---
         for (let i = 0; i < state.teachers.length; i++) {
             const t = state.teachers[i];
             updateOverlay(`Generando Docente ${i+1}/${state.teachers.length}: ${t.name}`);
             
             renderFn(tempContainer, { teacherId: t.id });
-            
             tempContainer.querySelectorAll('button').forEach(b => b.remove());
             
-            // Recolectar info para tabla lateral (Materias -> Grupos)
             const teachClasses = state.schedule.filter(c => c.teacherId === t.id);
             const subMap = {};
             
@@ -139,36 +134,42 @@ export async function exportAllSchedules(state, renderFn) {
         console.error(e); 
         alert("Error durante la exportación: " + e.message); 
     } finally { 
-        document.body.removeChild(tempContainer);
+        if(document.body.contains(tempContainer)) document.body.removeChild(tempContainer);
         hideOverlay(); 
     }
 }
 
+// === GENERADOR DE IMAGEN ===
 async function generateOfficialImage(contentNode, title, subtitle, infoMap = {}, rightColTitle = "DOCENTES") {
     const tpl = document.getElementById('export-template');
     
-    // Generar filas de tabla lateral
+    // Generar filas de la tabla lateral con estilos INLINE para asegurar renderizado
     const rows = Object.entries(infoMap)
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([leftText, data]) => 
             `<tr>
-                <td class="subject-col" style="background-color: ${data.color};">${leftText}</td>
-                <td class="teacher-col">${data.name}</td>
+                <td style="background-color: ${data.color}; border: 1px solid #000; padding: 6px; width: 60%; font-weight: bold; font-size: 11px;">${leftText}</td>
+                <td style="background-color: white; border: 1px solid #000; padding: 6px; width: 40%; font-size: 11px;">${data.name}</td>
              </tr>`
         ).join('');
 
-    const sideTableHTML = rows ? `
-        <table class="teachers-table">
-            <thead>
-                <tr><th colspan="2">${rightColTitle}</th></tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    ` : '<div style="color:#999; font-style:italic; text-align:center; padding:20px; border:1px solid #ccc; margin-left:20px;">Sin asignaciones</div>';
+    // Si no hay datos, mostrar mensaje
+    const tbodyContent = rows || `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #666; font-style: italic; border: 1px solid #000;">Sin asignaciones registradas</td></tr>`;
 
-    // Header
+    // Tabla lateral completa con estilos explícitos
+    const sideTableHTML = `
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-family: Arial, sans-serif; background: white;">
+            <thead>
+                <tr><th colspan="2" style="background:#d1d5db; border:1px solid #000; padding:8px; text-align:center; font-weight:900; font-size: 12px;">${rightColTitle}</th></tr>
+            </thead>
+            <tbody>
+                ${tbodyContent}
+            </tbody>
+        </table>
+    `;
+
     const headerHTML = `
-        <div class="official-header">
+        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:4px solid #3b82f6; padding-bottom:15px; margin-bottom:20px;">
             <div style="display:flex; align-items:center; gap:20px;">
                 <div style="font-weight:bold; color:#000; font-size:24px;">
                     POLITÉCNICA <span style="color:#0ea5e9">SANTA ROSA</span>
@@ -187,51 +188,55 @@ async function generateOfficialImage(contentNode, title, subtitle, infoMap = {},
         </div>
     `;
     
-    // USAMOS UNA TABLA DE LAYOUT EN LUGAR DE FLEXBOX
-    // Esto asegura que html2canvas no recorte la columna derecha
+    // LAYOUT MAESTRO USANDO TABLA HTML (Evita problemas de flexbox en canvas)
     tpl.innerHTML = `
         ${headerHTML}
-        <table class="layout-table">
+        <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
             <tr>
-                <td style="width: 1000px; vertical-align: top;">
-                    <div id="grid-slot"></div>
+                <td style="width: 1000px; vertical-align: top; padding: 0;">
+                    <div id="grid-slot" style="width: 1000px;"></div>
                 </td>
-                <td style="vertical-align: top; padding-left: 0;">
+                
+                <td style="width: 20px;"></td>
+                
+                <td style="vertical-align: top; padding: 0;">
                     ${sideTableHTML}
                 </td>
             </tr>
         </table>
+        
         <div style="margin-top:20px; text-align:center; font-size:10px; color:#666; border-top:1px solid #ccc; padding-top:5px;">
             Documento generado automáticamente por Planificador IAEV | ${new Date().toLocaleDateString('es-MX')}
         </div>
     `;
     
-    // Insertar el grid (Clonado)
+    // Insertar el horario
     const clonedGrid = contentNode.cloneNode(true);
-    // Aseguramos que el grid clonado tenga el estilo correcto para exportación
-    clonedGrid.style.width = '1000px'; 
-    clonedGrid.style.border = 'none'; // El borde lo maneja el CSS del padre si es necesario
+    // Asegurar que el grid clonado se comporte bien
+    clonedGrid.style.position = 'relative';
+    clonedGrid.style.left = '0';
+    clonedGrid.style.top = '0';
+    clonedGrid.style.width = '1000px';
     tpl.querySelector('#grid-slot').appendChild(clonedGrid);
     
-    // Mostrar template (fuera de pantalla visual, pero renderizado)
+    // Hacer visible temporalmente para la captura
     tpl.style.opacity = '1'; 
-    tpl.style.zIndex = '9999'; 
+    tpl.style.zIndex = '9999';
     
-    // Esperar un tick para que carguen fuentes/estilos
-    await new Promise(r => setTimeout(r, 100));
+    // Pequeño delay para asegurar renderizado de fuentes
+    await new Promise(r => setTimeout(r, 150));
     
-    // Capturar con html2canvas
+    // Capturar
     const canvas = await window.html2canvas(tpl, { 
-        scale: 2, // Mejor calidad
+        scale: 2, // Calidad alta
         backgroundColor: '#fff',
         logging: false,
         useCORS: true,
-        width: 1450, // Forzar ancho completo
-        windowWidth: 1450,
-        height: tpl.scrollHeight + 50
+        width: 1500, // Forzar ancho total
+        windowWidth: 1500
     });
     
-    // Ocultar
+    // Ocultar de nuevo
     tpl.style.opacity = '0'; 
     tpl.style.zIndex = '-1';
     
