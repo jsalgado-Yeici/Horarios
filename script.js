@@ -315,4 +315,10 @@ window.editTeacher = (id) => showTeacherForm(state.teachers.find(t=>t.id===id));
 function addGroup() { const n=document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 function addClassroom() { const n=document.getElementById('classroom-name-input').value; if(n) addDoc(cols.classrooms, {name: n}); }
 function addBlock() { const t=document.getElementById('block-time').value; const tr=document.getElementById('block-trimester').value; if(t&&tr) addDoc(cols.blocks, {startTime: parseInt(t), endTime: parseInt(t)+2, trimester: tr, days:'L-V'}); }
+window.exportScheduleWrapper = function() {
+    // Importar la función de exportación
+    import('./export.js').then(module => {
+        module.exportAllSchedules(state, renderScheduleGrid);
+    });
+};
 auth.onAuthStateChanged(u => { if(u) initApp(); else signInAnonymously(auth).catch(console.error); });
