@@ -1,9 +1,8 @@
-// IMPORTACIÓN DE FIREBASE (Versión modular para mejor rendimiento)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// Configuración de tu Proyecto
+// Configuración de Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyA5jnDVPPYhSuN7D6qzcETKWW3kzkqV1zs",
     authDomain: "planificador-horarios.firebaseapp.com",
@@ -13,16 +12,12 @@ const firebaseConfig = {
     appId: "1:625559113082:web:836fb0b09be2a60cf2dac3"
 };
 
-// Inicializar
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-
-// Constantes Globales
 const APP_ID = 'default-scheduler-app-v2';
 
-// Paleta de colores PROFESIONAL (Tonos pastel fuertes para bordes)
-// Cada objeto tiene: { border: colorFuerte, bg: colorSuave }
+// Paleta de Colores Profesional
 const PALETTE = [
     '#3b82f6', // Azul Real
     '#8b5cf6', // Violeta Suave
