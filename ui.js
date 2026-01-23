@@ -1,5 +1,5 @@
-import { state, cols } from './state.js';
-import { showTeacherForm, showSubjectForm, deleteDocWrapper } from './actions.js';
+import { state, cols, days } from './state.js';
+import { showTeacherForm, showSubjectForm, deleteDocWrapper, addAttendance, deleteAttendance } from './actions.js';
 import { addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // === TOOLTIPS ===
@@ -56,7 +56,6 @@ export function renderSubjectsList() {
             el.className = "draggable-subject";
             el.draggable = true;
             el.textContent = s.name;
-            // CRUCIAL: Evento Drag nativo para evitar problemas de stringificación
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify({type: 'subject', id: s.id}));
             });
@@ -65,7 +64,6 @@ export function renderSubjectsList() {
         c.appendChild(details);
     });
 
-    // Lista de gestión (segunda pestaña)
     const l2 = document.getElementById('subjects-by-trimester'); 
     if(l2) { 
         l2.innerHTML = ''; 
@@ -142,53 +140,176 @@ export function addBlock() { const t=document.getElementById('block-time').value
 export function renderAlerts() {
     const container = document.getElementById('alerts-container');
     if(!container) return;
-    
     container.innerHTML = '';
-
-    // 1. Verificar cada grupo
     state.groups.forEach(g => {
-        // ¿Qué materias debería tener este grupo según su cuatri?
         const requiredSubjects = state.subjects.filter(s => s.trimester === g.trimester);
-        
-        // ¿Qué materias ya tiene asignadas en el horario?
-        const assignedSubjectIds = state.schedule
-            .filter(c => c.groupId === g.id)
-            .map(c => c.subjectId);
-        
-        // ¿Cuáles faltan?
+        const assignedSubjectIds = state.schedule.filter(c => c.groupId === g.id).map(c => c.subjectId);
         const missing = requiredSubjects.filter(s => !assignedSubjectIds.includes(s.id));
-
-        // Si falta algo, crear tarjeta de alerta
         if (missing.length > 0) {
             const card = document.createElement('div');
             card.className = "bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r shadow-sm flex flex-col gap-2 transition-all hover:shadow-md";
-            
-            // Lista bonita de materias faltantes
             const missingList = missing.map(s => `<span class="inline-block bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-orange-200">${s.name}</span>`).join(' ');
-
-            card.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-orange-800 text-sm flex items-center gap-2">
-                        ⚠️ Grupo ${g.name} <span class="text-orange-600 font-normal text-xs">(Cuatri ${g.trimester})</span>
-                    </h3>
-                </div>
-                <div class="text-xs text-orange-700">
-                    <p class="mb-1 font-semibold">Faltan ${missing.length} materias:</p>
-                    <div class="flex flex-wrap gap-1">${missingList}</div>
-                </div>
-            `;
+            card.innerHTML = `<div class="flex items-center justify-between"><h3 class="font-bold text-orange-800 text-sm flex items-center gap-2">⚠️ Grupo ${g.name} <span class="text-orange-600 font-normal text-xs">(Cuatri ${g.trimester})</span></h3></div><div class="text-xs text-orange-700"><p class="mb-1 font-semibold">Faltan ${missing.length} materias:</p><div class="flex flex-wrap gap-1">${missingList}</div></div>`;
             container.appendChild(card);
         }
     });
-
-    // Mensaje si todo está perfecto
     if(container.children.length === 0) {
-        container.innerHTML = `
-            <div class="col-span-full bg-green-50 border border-green-200 rounded-lg p-6 text-center shadow-sm">
-                <div class="text-2xl mb-2">🎉</div>
-                <h3 class="text-green-800 font-bold">¡Todo completo!</h3>
-                <p class="text-green-600 text-sm">Todos los grupos tienen sus materias asignadas.</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="col-span-full bg-green-50 border border-green-200 rounded-lg p-6 text-center shadow-sm"><div class="text-2xl mb-2">🎉</div><h3 class="text-green-800 font-bold">¡Todo completo!</h3><p class="text-green-600 text-sm">Todos los grupos tienen sus materias asignadas.</p></div>`;
     }
+}
+
+// === NUEVA SECCIÓN: ESTADÍSTICAS ===
+function getWeekdayCountInMonth(monthIndex, year, dayName) {
+    const dayMap = { "Domingo":0, "Lunes":1, "Martes":2, "Miércoles":3, "Jueves":4, "Viernes":5, "Sábado":6 };
+    const targetDay = dayMap[dayName];
+    if(targetDay === undefined) return 0;
+    
+    let count = 0;
+    const date = new Date(year, monthIndex, 1);
+    while (date.getMonth() === monthIndex) {
+        if (date.getDay() === targetDay) count++;
+        date.setDate(date.getDate() + 1);
+    }
+    return count;
+}
+
+export function renderStatistics() {
+    const container = document.getElementById('stats-content');
+    if (!container) return;
+    
+    // Selectores
+    const monthSel = document.getElementById('stats-month');
+    const yearSel = document.getElementById('stats-year');
+    const month = parseInt(monthSel ? monthSel.value : new Date().getMonth());
+    const year = parseInt(yearSel ? yearSel.value : new Date().getFullYear());
+
+    // 1. Filtrar Faltas Reales
+    const absences = state.attendance.filter(a => {
+        const d = new Date(a.date);
+        // Ajuste zona horaria simplificado (asumiendo input date string YYYY-MM-DD)
+        const parts = a.date.split('-'); 
+        return (parseInt(parts[1])-1) === month && parseInt(parts[0]) === year;
+    });
+
+    // 2. Calcular Clases Programadas (Totales Esperadas)
+    // Para cada grupo, calculamos cuántas clases DEBERÍA haber tenido este mes
+    const groupStats = {}; // { groupId: { name, expected: 0, realAbsences: 0 } }
+    
+    state.groups.forEach(g => {
+        groupStats[g.id] = { name: g.name, expected: 0, realAbsences: 0 };
+    });
+
+    state.schedule.forEach(sched => {
+        if (groupStats[sched.groupId]) {
+            const occurrences = getWeekdayCountInMonth(month, year, sched.day);
+            groupStats[sched.groupId].expected += occurrences;
+        }
+    });
+
+    // 3. Mapear Faltas Reales a Grupos
+    absences.forEach(abs => {
+        if (groupStats[abs.groupId]) {
+            groupStats[abs.groupId].realAbsences++;
+        }
+    });
+
+    // 4. Calcular Totales Generales
+    const totalAbsences = absences.length;
+    let totalExpected = 0;
+    Object.values(groupStats).forEach(gs => totalExpected += gs.expected);
+    
+    const globalAttendance = totalExpected > 0 
+        ? ((1 - (totalAbsences / totalExpected)) * 100).toFixed(1) 
+        : "100";
+
+    // RENDERIZAR CARDS
+    document.getElementById('stat-total-absences').textContent = totalAbsences;
+    document.getElementById('stat-global-pct').textContent = `${globalAttendance}%`;
+
+    // RENDERIZAR TABLA GRUPOS
+    const tbody = document.getElementById('stats-table-body');
+    if(tbody) {
+        tbody.innerHTML = '';
+        Object.values(groupStats).sort((a,b)=>a.name.localeCompare(b.name)).forEach(gs => {
+            const absPct = gs.expected > 0 ? ((gs.realAbsences / gs.expected)*100).toFixed(1) : "0.0";
+            const attPct = gs.expected > 0 ? (100 - parseFloat(absPct)).toFixed(1) : "100.0";
+            
+            const tr = document.createElement('tr');
+            tr.className = "border-b hover:bg-gray-50 text-sm";
+            tr.innerHTML = `
+                <td class="px-4 py-3 font-medium text-gray-800">${gs.name}</td>
+                <td class="px-4 py-3 text-center text-red-600 font-bold">${gs.realAbsences}</td>
+                <td class="px-4 py-3 text-center text-green-700 font-bold">${attPct}%</td>
+                <td class="px-4 py-3 text-center text-gray-500">${absPct}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // RENDERIZAR TABLA LOGS (Últimas faltas)
+    const logBody = document.getElementById('stats-log-body');
+    if(logBody) {
+        logBody.innerHTML = '';
+        absences.sort((a,b) => b.date.localeCompare(a.date)).forEach(abs => {
+            const g = state.groups.find(x=>x.id===abs.groupId)?.name || '???';
+            const t = state.teachers.find(x=>x.id===abs.teacherId)?.name || '???';
+            const s = state.subjects.find(x=>x.id===abs.subjectId)?.name || '???';
+            
+            const row = document.createElement('tr');
+            row.className = "border-b text-xs text-gray-600";
+            row.innerHTML = `
+                <td class="px-2 py-2">${abs.date}</td>
+                <td class="px-2 py-2 font-bold">${g}</td>
+                <td class="px-2 py-2">${t}</td>
+                <td class="px-2 py-2 truncate max-w-[100px]" title="${s}">${s}</td>
+                <td class="px-2 py-2 text-right"><button class="text-red-500 hover:text-red-700 font-bold">×</button></td>
+            `;
+            row.querySelector('button').onclick = () => {
+                deleteAttendance(abs.id).then(() => renderStatistics());
+            };
+            logBody.appendChild(row);
+        });
+    }
+}
+
+export function showAddAbsenceModal() {
+    const modal = document.getElementById('modal');
+    modal.classList.remove('hidden');
+    const content = document.getElementById('modal-content');
+    
+    // Generar opciones
+    const grpOpts = state.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    const teachOpts = state.teachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    const subjOpts = state.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    const today = new Date().toISOString().split('T')[0];
+
+    content.innerHTML = `
+        <div class="p-6 bg-white rounded-lg">
+            <h2 class="text-xl font-bold mb-4 text-red-600">Registrar Falta Real</h2>
+            <div class="space-y-3 text-sm">
+                <div><label class="block font-bold text-gray-500">Fecha</label><input type="date" id="abs-date" value="${today}" class="w-full border p-2 rounded"></div>
+                <div><label class="block font-bold text-gray-500">Grupo</label><select id="abs-grp" class="w-full border p-2 rounded">${grpOpts}</select></div>
+                <div><label class="block font-bold text-gray-500">Docente</label><select id="abs-tch" class="w-full border p-2 rounded">${teachOpts}</select></div>
+                <div><label class="block font-bold text-gray-500">Materia</label><select id="abs-sub" class="w-full border p-2 rounded">${subjOpts}</select></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="btn-abs-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-abs-save" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 shadow">Registrar</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('btn-abs-cancel').onclick = () => modal.classList.add('hidden');
+    document.getElementById('btn-abs-save').onclick = async () => {
+        const payload = {
+            date: document.getElementById('abs-date').value,
+            groupId: document.getElementById('abs-grp').value,
+            teacherId: document.getElementById('abs-tch').value,
+            subjectId: document.getElementById('abs-sub').value,
+            type: 'falta'
+        };
+        await addAttendance(payload);
+        modal.classList.add('hidden');
+        renderStatistics(); // Refrescar
+    };
 }
