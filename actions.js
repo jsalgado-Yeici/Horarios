@@ -115,8 +115,6 @@ export function showClassForm(defs = {}) {
         // Si la lista cambió y la selección actual ya no es válida, seleccionar la primera
         if (validSubjects.length > 0 && !validSubjects.find(s => s.id === selSub.value)) {
             selSub.value = validSubjects[0].id;
-            // Opcional: Si cambiamos la materia automáticamente, podríamos querer actualizar el docente default,
-            // pero mejor no tocar el docente automáticamente aquí para evitar bucles raros.
         }
     };
 
@@ -129,7 +127,6 @@ export function showClassForm(defs = {}) {
         const sub = state.subjects.find(s => s.id === selSub.value);
         if(sub && sub.defaultTeacherId) {
             selTch.value = sub.defaultTeacherId;
-            // No llamamos a updateSubjectOptions() aquí para permitir cambiar al docente si es necesario
         }
     };
 
@@ -219,6 +216,22 @@ export function showSubjectForm(sub = null) {
             modal.classList.add('hidden'); 
         } 
     }; 
+}
+
+// === GESTIÓN DE ASISTENCIA ===
+export async function addAttendance(data) {
+    try {
+        await addDoc(cols.attendance, data);
+        alert("Falta registrada correctamente");
+    } catch(e) { console.error(e); alert("Error al registrar falta"); }
+}
+
+export async function deleteAttendance(id) {
+    if(confirm("¿Eliminar este registro de inasistencia?")) {
+        try {
+            await deleteDoc(doc(cols.attendance, id));
+        } catch(e) { console.error(e); }
+    }
 }
 
 export function deleteDocWrapper(colName, id) {
