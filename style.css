@@ -227,6 +227,15 @@ body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
 .map-room.office { background-color: #f8fafc; border-color: #cbd5e1; color: #64748b; }
 .map-room.stairs { background-color: #e2e8f0; border-color: #94a3b8; background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px); }
 
+/* === STATS CARDS === */
+.stat-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 /* === ESTILOS EXPORTACIÓN (ESTRICTOS) === */
 #export-template { 
     font-family: 'Arial', sans-serif; 
