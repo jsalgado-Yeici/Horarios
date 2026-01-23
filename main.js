@@ -6,14 +6,14 @@ import { renderScheduleGrid } from './grid.js';
 import { 
     createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList, 
     renderBlocksList, renderClassroomsManageList, renderFilterOptions, renderAlerts, 
-    addGroup, addClassroom, addBlock 
+    addGroup, addClassroom, addBlock, renderStatistics, showAddAbsenceModal 
 } from './ui.js';
 import { showClassForm, showTeacherForm, showSubjectForm } from './actions.js';
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
 
 function initApp() {
-    console.log("App v13.1 (Audit System)");
+    console.log("App v13.2 (Stats System)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -35,6 +35,7 @@ function setupListeners() {
             
             if(btn.dataset.tab === 'horario') renderScheduleGrid();
             if(btn.dataset.tab === 'mapa') initMapTab();
+            if(btn.dataset.tab === 'estadisticas') renderStatistics();
         };
     });
 
@@ -42,6 +43,12 @@ function setupListeners() {
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = () => renderScheduleGrid();
+    });
+    
+    // Selectores de Estadísticas
+    ['stats-month', 'stats-year'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.onchange = () => renderStatistics();
     });
 
     // Botones
@@ -54,6 +61,9 @@ function setupListeners() {
     bind('add-classroom-btn', addClassroom);
     bind('floor-btn-pb', () => switchFloor('pb'));
     bind('floor-btn-pa', () => switchFloor('pa'));
+    
+    // Estadísticas
+    bind('btn-add-absence', showAddAbsenceModal);
     
     bind('btn-export-pdf', () => exportSchedule('pdf'));
     bind('btn-export-img', () => exportSchedule('img'));
@@ -112,8 +122,9 @@ function setupRealtimeListeners() {
         if(k === 'groups') renderGroupsList();
         if(k === 'blocks') renderBlocksList();
         if(k === 'classrooms') renderClassroomsManageList();
+        if(k === 'attendance' || k === 'schedule' || k === 'groups') renderStatistics();
         
-        // Actualizar alertas de auditoría si cambian horarios, grupos o materias
+        // Actualizar alertas de auditoría
         if(['schedule', 'groups', 'subjects'].includes(k)) renderAlerts();
     };
     Object.keys(cols).forEach(k => onSnapshot(cols[k], s => update(k, s)));
