@@ -36,12 +36,85 @@ export function handleDrop(e, day, hour) {
 }
 
 export function showClassForm(defs = {}) {
-    const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const content = document.getElementById('modal-content');
-    const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
-    content.innerHTML = `<div class="p-6 bg-white rounded-lg"><h2 class="text-xl font-bold mb-4 text-gray-800">${defs.id ? 'Editar' : 'Nueva'} Clase</h2><div id="error-box" class="mb-4 hidden p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-xs rounded"></div><div class="grid grid-cols-2 gap-4 text-sm"><div><label class="block font-bold text-gray-500 mb-1">Grupo</label><select id="f-grp" class="w-full border p-2 rounded">${genOpts(state.groups, defs.groupId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Docente</label><select id="f-tch" class="w-full border p-2 rounded"><option value="">-- Cualquiera --</option>${genOpts(state.teachers, defs.teacherId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Materia</label><select id="f-sub" class="w-full border p-2 rounded">${genOpts(state.subjects, defs.subjectId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Aula</label><select id="f-rm" class="w-full border p-2 rounded"><option value="">-- Sin Aula --</option>${genOpts(state.classrooms, defs.classroomId)}</select></div><div><label class="block font-bold text-gray-500 mb-1">Día</label><select id="f-day" class="w-full border p-2 rounded">${days.map(d=>`<option ${d===defs.day?'selected':''}>${d}</option>`).join('')}</select></div><div><label class="block font-bold text-gray-500 mb-1">Inicio</label><select id="f-time" class="w-full border p-2 rounded">${timeSlots.map(t=>`<option value="${t}" ${t==defs.startTime?'selected':''}>${t}:00</option>`).join('')}</select></div><div><label class="block font-bold text-gray-500 mb-1">Duración (hrs)</label><input type="number" id="f-dur" value="${defs.duration||2}" min="1" max="6" class="w-full border p-2 rounded"></div></div><div class="flex justify-end gap-3 mt-6"><button id="btn-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button><button id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow font-bold">Guardar</button></div></div>`;
+    const modal = document.getElementById('modal'); 
+    modal.classList.remove('hidden'); 
+    const content = document.getElementById('modal-content');
     
-    const selTch = document.getElementById('f-tch'); const selSub = document.getElementById('f-sub'); const selGrp = document.getElementById('f-grp');
+    // Determinar tipo inicial
+    const isAdvisory = defs.type === 'advisory';
+    const currentType = isAdvisory ? 'advisory' : 'class';
+
+    const genOpts = (arr, sel) => arr.sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${i.id}" ${sel===i.id?'selected':''}>${i.name}</option>`).join('');
+    
+    content.innerHTML = `
+        <div class="p-6 bg-white rounded-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">${defs.id ? 'Editar' : 'Nueva'} Actividad</h2>
+                <div class="flex bg-gray-100 p-1 rounded-lg">
+                    <button type="button" id="btn-type-class" class="px-3 py-1 text-xs font-bold rounded ${!isAdvisory ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}">Clase</button>
+                    <button type="button" id="btn-type-advisory" class="px-3 py-1 text-xs font-bold rounded ${isAdvisory ? 'bg-white shadow text-amber-600' : 'text-gray-500'}">Asesoría</button>
+                </div>
+            </div>
+            
+            <input type="hidden" id="f-type" value="${currentType}">
+            <div id="error-box" class="mb-4 hidden p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-xs rounded"></div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                
+                <div class="col-span-2">
+                    <label class="block font-bold text-gray-500 mb-1">Docente <span class="text-red-500">*</span></label>
+                    <select id="f-tch" class="w-full border p-2 rounded bg-white">
+                        <option value="">-- Seleccionar Docente --</option>
+                        ${genOpts(state.teachers, defs.teacherId)}
+                    </select>
+                </div>
+
+                <div class="class-field">
+                    <label class="block font-bold text-gray-500 mb-1">Grupo</label>
+                    <select id="f-grp" class="w-full border p-2 rounded">${genOpts(state.groups, defs.groupId)}</select>
+                </div>
+                <div class="class-field">
+                    <label class="block font-bold text-gray-500 mb-1">Materia</label>
+                    <select id="f-sub" class="w-full border p-2 rounded">${genOpts(state.subjects, defs.subjectId)}</select>
+                </div>
+
+                <div><label class="block font-bold text-gray-500 mb-1">Aula (Opcional)</label><select id="f-rm" class="w-full border p-2 rounded"><option value="">-- Sin Aula --</option>${genOpts(state.classrooms, defs.classroomId)}</select></div>
+                <div><label class="block font-bold text-gray-500 mb-1">Día</label><select id="f-day" class="w-full border p-2 rounded">${days.map(d=>`<option ${d===defs.day?'selected':''}>${d}</option>`).join('')}</select></div>
+                <div><label class="block font-bold text-gray-500 mb-1">Inicio</label><select id="f-time" class="w-full border p-2 rounded">${timeSlots.map(t=>`<option value="${t}" ${t==defs.startTime?'selected':''}>${t}:00</option>`).join('')}</select></div>
+                <div><label class="block font-bold text-gray-500 mb-1">Duración (hrs)</label><input type="number" id="f-dur" value="${defs.duration||1}" min="1" max="6" class="w-full border p-2 rounded"></div>
+            </div>
+            
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="btn-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow font-bold">Guardar</button>
+            </div>
+        </div>`;
+
+    // Lógica de Toggle Tipo
+    const btnClass = document.getElementById('btn-type-class');
+    const btnAdv = document.getElementById('btn-type-advisory');
+    const typeInput = document.getElementById('f-type');
+    
+    const toggleType = (t) => {
+        typeInput.value = t;
+        const isAdv = t === 'advisory';
+        // Estilos botones
+        btnClass.className = `px-3 py-1 text-xs font-bold rounded ${!isAdv ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:bg-gray-200'}`;
+        btnAdv.className = `px-3 py-1 text-xs font-bold rounded ${isAdv ? 'bg-white shadow text-amber-600' : 'text-gray-500 hover:bg-gray-200'}`;
+        // Mostrar/Ocultar campos
+        document.querySelectorAll('.class-field').forEach(el => el.style.display = isAdv ? 'none' : 'block');
+    };
+
+    btnClass.onclick = () => toggleType('class');
+    btnAdv.onclick = () => toggleType('advisory');
+    
+    // Filtros dinámicos (Solo para modo Clase)
+    const selTch = document.getElementById('f-tch'); 
+    const selSub = document.getElementById('f-sub'); 
+    const selGrp = document.getElementById('f-grp');
+    
     const updateSubjectOptions = () => {
+        if(typeInput.value === 'advisory') return;
         const selectedGrpId = selGrp.value; const selectedTchId = selTch.value; const currentSubId = selSub.value; 
         const grp = state.groups.find(g => g.id === selectedGrpId); const targetTrimester = grp ? grp.trimester : null;
         const validSubjects = state.subjects.filter(s => { const matchesGroup = !targetTrimester || s.trimester === targetTrimester; const matchesTeacher = !selectedTchId || s.defaultTeacherId === selectedTchId; return s.id === defs.subjectId || (matchesGroup && matchesTeacher); });
@@ -49,11 +122,35 @@ export function showClassForm(defs = {}) {
         if (validSubjects.length > 0 && !validSubjects.find(s => s.id === selSub.value)) selSub.value = validSubjects[0].id;
     };
     selGrp.onchange = updateSubjectOptions; selTch.onchange = updateSubjectOptions; selSub.onchange = () => { const sub = state.subjects.find(s=>s.id===selSub.value); if(sub&&sub.defaultTeacherId) selTch.value = sub.defaultTeacherId; };
+    
+    // Init state
+    toggleType(currentType);
     updateSubjectOptions();
 
     document.getElementById('btn-cancel').onclick = () => modal.classList.add('hidden');
     document.getElementById('btn-save').onclick = async () => {
-        const payload = { subjectId: document.getElementById('f-sub').value, groupId: document.getElementById('f-grp').value, teacherId: document.getElementById('f-tch').value, classroomId: document.getElementById('f-rm').value, day: document.getElementById('f-day').value, startTime: parseInt(document.getElementById('f-time').value), duration: parseInt(document.getElementById('f-dur').value) };
+        const type = document.getElementById('f-type').value;
+        const payload = { 
+            type: type,
+            teacherId: document.getElementById('f-tch').value, 
+            classroomId: document.getElementById('f-rm').value, 
+            day: document.getElementById('f-day').value, 
+            startTime: parseInt(document.getElementById('f-time').value), 
+            duration: parseInt(document.getElementById('f-dur').value) 
+        };
+
+        if (type === 'class') {
+            payload.subjectId = document.getElementById('f-sub').value;
+            payload.groupId = document.getElementById('f-grp').value;
+        } else {
+            payload.subjectId = null;
+            payload.groupId = null;
+        }
+        
+        // Validación Básica
+        if(!payload.teacherId) { alert("Debes seleccionar un docente."); return; }
+        if(type === 'class' && (!payload.subjectId || !payload.groupId)) { alert("Faltan datos de la clase."); return; }
+
         const conflicts = validateConflicts(payload, defs.id);
         if (conflicts.length > 0) { const errBox = document.getElementById('error-box'); errBox.innerHTML = `<strong>⚠️ Conflictos:</strong><ul class="list-disc pl-4 mt-1">${conflicts.map(c=>`<li>${c}</li>`).join('')}</ul>`; errBox.classList.remove('hidden'); return; }
         await commitSave(payload, defs.id);
@@ -68,15 +165,23 @@ function validateConflicts(newClass, ignoreId) {
         if(e.id === ignoreId || e.day !== newClass.day) return; 
         const es = e.startTime; const ee = es + e.duration; 
         if(ns < ee && ne > es) { 
-            if(e.teacherId && e.teacherId === newClass.teacherId) conflicts.push(`Docente ocupado (${state.groups.find(g=>g.id===e.groupId)?.name})`); 
-            if(e.groupId === newClass.groupId) conflicts.push("Grupo ocupado"); 
-            if(newClass.classroomId && e.classroomId && e.classroomId === newClass.classroomId) conflicts.push(`Aula ocupada (${state.groups.find(g=>g.id===e.groupId)?.name})`); 
+            // 1. Conflicto Docente (Aplica a Clases y Asesorías)
+            if(e.teacherId && e.teacherId === newClass.teacherId) {
+                const typeLabel = e.type === 'advisory' ? "una Asesoría" : "clase";
+                conflicts.push(`El docente ya tiene ${typeLabel} asignada.`); 
+            }
+            
+            // 2. Conflicto Grupo (Solo si la nueva es CLASE)
+            if(newClass.type === 'class' && e.type === 'class' && e.groupId === newClass.groupId) {
+                conflicts.push("El grupo ya tiene clase."); 
+            }
+
+            // 3. Conflicto Aula (Si se seleccionó aula)
+            if(newClass.classroomId && e.classroomId && e.classroomId === newClass.classroomId) {
+                conflicts.push("El aula está ocupada."); 
+            }
         } 
     }); 
-    state.external.forEach(ext => {
-        if(ext.day !== newClass.day) return;
-        if(ns < ext.end && ne > ext.start) { if(ext.groupId === newClass.groupId) conflicts.push(`Grupo tiene ${ext.type}`); }
-    });
     return conflicts; 
 }
 
@@ -86,7 +191,6 @@ export async function addExternalRule() {
     const data = { type, groupId, day, start, end }; const ref = await addDoc(cols.external, data); pushHistory({ type: 'delete', col: 'external', id: ref.id });
 }
 
-// === FORMULARIO DOCENTE ACTUALIZADO (HORAS ASESORÍA) ===
 export function showTeacherForm(teacher = null) { 
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!teacher; 
     document.getElementById('modal-content').innerHTML = `
@@ -101,33 +205,16 @@ export function showTeacherForm(teacher = null) {
                 <input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 rounded" placeholder="Nombre Real">
             </div>
             <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Horas Asesoría / Administrativas</label>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Meta: Horas Asesoría Semanal</label>
                 <input type="number" id="t-advisory" value="${teacher ? (teacher.advisoryHours || 0) : 0}" class="w-full border p-2 rounded" min="0">
-                <p class="text-[10px] text-gray-400 mt-1">Estas horas se sumarán al total semanal del docente.</p>
+                <p class="text-[10px] text-gray-400 mt-1">Define cuántas horas de asesoría *debe* cumplir este docente.</p>
             </div>
             <div class="flex justify-end gap-2">
                 <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">Cancelar</button>
                 <button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-blue-700">Guardar</button>
             </div>
         </div>`;
-        
-    document.getElementById('btn-t-save').onclick = async () => { 
-        const n = document.getElementById('t-name').value; 
-        const f = document.getElementById('t-full').value; 
-        const adv = parseInt(document.getElementById('t-advisory').value) || 0;
-        
-        if(n) { 
-            const data = {name: n, fullName: f, advisoryHours: adv}; 
-            if(isEdit) { 
-                const {id:_, ...d}=teacher; pushHistory({type:'update', col:'teachers', id:teacher.id, data:d}); 
-                await updateDoc(doc(cols.teachers, teacher.id), data); 
-            } else { 
-                const ref = await addDoc(cols.teachers, data); 
-                pushHistory({type:'delete', col:'teachers', id:ref.id}); 
-            } 
-            modal.classList.add('hidden'); 
-        } 
-    }; 
+    document.getElementById('btn-t-save').onclick = async () => { const n = document.getElementById('t-name').value; const f = document.getElementById('t-full').value; const adv = parseInt(document.getElementById('t-advisory').value) || 0; if(n) { const data = {name: n, fullName: f, advisoryHours: adv}; if(isEdit) { const {id:_, ...d}=teacher; pushHistory({type:'update', col:'teachers', id:teacher.id, data:d}); await updateDoc(doc(cols.teachers, teacher.id), data); } else { const ref = await addDoc(cols.teachers, data); pushHistory({type:'delete', col:'teachers', id:ref.id}); } modal.classList.add('hidden'); } }; 
 }
 
 export function showSubjectForm(sub = null) { 
@@ -138,71 +225,14 @@ export function showSubjectForm(sub = null) {
 
 export function showGroupForm(group = null) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!group;
-    document.getElementById('modal-content').innerHTML = `
-        <div class="p-6 bg-white">
-            <h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Grupo</h2>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Grupo</label>
-                <input id="g-name" value="${group ? group.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: IAEV-10">
-            </div>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Cuatrimestre</label>
-                <select id="g-trim" class="w-full border p-2 rounded">
-                    ${[1,2,3,4,5,6,7,8,9,10].map(i => `<option value="${i}" ${group && group.trimester == i ? 'selected' : ''}>${i}° Cuatrimestre</option>`).join('')}
-                </select>
-            </div>
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500">Cancelar</button>
-                <button id="btn-g-save" class="bg-purple-600 text-white px-4 py-2 rounded font-bold">Guardar</button>
-            </div>
-        </div>
-    `;
-    document.getElementById('btn-g-save').onclick = async () => {
-        const n = document.getElementById('g-name').value;
-        const t = parseInt(document.getElementById('g-trim').value);
-        if(n) {
-            const data = { name: n, trimester: t };
-            if(isEdit) {
-                const {id:_, ...d} = group; pushHistory({type:'update', col:'groups', id:group.id, data:d});
-                await updateDoc(doc(cols.groups, group.id), data);
-            } else {
-                const ref = await addDoc(cols.groups, data);
-                pushHistory({type:'delete', col:'groups', id:ref.id});
-            }
-            modal.classList.add('hidden');
-        }
-    };
+    document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Grupo</h2><div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Grupo</label><input id="g-name" value="${group ? group.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: IAEV-10"></div><div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Cuatrimestre</label><select id="g-trim" class="w-full border p-2 rounded">${[1,2,3,4,5,6,7,8,9,10].map(i => `<option value="${i}" ${group && group.trimester == i ? 'selected' : ''}>${i}° Cuatrimestre</option>`).join('')}</select></div><div class="flex justify-end gap-2"><button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500">Cancelar</button><button id="btn-g-save" class="bg-purple-600 text-white px-4 py-2 rounded font-bold">Guardar</button></div></div>`;
+    document.getElementById('btn-g-save').onclick = async () => { const n = document.getElementById('g-name').value; const t = parseInt(document.getElementById('g-trim').value); if(n) { const data = { name: n, trimester: t }; if(isEdit) { const {id:_, ...d} = group; pushHistory({type:'update', col:'groups', id:group.id, data:d}); await updateDoc(doc(cols.groups, group.id), data); } else { const ref = await addDoc(cols.groups, data); pushHistory({type:'delete', col:'groups', id:ref.id}); } modal.classList.add('hidden'); } };
 }
 
 export function showClassroomForm(room = null) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!room;
-    document.getElementById('modal-content').innerHTML = `
-        <div class="p-6 bg-white">
-            <h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nueva'} Aula</h2>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Aula</label>
-                <input id="r-name" value="${room ? room.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: Lab. Cómputo 1">
-            </div>
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500">Cancelar</button>
-                <button id="btn-r-save" class="bg-teal-600 text-white px-4 py-2 rounded font-bold">Guardar</button>
-            </div>
-        </div>
-    `;
-    document.getElementById('btn-r-save').onclick = async () => {
-        const n = document.getElementById('r-name').value;
-        if(n) {
-            const data = { name: n };
-            if(isEdit) {
-                const {id:_, ...d} = room; pushHistory({type:'update', col:'classrooms', id:room.id, data:d});
-                await updateDoc(doc(cols.classrooms, room.id), data);
-            } else {
-                const ref = await addDoc(cols.classrooms, data);
-                pushHistory({type:'delete', col:'classrooms', id:ref.id});
-            }
-            modal.classList.add('hidden');
-        }
-    };
+    document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nueva'} Aula</h2><div class="mb-4"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Aula</label><input id="r-name" value="${room ? room.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: Lab. Cómputo 1"></div><div class="flex justify-end gap-2"><button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500">Cancelar</button><button id="btn-r-save" class="bg-teal-600 text-white px-4 py-2 rounded font-bold">Guardar</button></div></div>`;
+    document.getElementById('btn-r-save').onclick = async () => { const n = document.getElementById('r-name').value; if(n) { const data = { name: n }; if(isEdit) { const {id:_, ...d} = room; pushHistory({type:'update', col:'classrooms', id:room.id, data:d}); await updateDoc(doc(cols.classrooms, room.id), data); } else { const ref = await addDoc(cols.classrooms, data); pushHistory({type:'delete', col:'classrooms', id:ref.id}); } modal.classList.add('hidden'); } };
 }
 
 export function deleteDocWrapper(colName, id) { if(confirm('¿Seguro de borrar?')) { let old = null; if(colName==='schedule') old=state.schedule.find(x=>x.id===id); else if(colName==='external') old=state.external.find(x=>x.id===id); else if(colName==='teachers') old=state.teachers.find(x=>x.id===id); else if(colName==='groups') old=state.groups.find(x=>x.id===id); else if(colName==='classrooms') old=state.classrooms.find(x=>x.id===id); if(old) { const {id:_, ...d}=old; pushHistory({type:'add', col:colName, id, data:d}); } deleteDoc(doc(cols[colName], id)); } }
