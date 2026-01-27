@@ -12,44 +12,65 @@ export function renderSettings() {
     if(btn) btn.onclick = saveSettings;
 }
 
-// === LISTA DE DOCENTES CON BARRA DE HORAS ===
+// === LISTA DE DOCENTES CON BARRA ===
 export function renderTeachersList() { 
     const l = document.getElementById('teachers-list'); if(!l) return; 
     l.innerHTML = ''; 
-    
     state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => { 
-        // Calcular horas
         const hours = state.schedule.filter(c => c.teacherId === t.id).reduce((acc, c) => acc + c.duration, 0);
-        // Porcentaje para barra (Asumiendo 40 hrs como tope visual, ajustable)
         const pct = Math.min((hours / 40) * 100, 100);
-        
-        let color = "bg-green-500";
-        if(hours > 20) color = "bg-yellow-500";
-        if(hours > 30) color = "bg-orange-500";
-        if(hours > 35) color = "bg-red-500";
-
+        let color = "bg-green-500"; if(hours > 20) color = "bg-yellow-500"; if(hours > 30) color = "bg-orange-500"; if(hours > 35) color = "bg-red-500";
         const div = document.createElement('div');
         div.className = "p-2 border-b text-sm bg-white hover:bg-gray-50 flex flex-col gap-1";
-        div.innerHTML = `
-            <div class="flex justify-between items-center">
-                <span class="font-bold text-gray-700 cursor-pointer truncate mr-2" title="${t.fullName || ''}">${t.name}</span>
-                <div class="flex gap-1 items-center">
-                    <span class="text-xs font-mono font-bold text-gray-500 mr-2">${hours}h</span>
-                    <button class="btn-edit text-blue-400 px-1">✎</button>
-                    <button class="btn-del text-red-400 px-1">×</button>
-                </div>
-            </div>
-            <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div class="${color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
-            </div>
-        `;
+        div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-gray-700 cursor-pointer truncate mr-2" title="${t.fullName || ''}">${t.name}</span><div class="flex gap-1 items-center"><span class="text-xs font-mono font-bold text-gray-500 mr-2">${hours}h</span><button class="btn-edit text-blue-400 px-1">✎</button><button class="btn-del text-red-400 px-1">×</button></div></div><div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden"><div class="${color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div></div>`;
         div.querySelector('.btn-edit').onclick = () => showTeacherForm(t);
         div.querySelector('.btn-del').onclick = () => deleteDocWrapper('teachers', t.id);
         l.appendChild(div);
     }); 
 }
 
-// === AUDITORÍA ACADÉMICA (COMPACTA) ===
+// === FILTROS INTELIGENTES (AQUÍ ESTÁ EL CAMBIO PRINCIPAL) ===
+export function renderFilterOptions() { 
+    // Llenar Docentes y Grupos
+    const fill = (id, arr, l) => { const el = document.getElementById(id); if(el) { const v=el.value; el.innerHTML = `<option value="">${l}</option>`+arr.map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); el.value=v; }}; 
+    fill('filter-teacher', state.teachers, 'Todos los Docentes'); 
+    fill('filter-group', state.groups, 'Todos los Grupos'); 
+
+    // Llenar Cuatrimestres DINÁMICAMENTE basado en Turno
+    const tSelect = document.getElementById('filter-trimester'); 
+    const sSelect = document.getElementById('filter-shift');
+    
+    if(tSelect) { 
+        const currentVal = tSelect.value; // Guardar selección actual
+        const shiftVal = sSelect ? sSelect.value : "";
+        const cutoff = state.settings.shiftCutoff || 4; // Punto de corte (ej. 4)
+
+        tSelect.innerHTML = '<option value="">Todos los Cuatris</option>';
+        
+        // Generar opciones 1 a 10
+        for(let i=1; i<=10; i++) {
+            let shouldShow = true;
+            
+            // Lógica de filtrado de opciones
+            if (shiftVal === 'matutino' && i >= cutoff) shouldShow = false; // Ocultar vespertinos si es matutino
+            if (shiftVal === 'vespertino' && i < cutoff) shouldShow = false; // Ocultar matutinos si es vespertino
+
+            if (shouldShow) {
+                tSelect.add(new Option(`C${i}`, i));
+            }
+        }
+
+        // Si el valor seleccionado anteriormente sigue siendo válido en la nueva lista, mantenerlo.
+        // Si no (ej. cambiamos de turno y el cuatri ya no existe), se resetea a "".
+        if ([...tSelect.options].some(o => o.value == currentVal)) {
+            tSelect.value = currentVal;
+        } else {
+            tSelect.value = "";
+        }
+    } 
+}
+
+// === AUDITORÍA COMPACTA ===
 export function renderAlerts() {
     const container = document.getElementById('alerts-container'); if(!container) return; container.innerHTML = '';
     state.groups.forEach(g => {
@@ -57,20 +78,13 @@ export function renderAlerts() {
         const assigned = state.schedule.filter(c => c.groupId === g.id).map(c => c.subjectId);
         const missing = required.filter(s => !assigned.includes(s.id));
         if (missing.length > 0) {
-            // Diseño compacto tipo "chip"
-            container.innerHTML += `
-                <div class="bg-white border border-orange-200 rounded p-2 flex items-center justify-between text-xs shadow-sm">
-                    <div class="font-bold text-gray-700 truncate mr-2">${g.name}</div>
-                    <div class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Faltan ${missing.length}</div>
-                </div>`;
+            container.innerHTML += `<div class="bg-white border border-orange-200 rounded p-2 flex items-center justify-between text-xs shadow-sm"><div class="font-bold text-gray-700 truncate mr-2">${g.name}</div><div class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Faltan ${missing.length}</div></div>`;
         }
     });
-    if(container.children.length === 0) {
-        container.innerHTML = `<div class="col-span-full text-center text-xs text-gray-400 italic py-2">Todo en orden. No faltan materias.</div>`;
-    }
+    if(container.children.length === 0) container.innerHTML = `<div class="col-span-full text-center text-xs text-gray-400 italic py-2">Todo en orden. No faltan materias.</div>`;
 }
 
-// === PANEL EXTERNAS (MANTENIDO IGUAL) ===
+// === PANELES Y OTROS (Sin cambios lógicos grandes) ===
 export function renderExternalClassesPanel() {
     const list = document.getElementById('external-list'); if(!list) return; list.innerHTML = '';
     state.external.forEach(ext => {
@@ -81,16 +95,13 @@ export function renderExternalClassesPanel() {
         item.querySelector('button').onclick = () => deleteDocWrapper('external', ext.id);
         list.appendChild(item);
     });
-    const grpSel = document.getElementById('ext-group');
-    if(grpSel && grpSel.children.length === 0) state.groups.forEach(g => grpSel.add(new Option(g.name, g.id)));
-    const daySel = document.getElementById('ext-day');
-    if(daySel && daySel.children.length === 0) days.forEach(d => daySel.add(new Option(d, d)));
+    const grpSel = document.getElementById('ext-group'); if(grpSel && grpSel.children.length === 0) state.groups.forEach(g => grpSel.add(new Option(g.name, g.id)));
+    const daySel = document.getElementById('ext-day'); if(daySel && daySel.children.length === 0) days.forEach(d => daySel.add(new Option(d, d)));
     const fillTime = (id) => { const el = document.getElementById(id); if(el && el.children.length === 0) timeSlots.forEach(t => el.add(new Option(`${t}:00`, t))); };
     fillTime('ext-start'); fillTime('ext-end');
     const btnAdd = document.getElementById('btn-add-external'); if(btnAdd) btnAdd.onclick = addExternalRule;
 }
 
-// === OTROS RENDERIZADORES ===
 export function renderGlobalMatrix() {
     const container = document.getElementById('sabana-container'); const dayFilter = document.getElementById('sabana-day-filter').value; if(!container) return; container.innerHTML = '';
     const table = document.createElement('table'); table.className = "w-full border-collapse border border-gray-300 text-xs";
@@ -113,6 +124,7 @@ export function renderGlobalMatrix() {
     });
     table.appendChild(tbody); container.appendChild(table);
 }
+
 export function createTooltip() { const tooltipEl = document.createElement('div'); tooltipEl.id = 'custom-tooltip'; document.body.appendChild(tooltipEl); document.addEventListener('mousemove', e => { if(tooltipEl.classList.contains('visible')) { tooltipEl.style.left = (e.clientX+15)+'px'; tooltipEl.style.top = (e.clientY+15)+'px'; } }); }
 export function showTooltip(html) { const t=document.getElementById('custom-tooltip'); t.innerHTML=html; t.classList.add('visible'); }
 export function hideTooltip() { document.getElementById('custom-tooltip').classList.remove('visible'); }
@@ -129,10 +141,5 @@ export function renderSubjectsList() {
 }
 export function renderGroupsList() { const l = document.getElementById('groups-by-trimester'); if(l) l.innerHTML = state.groups.map(g => `<div class="p-2 border bg-white text-sm">${g.name}</div>`).join(''); }
 export function renderClassroomsManageList() { const l = document.getElementById('classrooms-list-manage'); if(l) l.innerHTML = state.classrooms.map(c=>`<div class="p-1 border-b text-xs flex justify-between">${c.name} <button class="text-red-500" onclick="window.delClass('${c.id}')">x</button></div>`).join(''); window.delClass=(id)=>deleteDocWrapper('classrooms',id); }
-export function renderFilterOptions() { 
-    const fill = (id, arr, l) => { const el = document.getElementById(id); if(el) { const v=el.value; el.innerHTML = `<option value="">${l}</option>`+arr.map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); el.value=v; }}; 
-    fill('filter-teacher', state.teachers, 'Todos los Docentes'); fill('filter-group', state.groups, 'Todos los Grupos'); 
-    const t = document.getElementById('filter-trimester'); if(t && t.options.length < 2) for(let i=1;i<=9;i++) t.add(new Option(`C${i}`,i)); 
-}
 export function addGroup() { const n=document.getElementById('group-number-input').value; if(n) addDoc(cols.groups, {name: `IAEV-${n}`, trimester: 1}); }
 export function addClassroom() { const n=document.getElementById('classroom-name-input').value; if(n) addDoc(cols.classrooms, {name: n}); }
