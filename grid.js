@@ -138,7 +138,25 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     if(!isExporting) {
         el.onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
-        el.ondrop = (e) => handleDrop(e, c.day, c.startTime); // Drag works on advisors too? Maybe strictly no. But for now yes.
+        el.ondrop = (e) => handleDrop(e, c.day, c.startTime);
+
+        // Make draggable
+        el.draggable = true;
+        el.ondragstart = (e) => {
+            hideTooltip();
+            e.dataTransfer.setData('application/json', JSON.stringify({
+                type: 'move',
+                id: c.id,
+                day: c.day,
+                startTime: c.startTime,
+                duration: c.duration,
+                teacherId: c.teacherId,
+                groupId: c.groupId,
+                classroomId: c.classroomId
+            }));
+            el.style.opacity = '0.4';
+        };
+        el.ondragend = () => { el.style.opacity = '1'; };
 
         // Tooltip adaptativo
         let tooltipHTML = '';
