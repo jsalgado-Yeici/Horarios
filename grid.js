@@ -26,41 +26,43 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     });
 
-    // FILTROS
     const fTch = customFilters ? customFilters.teacherId : document.getElementById('filter-teacher')?.value;
     const fGrp = customFilters ? customFilters.groupId : document.getElementById('filter-group')?.value;
     const fTrim = customFilters ? null : document.getElementById('filter-trimester')?.value;
-    const fShift = customFilters ? null : document.getElementById('filter-shift')?.value; // Nuevo Filtro
+    const fShift = customFilters ? null : document.getElementById('filter-shift')?.value;
     
-    // Configuración de corte de turno (ej. cuatri 4)
     const cutoff = state.settings.shiftCutoff || 4;
 
     const visible = state.schedule.filter(c => {
+        // === FILTRADO ASESORÍAS ===
+        if (c.type === 'advisory') {
+            // Si hay filtro de grupo o cuatri, la asesoría NO se muestra (porque no pertenece a ningún grupo)
+            // EXCEPCIÓN: Si estamos filtrando por DOCENTE, sí se muestra.
+            if ((fGrp || fTrim || fShift) && !fTch) return false;
+            if (fTch && c.teacherId !== fTch) return false;
+            return true;
+        }
+
+        // === FILTRADO CLASES ===
         const g = state.groups.find(x => x.id === c.groupId);
         if(!g) return false;
-
-        // Lógica de Turnos
-        if(fShift === 'matutino' && g.trimester >= cutoff) return false; // Si pide mañana, y el grupo es >= 4, ocultar
-        if(fShift === 'vespertino' && g.trimester < cutoff) return false; // Si pide tarde, y el grupo es < 4, ocultar
-
+        if(fShift === 'matutino' && g.trimester >= cutoff) return false;
+        if(fShift === 'vespertino' && g.trimester < cutoff) return false;
         if(fTch && c.teacherId !== fTch) return false;
         if(fGrp && c.groupId !== fGrp) return false;
         if(fTrim && g.trimester != fTrim) return false;
         return true;
     });
 
-    // RENDER EXTERNAS
+    // EXTERNAS (Sin cambios)
     if(!customFilters) {
         state.external.forEach(ext => {
-             const g = state.groups.find(x=>x.id===ext.groupId);
-             if(!g) return;
-             // Aplicar mismos filtros a las externas
+             const g = state.groups.find(x=>x.id===ext.groupId); if(!g) return;
              if(fShift === 'matutino' && g.trimester >= cutoff) return;
              if(fShift === 'vespertino' && g.trimester < cutoff) return;
              if(fGrp && ext.groupId !== fGrp) return;
              if(fTrim && g.trimester != fTrim) return;
              if(fTch) return;
-
              const dIdx = days.indexOf(ext.day); if(dIdx === -1) return;
              const el = document.createElement('div'); el.className = 'external-block';
              const startIdx = timeSlots.indexOf(ext.start); if(startIdx === -1) return;
@@ -71,7 +73,6 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         });
     }
 
-    // RENDER CLASES
     days.forEach((day, dIdx) => {
         const items = visible.filter(c => c.day === day);
         items.forEach(c => {
@@ -87,32 +88,73 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
 
 function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     const tIdx = timeSlots.indexOf(c.startTime); if(tIdx === -1) return null;
-    const subj = state.subjects.find(s => s.id === c.subjectId);
     const teach = state.teachers.find(t => t.id === c.teacherId);
-    const grp = state.groups.find(g => g.id === c.groupId);
-    const room = state.classrooms.find(r => r.id === c.classroomId);
     
-    if(!subj || !grp || !teach) return null;
+    // Validar datos básicos
+    if (!teach) return null;
+    
+    // Si es clase, requerimos materia y grupo
+    let subj = null, grp = null;
+    if (c.type !== 'advisory') {
+        subj = state.subjects.find(s => s.id === c.subjectId);
+        grp = state.groups.find(g => g.id === c.groupId);
+        if(!subj || !grp) return null; 
+    }
+
+    const room = state.classrooms.find(r => r.id === c.classroomId);
+    const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
+    const roomName = room ? room.name : "Sin Aula";
 
     const el = document.createElement('div'); el.className = 'schedule-item';
     const rowH = isExporting ? 55 : 60; const leftOffset = isExporting ? 80 : 60; const colW = `((100% - ${leftOffset}px)/5)`;
-    el.style.top = `${(tIdx * rowH) + rowH}px`; el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
+    
+    el.style.top = `${(tIdx * rowH) + rowH}px`; 
+    el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
     el.style.left = `calc(${leftOffset}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
     el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting ? 1 : 4}px)`;
-    const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
-    if(isExporting) { el.style.backgroundColor = PALETTE[cIdx] + '99'; el.style.border = '1px solid #000'; el.style.zIndex = '20'; } 
-    else { el.style.borderLeftColor = PALETTE[cIdx]; }
-
-    const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
-    const roomName = room ? room.name : "Sin Aula";
-    const isNarrow = totalOverlaps >= 3 && !isExporting;
-    el.innerHTML = `<div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>${!isNarrow ? `<div class="item-details">${teacherName} • ${grp.name}</div>` : ''}`;
+    
+    // === RENDERIZADO ASESORÍA ===
+    if (c.type === 'advisory') {
+        el.style.backgroundColor = '#fef3c7'; // Amber-100
+        el.style.borderLeftColor = '#d97706'; // Amber-600
+        if(isExporting) { el.style.border = '1px solid #d97706'; el.style.zIndex = '20'; }
+        
+        el.innerHTML = `
+            <div class="font-bold text-amber-700 text-xs tracking-wider">ASESORÍA</div>
+            <div class="item-details text-amber-900">${teacherName}</div>
+            <div class="item-details text-amber-600 text-[9px]">${roomName}</div>
+        `;
+    } 
+    // === RENDERIZADO CLASE NORMAL ===
+    else {
+        const cIdx = subj.id.split('').reduce((a,x)=>a+x.charCodeAt(0),0) % PALETTE.length;
+        if(isExporting) { el.style.backgroundColor = PALETTE[cIdx] + '99'; el.style.border = '1px solid #000'; el.style.zIndex = '20'; } 
+        else { el.style.borderLeftColor = PALETTE[cIdx]; }
+        
+        const isNarrow = totalOverlaps >= 3 && !isExporting;
+        el.innerHTML = `<div class="subject-name" style="${isNarrow?'font-size:0.6rem':''}">${subj.name}</div>${!isNarrow ? `<div class="item-details">${teacherName} • ${grp.name}</div>` : ''}`;
+    }
 
     if(!isExporting) {
         el.onclick = (e) => { e.stopPropagation(); showClassForm(c); }; 
         el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
-        el.ondrop = (e) => handleDrop(e, c.day, c.startTime);
-        el.onmouseenter = () => showTooltip(`<div class="font-bold text-sm mb-2 text-white border-b border-gray-600 pb-1">${subj.name}</div><div class="text-xs text-gray-200 space-y-1"><div><span class="text-gray-400 font-bold">Aula:</span> ${roomName}</div><div><span class="text-gray-400 font-bold">Docente:</span> ${teach.fullName || teach.name}</div><div><span class="text-gray-400 font-bold">Grupo:</span> ${grp.name}</div><div class="text-[10px] text-gray-400 pt-1">Clic para editar</div></div>`);
+        el.ondrop = (e) => handleDrop(e, c.day, c.startTime); // Drag works on advisors too? Maybe strictly no. But for now yes.
+
+        // Tooltip adaptativo
+        let tooltipHTML = '';
+        if (c.type === 'advisory') {
+            tooltipHTML = `
+                <div class="font-bold text-sm mb-2 text-white border-b border-gray-600 pb-1 text-amber-400">ASESORÍA / ADM</div>
+                <div class="text-xs text-gray-200 space-y-1">
+                    <div><span class="text-gray-400 font-bold">Docente:</span> ${teach.fullName || teach.name}</div>
+                    <div><span class="text-gray-400 font-bold">Aula:</span> ${roomName}</div>
+                    <div><span class="text-gray-400 font-bold">Horario:</span> ${c.startTime}:00 - ${c.startTime+c.duration}:00</div>
+                </div>`;
+        } else {
+            tooltipHTML = `<div class="font-bold text-sm mb-2 text-white border-b border-gray-600 pb-1">${subj.name}</div><div class="text-xs text-gray-200 space-y-1"><div><span class="text-gray-400 font-bold">Aula:</span> ${roomName}</div><div><span class="text-gray-400 font-bold">Docente:</span> ${teach.fullName || teach.name}</div><div><span class="text-gray-400 font-bold">Grupo:</span> ${grp.name}</div></div>`;
+        }
+
+        el.onmouseenter = () => showTooltip(tooltipHTML);
         el.onmouseleave = hideTooltip; 
     }
     return el;
