@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificador IAEV - Pro</title>
+    <title>Planificador IAEV - Intelligent</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -99,7 +99,6 @@
                 <div class="max-w-4xl mx-auto">
                     <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
                         <h2 class="text-xl font-bold text-gray-800 mb-2">Configuración de Materias Externas</h2>
-                        <p class="text-sm text-gray-500 mb-4">Define horarios fijos (Idiomas/STEM) que bloquearán el horario.</p>
                         <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex gap-4 items-end">
                             <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Tipo</label><select id="ext-type" class="w-full border p-2 rounded text-sm"><option value="IDIOMAS">Idiomas / Inglés</option><option value="STEM">Materias STEM</option></select></div>
                             <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Grupo(s)</label><select id="ext-group" class="w-full border p-2 rounded text-sm"></select></div>
@@ -114,7 +113,7 @@
             </div>
 
             <div id="tab-content-gestion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                <div class="max-w-7xl mx-auto space-y-6 flex flex-col h-full">
+                <div class="max-w-7xl mx-auto space-y-6">
                     
                     <div class="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
                         <div>
@@ -131,7 +130,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-1 min-h-[400px]">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]">
                             <h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Docentes <button id="add-teacher-btn" class="bg-blue-100 text-blue-700 px-2 rounded hover:bg-blue-200 transition">+</button></h2>
                             <div id="teachers-list" class="flex-1 overflow-y-auto space-y-1 pr-1"></div>
@@ -158,10 +157,9 @@
                         </div>
                     </div>
 
-                    <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="pt-6 border-t border-gray-200 pb-12">
                         <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Auditoría Académica (Materias Faltantes)</h2>
-                        <div id="alerts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"></div>
-                    </div>
+                        <div id="alerts-container"></div> </div>
                 </div>
             </div>
 
@@ -169,27 +167,10 @@
                  <div class="max-w-5xl mx-auto space-y-6">
                      <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
                          <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">Centro de Exportación</h2>
-                         <p class="text-gray-500 mb-8 text-center">Genera documentos oficiales individuales o masivos.</p>
-                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                             <div class="border border-gray-100 bg-gray-50 p-6 rounded-xl text-center">
-                                 <h3 class="font-bold text-lg mb-4 text-indigo-800">Exportar Vista Actual</h3>
-                                 <div class="flex justify-center gap-4">
-                                     <button id="btn-export-pdf" class="flex flex-col items-center gap-2 p-4 bg-white border hover:border-red-500 hover:text-red-600 rounded-lg shadow-sm transition w-32">
-                                         <span class="text-2xl">📄</span><span class="text-xs font-bold">Solo PDF</span>
-                                     </button>
-                                     <button id="btn-export-img" class="flex flex-col items-center gap-2 p-4 bg-white border hover:border-blue-500 hover:text-blue-600 rounded-lg shadow-sm transition w-32">
-                                         <span class="text-2xl">🖼️</span><span class="text-xs font-bold">Solo Imagen</span>
-                                     </button>
-                                 </div>
-                             </div>
-                             <div class="border border-indigo-100 bg-indigo-50 p-6 rounded-xl text-center relative overflow-hidden">
-                                 <div class="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">RECOMENDADO</div>
-                                 <h3 class="font-bold text-lg mb-4 text-indigo-900">Exportación Masiva (ZIP)</h3>
-                                 <p class="text-xs text-indigo-600 mb-4 px-4">Genera un archivo ZIP con carpetas separadas para todos los Grupos y Docentes.</p>
-                                 <button id="btn-export-all" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center justify-center gap-2 mx-auto w-full max-w-xs">
-                                     <span>📦</span> Descargar Todo (ZIP)
-                                 </button>
-                             </div>
+                         <div class="flex justify-center gap-4 mt-8">
+                             <button id="btn-export-all" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                                 <span>📦</span> Descargar Todo (ZIP)
+                             </button>
                          </div>
                      </div>
                  </div>
