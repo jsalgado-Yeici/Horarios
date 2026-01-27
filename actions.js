@@ -86,18 +86,56 @@ export async function addExternalRule() {
     const data = { type, groupId, day, start, end }; const ref = await addDoc(cols.external, data); pushHistory({ type: 'delete', col: 'external', id: ref.id });
 }
 
+// === FORMULARIO DOCENTE ACTUALIZADO (HORAS ASESORÍA) ===
 export function showTeacherForm(teacher = null) { 
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!teacher; 
-    document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2><input id="t-name" value="${teacher ? teacher.name : ''}" class="w-full border p-2 mb-2" placeholder="Apodo (Ej: Alex)"><input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 mb-4" placeholder="Nombre Completo Real"><button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button></div>`; 
-    document.getElementById('btn-t-save').onclick = async () => { const n = document.getElementById('t-name').value; const f = document.getElementById('t-full').value; if(n) { const data = {name: n, fullName: f}; if(isEdit) { const {id:_, ...d}=teacher; pushHistory({type:'update', col:'teachers', id:teacher.id, data:d}); await updateDoc(doc(cols.teachers, teacher.id), data); } else { const ref = await addDoc(cols.teachers, data); pushHistory({type:'delete', col:'teachers', id:ref.id}); } modal.classList.add('hidden'); } }; 
+    document.getElementById('modal-content').innerHTML = `
+        <div class="p-6 bg-white">
+            <h2 class="font-bold mb-4 text-gray-800">${isEdit ? 'Editar' : 'Nuevo'} Docente</h2>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Apodo / Nombre Corto</label>
+                <input id="t-name" value="${teacher ? teacher.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: Alex">
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre Completo</label>
+                <input id="t-full" value="${teacher ? (teacher.fullName || '') : ''}" class="w-full border p-2 rounded" placeholder="Nombre Real">
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Horas Asesoría / Administrativas</label>
+                <input type="number" id="t-advisory" value="${teacher ? (teacher.advisoryHours || 0) : 0}" class="w-full border p-2 rounded" min="0">
+                <p class="text-[10px] text-gray-400 mt-1">Estas horas se sumarán al total semanal del docente.</p>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-blue-700">Guardar</button>
+            </div>
+        </div>`;
+        
+    document.getElementById('btn-t-save').onclick = async () => { 
+        const n = document.getElementById('t-name').value; 
+        const f = document.getElementById('t-full').value; 
+        const adv = parseInt(document.getElementById('t-advisory').value) || 0;
+        
+        if(n) { 
+            const data = {name: n, fullName: f, advisoryHours: adv}; 
+            if(isEdit) { 
+                const {id:_, ...d}=teacher; pushHistory({type:'update', col:'teachers', id:teacher.id, data:d}); 
+                await updateDoc(doc(cols.teachers, teacher.id), data); 
+            } else { 
+                const ref = await addDoc(cols.teachers, data); 
+                pushHistory({type:'delete', col:'teachers', id:ref.id}); 
+            } 
+            modal.classList.add('hidden'); 
+        } 
+    }; 
 }
+
 export function showSubjectForm(sub = null) { 
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!sub; const defT = sub ? sub.defaultTeacherId : ''; const genOpts = (arr) => arr.map(i => `<option value="${i.id}" ${defT===i.id?'selected':''}>${i.name}</option>`).join(''); 
     document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit?'Editar':'Nueva'} Materia</h2><input id="s-name" value="${sub?sub.name:''}" class="w-full border p-2 mb-2" placeholder="Nombre Materia"><select id="s-trim" class="w-full border p-2 mb-2">${[1,2,3,4,5,6,7,8,9].map(i=>`<option value="${i}" ${sub&&sub.trimester==i?'selected':''}>Cuatri ${i}</option>`).join('')}</select><select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select><button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button></div>`; 
     document.getElementById('btn-s-save').onclick = async () => { const n = document.getElementById('s-name').value; const data = { name: n, trimester: parseInt(document.getElementById('s-trim').value), defaultTeacherId: document.getElementById('s-def').value }; if(n) { if(isEdit) { const {id:_, ...d}=sub; pushHistory({type:'update', col:'subjects', id:sub.id, data:d}); await updateDoc(doc(cols.subjects, sub.id), data); } else { const ref = await addDoc(cols.subjects, data); pushHistory({type:'delete', col:'subjects', id:ref.id}); } modal.classList.add('hidden'); } }; 
 }
 
-// === NUEVO: FORMULARIO DE GRUPO ===
 export function showGroupForm(group = null) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!group;
     document.getElementById('modal-content').innerHTML = `
@@ -136,7 +174,6 @@ export function showGroupForm(group = null) {
     };
 }
 
-// === NUEVO: FORMULARIO DE AULA ===
 export function showClassroomForm(room = null) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!room;
     document.getElementById('modal-content').innerHTML = `
