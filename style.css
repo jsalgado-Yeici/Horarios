@@ -34,6 +34,8 @@ body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
 .grid-time-slot { background-color: white; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
 .grid-cell { background-color: white; height: 60px; position: relative; transition: background-color 0.2s; }
 .grid-cell.droppable-hover { background-color: #f0f9ff; box-shadow: inset 0 0 0 2px #3b82f6; }
+.grid-cell.drag-allow { background-color: #dcfce7 !important; box-shadow: inset 0 0 0 2px #22c55e !important; } /* Green for allowed */
+.grid-cell.drag-conflict { background-color: #fee2e2 !important; box-shadow: inset 0 0 0 2px #ef4444 !important; } /* Red for conflict */
 
 /* TARJETAS DE CLASE (Minimalistas para reducir ruido) */
 .schedule-item { 

@@ -301,8 +301,29 @@ export function showTeacherForm(teacher = null) {
 
 export function showSubjectForm(sub = null) {
     const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!sub; const defT = sub ? sub.defaultTeacherId : ''; const genOpts = (arr) => arr.map(i => `<option value="${i.id}" ${defT === i.id ? 'selected' : ''}>${i.name}</option>`).join('');
-    document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nueva'} Materia</h2><input id="s-name" value="${sub ? sub.name : ''}" class="w-full border p-2 mb-2" placeholder="Nombre Materia"><select id="s-trim" class="w-full border p-2 mb-2">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => `<option value="${i}" ${sub && sub.trimester == i ? 'selected' : ''}>Cuatri ${i}</option>`).join('')}</select><select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select><button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button></div>`;
-    document.getElementById('btn-s-save').onclick = async () => { const n = document.getElementById('s-name').value; const data = { name: n, trimester: parseInt(document.getElementById('s-trim').value), defaultTeacherId: document.getElementById('s-def').value }; if (n) { if (isEdit) { const { id: _, ...d } = sub; pushHistory({ type: 'update', col: 'subjects', id: sub.id, data: d }); await updateDoc(doc(cols.subjects, sub.id), data); } else { const ref = await addDoc(cols.subjects, data); pushHistory({ type: 'delete', col: 'subjects', id: ref.id }); } modal.classList.add('hidden'); } };
+    document.getElementById('modal-content').innerHTML = `
+        <div class="p-6 bg-white">
+            <h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nueva'} Materia</h2>
+            <input id="s-name" value="${sub ? sub.name : ''}" class="w-full border p-2 mb-2" placeholder="Nombre Materia">
+            <div class="flex gap-2 mb-2">
+                 <select id="s-trim" class="flex-1 border p-2">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => `<option value="${i}" ${sub && sub.trimester == i ? 'selected' : ''}>Cuatri ${i}</option>`).join('')}</select>
+                 <div class="w-12 h-10 relative overflow-hidden rounded border">
+                    <input type="color" id="s-color" value="${sub && sub.color ? sub.color : '#6366f1'}" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] cursor-pointer p-0 border-0">
+                 </div>
+            </div>
+            <select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select>
+            <button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button>
+        </div>`;
+    document.getElementById('btn-s-save').onclick = async () => {
+        const n = document.getElementById('s-name').value;
+        const color = document.getElementById('s-color').value;
+        const data = { name: n, trimester: parseInt(document.getElementById('s-trim').value), defaultTeacherId: document.getElementById('s-def').value, color: color };
+        if (n) {
+            if (isEdit) { const { id: _, ...d } = sub; pushHistory({ type: 'update', col: 'subjects', id: sub.id, data: d }); await updateDoc(doc(cols.subjects, sub.id), data); }
+            else { const ref = await addDoc(cols.subjects, data); pushHistory({ type: 'delete', col: 'subjects', id: ref.id }); }
+            modal.classList.add('hidden');
+        }
+    };
 }
 
 export function showGroupForm(group = null) {
