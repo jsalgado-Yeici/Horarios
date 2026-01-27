@@ -136,7 +136,18 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     const roomName = room ? room.name : "Sin Aula";
 
     const el = document.createElement('div'); el.className = 'schedule-item';
-    const rowH = isExporting ? 55 : 60; const leftOffset = isExporting ? 80 : 60; const colW = `((100% - ${leftOffset}px)/5)`;
+
+    // CORRECCIÓN ALINEACIÓN EXPORTACIÓN:
+    // Antes se usaba rowH=55 y leftOffset=80 en exportación, lo que causaba desviación acumulativa.
+    // Ahora mantenemos las proporciones estándar del grid (60px altura) para garantizar alineación perfecta.
+    const rowH = 60;
+
+    // El offset izquierdo debe coincidir con el ancho de la columna de horas (que es variable o fija).
+    // En CSS .schedule-grid define columns: 60px repeat(5, 1fr).
+    // Por tanto, el offset debe ser siempre 60px.
+    const leftOffset = 60;
+
+    const colW = `((100% - ${leftOffset}px)/5)`;
 
     el.style.top = `${(tIdx * rowH) + rowH}px`;
     el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
