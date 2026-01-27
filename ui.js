@@ -1,21 +1,19 @@
 import { state, cols, days, timeSlots } from './state.js';
 import { showTeacherForm, showSubjectForm, deleteDocWrapper, addExternalRule, saveSettings } from './actions.js';
 import { addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { cols as collections } from './state.js'; // Alias para uso interno
 
 // === AJUSTES DE TURNO ===
 export function renderSettings() {
     const input = document.getElementById('setting-shift-cutoff');
-    if(input && state.settings.shiftCutoff) {
-        input.value = state.settings.shiftCutoff;
-    }
+    if(input && state.settings.shiftCutoff) input.value = state.settings.shiftCutoff;
     const btn = document.getElementById('btn-save-settings');
     if(btn) btn.onclick = saveSettings;
 }
 
-// === LISTA DE DOCENTES CON BARRA ===
+// === LISTA DOCENTES (BARRA DE PROGRESO) ===
 export function renderTeachersList() { 
-    const l = document.getElementById('teachers-list'); if(!l) return; 
-    l.innerHTML = ''; 
+    const l = document.getElementById('teachers-list'); if(!l) return; l.innerHTML = ''; 
     state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => { 
         const hours = state.schedule.filter(c => c.teacherId === t.id).reduce((acc, c) => acc + c.duration, 0);
         const pct = Math.min((hours / 40) * 100, 100);
@@ -29,62 +27,179 @@ export function renderTeachersList() {
     }); 
 }
 
-// === FILTROS INTELIGENTES (AQUÍ ESTÁ EL CAMBIO PRINCIPAL) ===
-export function renderFilterOptions() { 
-    // Llenar Docentes y Grupos
-    const fill = (id, arr, l) => { const el = document.getElementById(id); if(el) { const v=el.value; el.innerHTML = `<option value="">${l}</option>`+arr.map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); el.value=v; }}; 
-    fill('filter-teacher', state.teachers, 'Todos los Docentes'); 
-    fill('filter-group', state.groups, 'Todos los Grupos'); 
-
-    // Llenar Cuatrimestres DINÁMICAMENTE basado en Turno
-    const tSelect = document.getElementById('filter-trimester'); 
-    const sSelect = document.getElementById('filter-shift');
-    
-    if(tSelect) { 
-        const currentVal = tSelect.value; // Guardar selección actual
-        const shiftVal = sSelect ? sSelect.value : "";
-        const cutoff = state.settings.shiftCutoff || 4; // Punto de corte (ej. 4)
-
-        tSelect.innerHTML = '<option value="">Todos los Cuatris</option>';
-        
-        // Generar opciones 1 a 10
-        for(let i=1; i<=10; i++) {
-            let shouldShow = true;
-            
-            // Lógica de filtrado de opciones
-            if (shiftVal === 'matutino' && i >= cutoff) shouldShow = false; // Ocultar vespertinos si es matutino
-            if (shiftVal === 'vespertino' && i < cutoff) shouldShow = false; // Ocultar matutinos si es vespertino
-
-            if (shouldShow) {
-                tSelect.add(new Option(`C${i}`, i));
-            }
-        }
-
-        // Si el valor seleccionado anteriormente sigue siendo válido en la nueva lista, mantenerlo.
-        // Si no (ej. cambiamos de turno y el cuatri ya no existe), se resetea a "".
-        if ([...tSelect.options].some(o => o.value == currentVal)) {
-            tSelect.value = currentVal;
-        } else {
-            tSelect.value = "";
-        }
-    } 
-}
-
-// === AUDITORÍA COMPACTA ===
+// === AUDITORÍA INTELIGENTE ===
 export function renderAlerts() {
-    const container = document.getElementById('alerts-container'); if(!container) return; container.innerHTML = '';
+    const container = document.getElementById('alerts-container'); 
+    if(!container) return; 
+    container.innerHTML = '';
+    
+    // Cambiamos a flex-wrap para que los elementos sean compactos
+    container.className = "flex flex-wrap gap-2"; 
+
     state.groups.forEach(g => {
         const required = state.subjects.filter(s => s.trimester === g.trimester);
         const assigned = state.schedule.filter(c => c.groupId === g.id).map(c => c.subjectId);
         const missing = required.filter(s => !assigned.includes(s.id));
+        
         if (missing.length > 0) {
-            container.innerHTML += `<div class="bg-white border border-orange-200 rounded p-2 flex items-center justify-between text-xs shadow-sm"><div class="font-bold text-gray-700 truncate mr-2">${g.name}</div><div class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Faltan ${missing.length}</div></div>`;
+            const el = document.createElement('div');
+            // Diseño "Chip" compacto y clicable
+            el.className = "cursor-pointer hover:bg-orange-100 transition-colors border border-orange-200 bg-white rounded-full px-3 py-1 text-xs flex items-center gap-2 shadow-sm select-none";
+            el.innerHTML = `
+                <span class="font-bold text-gray-700">${g.name}</span>
+                <span class="bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold text-[10px] min-w-[20px] text-center">${missing.length}</span>
+            `;
+            el.onclick = () => showAuditModal(g, missing);
+            container.appendChild(el);
         }
     });
-    if(container.children.length === 0) container.innerHTML = `<div class="col-span-full text-center text-xs text-gray-400 italic py-2">Todo en orden. No faltan materias.</div>`;
+
+    if(container.children.length === 0) {
+        container.innerHTML = `<div class="w-full text-center text-xs text-gray-400 italic py-4">🎉 Todo perfecto. No faltan materias.</div>`;
+    }
 }
 
-// === PANELES Y OTROS (Sin cambios lógicos grandes) ===
+// === MODAL DE SUGERENCIAS ===
+function showAuditModal(group, missingSubjects) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-content');
+    modal.classList.remove('hidden');
+
+    let html = `
+        <div class="p-6 bg-white max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Materias Faltantes: <span class="text-indigo-600">${group.name}</span></h2>
+                <button id="close-audit" class="text-gray-400 hover:text-gray-600 font-bold text-xl">×</button>
+            </div>
+            <p class="text-sm text-gray-500 mb-6">El sistema ha analizado los huecos disponibles para el grupo, el docente y las aulas.</p>
+            <div class="space-y-4">
+    `;
+
+    missingSubjects.forEach(sub => {
+        // Algoritmo de Sugerencia
+        const suggestions = findSmartSlots(sub, group);
+        
+        html += `
+            <div class="border rounded-lg p-4 bg-gray-50">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-gray-700">${sub.name}</h3>
+                    <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">${state.teachers.find(t=>t.id===sub.defaultTeacherId)?.name || 'Sin Docente Default'}</span>
+                </div>
+                
+                ${suggestions.length > 0 ? `
+                    <div class="grid grid-cols-1 gap-2">
+                        ${suggestions.map(s => `
+                            <div class="flex justify-between items-center bg-white border px-3 py-2 rounded text-sm hover:border-green-400 transition-colors group">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-gray-600 w-20">${s.day}</span>
+                                    <span class="text-gray-500 bg-gray-100 px-2 rounded">${s.start}:00 - ${s.end}:00</span>
+                                    <span class="text-xs text-gray-400 ml-2">(${s.room?.name || 'Cualquier Aula'})</span>
+                                </div>
+                                <button class="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold hover:bg-green-600 hover:text-white transition-colors"
+                                    onclick='window.applySuggestion("${sub.id}", "${group.id}", "${s.teacherId || ""}", "${s.room?.id || ""}", "${s.day}", ${s.start}, ${s.end})'>
+                                    Agendar
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `<div class="text-xs text-red-400 italic">No se encontraron huecos compatibles (Conflicto total de Docente/Grupo).</div>`}
+            </div>
+        `;
+    });
+
+    html += `</div></div>`;
+    content.innerHTML = html;
+
+    document.getElementById('close-audit').onclick = () => modal.classList.add('hidden');
+}
+
+// Función global para que el botón generado en HTML string funcione
+window.applySuggestion = async (subId, grpId, teachId, roomId, day, start, dur) => {
+    try {
+        const payload = {
+            subjectId: subId, groupId: grpId, teacherId: teachId || null, classroomId: roomId || null,
+            day: day, startTime: parseInt(start), duration: parseInt(dur - start)
+        };
+        await addDoc(collections.schedule, payload);
+        
+        // Feedback visual rápido
+        const modal = document.getElementById('modal');
+        const countBadge = document.querySelector(`span[class*="bg-orange-500"]`); // Hack visual simple
+        if(countBadge) countBadge.innerText = parseInt(countBadge.innerText) - 1;
+        
+        // Cerrar si era el último? Mejor refrescar la vista.
+        // Forzamos cierre para ver cambios
+        modal.classList.add('hidden');
+    } catch(e) { console.error(e); alert("Error al agendar."); }
+};
+
+function findSmartSlots(subject, group) {
+    const suggestions = [];
+    const teacherId = subject.defaultTeacherId;
+    const duration = 2; // Asumimos bloques de 2 horas por defecto para sugerencias
+
+    // Recorremos todos los días y horas
+    for (const d of days) {
+        for (const h of timeSlots) {
+            if (h + duration > Math.max(...timeSlots) + 1) continue; // No exceder fin del día
+
+            // 1. Verificar si GRUPO está libre
+            const groupBusy = state.schedule.some(c => c.groupId === group.id && c.day === d && !(c.startTime >= h + duration || c.startTime + c.duration <= h));
+            const extBusy = state.external.some(e => e.groupId === group.id && e.day === d && !(e.start >= h + duration || e.end <= h));
+            
+            if (!groupBusy && !extBusy) {
+                // 2. Verificar si DOCENTE (si existe default) está libre
+                let teacherFree = true;
+                if (teacherId) {
+                    teacherFree = !state.schedule.some(c => c.teacherId === teacherId && c.day === d && !(c.startTime >= h + duration || c.startTime + c.duration <= h));
+                }
+
+                if (teacherFree) {
+                    // 3. Buscar UN AULA libre (Cualquiera sirve para sugerir)
+                    const freeRoom = state.classrooms.find(r => {
+                         return !state.schedule.some(c => c.classroomId === r.id && c.day === d && !(c.startTime >= h + duration || c.startTime + c.duration <= h));
+                    });
+
+                    if (freeRoom) {
+                        suggestions.push({
+                            day: d, start: h, end: h + duration,
+                            teacherId: teacherId, room: freeRoom
+                        });
+                        if (suggestions.length >= 3) return suggestions; // Max 3 sugerencias por materia
+                    }
+                }
+            }
+        }
+    }
+    return suggestions;
+}
+
+// === FILTROS INTELIGENTES ===
+export function renderFilterOptions() { 
+    const fill = (id, arr, l) => { const el = document.getElementById(id); if(el) { const v=el.value; el.innerHTML = `<option value="">${l}</option>`+arr.map(i=>`<option value="${i.id}">${i.name}</option>`).join(''); el.value=v; }}; 
+    fill('filter-teacher', state.teachers, 'Todos los Docentes'); 
+    fill('filter-group', state.groups, 'Todos los Grupos'); 
+
+    const tSelect = document.getElementById('filter-trimester'); 
+    const sSelect = document.getElementById('filter-shift');
+    
+    if(tSelect) { 
+        const currentVal = tSelect.value; 
+        const shiftVal = sSelect ? sSelect.value : "";
+        const cutoff = state.settings.shiftCutoff || 4; 
+
+        tSelect.innerHTML = '<option value="">Todos los Cuatris</option>';
+        for(let i=1; i<=10; i++) {
+            let shouldShow = true;
+            if (shiftVal === 'matutino' && i >= cutoff) shouldShow = false; 
+            if (shiftVal === 'vespertino' && i < cutoff) shouldShow = false; 
+            if (shouldShow) tSelect.add(new Option(`C${i}`, i));
+        }
+        if ([...tSelect.options].some(o => o.value == currentVal)) tSelect.value = currentVal; else tSelect.value = "";
+    } 
+}
+
+// === PANELES Y OTROS ===
 export function renderExternalClassesPanel() {
     const list = document.getElementById('external-list'); if(!list) return; list.innerHTML = '';
     state.external.forEach(ext => {
