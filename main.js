@@ -13,7 +13,7 @@ import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
 
 function initApp() {
-    console.log("IAEV Planner vConfig");
+    console.log("IAEV Planner vSmartFilters");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -35,11 +35,28 @@ function setupListeners() {
             if(btn.dataset.tab === 'mapa') initMapTab();
             if(btn.dataset.tab === 'sabana') renderGlobalMatrix();
             if(btn.dataset.tab === 'externas') renderExternalClassesPanel();
-            if(btn.dataset.tab === 'gestion') { renderSettings(); } // Renderizar settings
+            if(btn.dataset.tab === 'gestion') renderSettings();
         };
     });
 
-    ['teacher', 'group', 'classroom', 'trimester', 'shift'].forEach(id => {
+    // === LISTENER ESPECIAL PARA TURNO ===
+    const shiftEl = document.getElementById('filter-shift');
+    if (shiftEl) {
+        shiftEl.onchange = () => {
+            // 1. Resetear el filtro de cuatrimestre a "Todos" para mostrar todo el bloque
+            const trimEl = document.getElementById('filter-trimester');
+            if(trimEl) trimEl.value = "";
+            
+            // 2. Actualizar las opciones disponibles en el select de Cuatrimestre
+            renderFilterOptions(); 
+            
+            // 3. Renderizar el grid con el nuevo turno completo
+            renderScheduleGrid();
+        };
+    }
+
+    // Listeners genéricos para los otros filtros
+    ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = () => renderScheduleGrid();
     });
@@ -72,24 +89,26 @@ function switchFloor(floor) {
     if(floor === 'pb') { btnPb.className = active; btnPa.className = inactive; } else { btnPa.className = active; btnPb.className = inactive; }
     const container = document.getElementById('map-viewport'); renderMap(floor, container, state.schedule, (room) => showRoomDetails(room));
 }
-function showRoomDetails(room) { /* (Sin cambios) */ }
+function showRoomDetails(room) { /* Sin cambios */ }
 
 function setupRealtimeListeners() {
     const update = (k, s) => {
         state[k] = s.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        // Manejo especial para settings (es una colección pero usamos 1 doc 'global')
         if (k === 'settings') {
             const globalConf = state.settings.find(d => d.id === 'global');
             if(globalConf) state.settings = globalConf;
-            else state.settings = { shiftCutoff: 4 }; // Default fallback
+            else state.settings = { shiftCutoff: 4 };
         }
 
         state.loading[k] = false;
         checkLoading();
         
         if(k === 'schedule' || k === 'external' || k === 'settings') renderScheduleGrid();
-        if(['teachers','subjects','groups','classrooms'].includes(k)) renderFilterOptions();
+        
+        // Cuando cambian los grupos o settings, hay que refrescar las opciones de filtro (por si cambiaron turnos)
+        if(['teachers','subjects','groups','classrooms','settings'].includes(k)) renderFilterOptions();
+        
         if(k === 'teachers' || k === 'schedule') renderTeachersList();
         if(k === 'subjects') renderSubjectsList();
         if(k === 'groups') renderGroupsList();
