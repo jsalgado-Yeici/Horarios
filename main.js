@@ -6,14 +6,15 @@ import { renderScheduleGrid } from './grid.js';
 import { 
     createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList, 
     renderBlocksList, renderClassroomsManageList, renderFilterOptions, renderAlerts, 
-    addGroup, addClassroom, addBlock, renderStatistics, showAddAbsenceModal 
+    addGroup, addClassroom, addBlock, renderStatistics, showAddAbsenceModal,
+    renderGlobalMatrix // Importado
 } from './ui.js';
-import { showClassForm, showTeacherForm, showSubjectForm } from './actions.js';
+import { showClassForm, showTeacherForm, showSubjectForm, undoLastAction } from './actions.js'; // Importado undo
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
 
 function initApp() {
-    console.log("App v13.2 (Stats System)");
+    console.log("App v14.0 (Undo + Sabana)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
@@ -36,6 +37,7 @@ function setupListeners() {
             if(btn.dataset.tab === 'horario') renderScheduleGrid();
             if(btn.dataset.tab === 'mapa') initMapTab();
             if(btn.dataset.tab === 'estadisticas') renderStatistics();
+            if(btn.dataset.tab === 'sabana') renderGlobalMatrix(); // Renderizar Sábana
         };
     });
 
@@ -45,11 +47,15 @@ function setupListeners() {
         if(el) el.onchange = () => renderScheduleGrid();
     });
     
-    // Selectores de Estadísticas
+    // Selectores de Estadísticas y Sábana
     ['stats-month', 'stats-year'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.onchange = () => renderStatistics();
     });
+
+    // Selector Día Sábana
+    const sabanaDay = document.getElementById('sabana-day-filter');
+    if(sabanaDay) sabanaDay.onchange = () => renderGlobalMatrix();
 
     // Botones
     const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
@@ -61,6 +67,7 @@ function setupListeners() {
     bind('add-classroom-btn', addClassroom);
     bind('floor-btn-pb', () => switchFloor('pb'));
     bind('floor-btn-pa', () => switchFloor('pa'));
+    bind('btn-undo', undoLastAction); // Botón Undo
     
     // Estadísticas
     bind('btn-add-absence', showAddAbsenceModal);
@@ -124,6 +131,9 @@ function setupRealtimeListeners() {
         if(k === 'classrooms') renderClassroomsManageList();
         if(k === 'attendance' || k === 'schedule' || k === 'groups') renderStatistics();
         
+        // Renderizar Sábana si hay cambios en schedule
+        if(k === 'schedule' || k === 'groups') renderGlobalMatrix();
+
         // Actualizar alertas de auditoría
         if(['schedule', 'groups', 'subjects'].includes(k)) renderAlerts();
     };
