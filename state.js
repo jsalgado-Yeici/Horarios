@@ -6,6 +6,8 @@ export const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 export const state = {
     teachers: [], subjects: [], groups: [], schedule: [], 
     presets: [], blocks: [], classrooms: [], attendance: [],
+    // Historial para Deshacer
+    history: [],
     loading: { teachers: true, subjects: true, groups: true, schedule: true, classrooms: true, attendance: true }
 };
 
