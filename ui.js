@@ -1,6 +1,133 @@
-import { state, cols, days } from './state.js';
+import { state, cols, days, timeSlots } from './state.js';
 import { showTeacherForm, showSubjectForm, deleteDocWrapper, addAttendance, deleteAttendance } from './actions.js';
 import { addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+// === NUEVA FUNCIÓN: RENDERIZADO DE SÁBANA (MATRIZ GENERAL) ===
+export function renderGlobalMatrix() {
+    const container = document.getElementById('sabana-container');
+    const dayFilter = document.getElementById('sabana-day-filter').value;
+    if(!container) return;
+
+    container.innerHTML = '';
+    
+    // Tabla Estructura
+    const table = document.createElement('table');
+    table.className = "w-full border-collapse border border-gray-300 text-xs";
+    
+    // Header Row: Time Slots
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = `<th class="bg-gray-100 border p-2 sticky left-0 z-10 w-24">Grupo / Hora</th>`;
+    
+    timeSlots.forEach(t => {
+        const th = document.createElement('th');
+        th.className = "bg-gray-50 border p-2 min-w-[100px]";
+        th.innerText = `${t}:00 - ${t+1}:00`;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Body: Rows = Grupos
+    const tbody = document.createElement('tbody');
+    
+    // Ordenar grupos por nombre
+    const sortedGroups = [...state.groups].sort((a,b) => a.name.localeCompare(b.name));
+
+    sortedGroups.forEach(grp => {
+        const tr = document.createElement('tr');
+        // Columna Nombre Grupo
+        const tdName = document.createElement('td');
+        tdName.className = "bg-gray-100 border p-2 font-bold sticky left-0 z-10";
+        tdName.innerText = grp.name;
+        tr.appendChild(tdName);
+
+        // Columnas Horas
+        timeSlots.forEach(t => {
+            const td = document.createElement('td');
+            td.className = "border p-1 h-12 align-top relative hover:bg-gray-50 transition-colors";
+            
+            // Buscar clase en este slot, este día, este grupo
+            // Nota: Manejamos duración > 1 hora
+            const cls = state.schedule.find(c => 
+                c.groupId === grp.id && 
+                c.day === dayFilter && 
+                c.startTime <= t && 
+                (c.startTime + c.duration) > t
+            );
+
+            if(cls) {
+                const subj = state.subjects.find(s => s.id === cls.subjectId);
+                const teach = state.teachers.find(x => x.id === cls.teacherId);
+                const room = state.classrooms.find(r => r.id === cls.classroomId);
+
+                // Si es el inicio de la clase, mostramos info completa. Si es continuación, mostramos flecha o color
+                if(cls.startTime === t) {
+                    td.className += " bg-indigo-50 border-l-4 border-l-indigo-500";
+                    td.innerHTML = `
+                        <div class="font-bold text-indigo-800 leading-tight">${subj ? subj.name : '???'}</div>
+                        <div class="text-[10px] text-gray-500">${teach ? teach.name : 'Sin Profe'}</div>
+                        <div class="text-[9px] font-bold text-gray-400">${room ? room.name : 'Sin Aula'}</div>
+                    `;
+                    // colspan visual? No, porque la grilla es fija.
+                } else {
+                     td.className += " bg-indigo-50 border-l border-indigo-100";
+                     td.innerHTML = `<div class="text-indigo-200 text-center">⬇</div>`;
+                }
+            }
+
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
+
+// === NUEVA FUNCIÓN: RENDERIZADO CARGA DOCENTE ===
+function renderTeacherWorkload() {
+    const container = document.getElementById('teacher-workload-container');
+    if(!container) return;
+    container.innerHTML = '';
+
+    // Calcular horas por docente
+    const workload = {}; // { teacherId: { name, hours } }
+    state.teachers.forEach(t => workload[t.id] = { name: t.name, hours: 0 });
+    
+    state.schedule.forEach(c => {
+        if(workload[c.teacherId]) {
+            workload[c.teacherId].hours += c.duration;
+        }
+    });
+
+    // Ordenar: Mayor carga primero
+    const sorted = Object.values(workload).sort((a,b) => b.hours - a.hours);
+
+    sorted.forEach(item => {
+        // Definir "Full Time" como 20 horas (ajustable) para la barra de progreso
+        const maxHours = 30; 
+        const pct = Math.min((item.hours / maxHours) * 100, 100);
+        
+        let colorClass = "bg-blue-500";
+        if(item.hours > 25) colorClass = "bg-red-500"; // Sobrecarga
+        else if (item.hours < 5) colorClass = "bg-gray-300"; // Poca carga
+
+        const el = document.createElement('div');
+        el.className = "flex flex-col gap-1 p-2 border rounded bg-slate-50";
+        el.innerHTML = `
+            <div class="flex justify-between text-xs font-bold text-gray-700">
+                <span>${item.name}</span>
+                <span>${item.hours} hrs</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div class="${colorClass} h-2.5 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
 
 // === TOOLTIPS ===
 let tooltipEl = null;
@@ -158,7 +285,7 @@ export function renderAlerts() {
     }
 }
 
-// === NUEVA SECCIÓN: ESTADÍSTICAS ===
+// === ESTADÍSTICAS ===
 function getWeekdayCountInMonth(monthIndex, year, dayName) {
     const dayMap = { "Domingo":0, "Lunes":1, "Martes":2, "Miércoles":3, "Jueves":4, "Viernes":5, "Sábado":6 };
     const targetDay = dayMap[dayName];
@@ -174,26 +301,22 @@ function getWeekdayCountInMonth(monthIndex, year, dayName) {
 }
 
 export function renderStatistics() {
+    renderTeacherWorkload(); // LLAMADA A LA NUEVA FUNCIÓN
+    
     const container = document.getElementById('stats-content');
     if (!container) return;
     
-    // Selectores
     const monthSel = document.getElementById('stats-month');
     const yearSel = document.getElementById('stats-year');
     const month = parseInt(monthSel ? monthSel.value : new Date().getMonth());
     const year = parseInt(yearSel ? yearSel.value : new Date().getFullYear());
 
-    // 1. Filtrar Faltas Reales
     const absences = state.attendance.filter(a => {
-        const d = new Date(a.date);
-        // Ajuste zona horaria simplificado (asumiendo input date string YYYY-MM-DD)
         const parts = a.date.split('-'); 
         return (parseInt(parts[1])-1) === month && parseInt(parts[0]) === year;
     });
 
-    // 2. Calcular Clases Programadas (Totales Esperadas)
-    // Para cada grupo, calculamos cuántas clases DEBERÍA haber tenido este mes
-    const groupStats = {}; // { groupId: { name, expected: 0, realAbsences: 0 } }
+    const groupStats = {};
     
     state.groups.forEach(g => {
         groupStats[g.id] = { name: g.name, expected: 0, realAbsences: 0 };
@@ -206,14 +329,12 @@ export function renderStatistics() {
         }
     });
 
-    // 3. Mapear Faltas Reales a Grupos
     absences.forEach(abs => {
         if (groupStats[abs.groupId]) {
             groupStats[abs.groupId].realAbsences++;
         }
     });
 
-    // 4. Calcular Totales Generales
     const totalAbsences = absences.length;
     let totalExpected = 0;
     Object.values(groupStats).forEach(gs => totalExpected += gs.expected);
@@ -222,11 +343,9 @@ export function renderStatistics() {
         ? ((1 - (totalAbsences / totalExpected)) * 100).toFixed(1) 
         : "100";
 
-    // RENDERIZAR CARDS
     document.getElementById('stat-total-absences').textContent = totalAbsences;
     document.getElementById('stat-global-pct').textContent = `${globalAttendance}%`;
 
-    // RENDERIZAR TABLA GRUPOS
     const tbody = document.getElementById('stats-table-body');
     if(tbody) {
         tbody.innerHTML = '';
@@ -246,7 +365,6 @@ export function renderStatistics() {
         });
     }
 
-    // RENDERIZAR TABLA LOGS (Últimas faltas)
     const logBody = document.getElementById('stats-log-body');
     if(logBody) {
         logBody.innerHTML = '';
@@ -277,7 +395,6 @@ export function showAddAbsenceModal() {
     modal.classList.remove('hidden');
     const content = document.getElementById('modal-content');
     
-    // Generar opciones
     const grpOpts = state.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
     const teachOpts = state.teachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
     const subjOpts = state.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
@@ -310,6 +427,6 @@ export function showAddAbsenceModal() {
         };
         await addAttendance(payload);
         modal.classList.add('hidden');
-        renderStatistics(); // Refrescar
+        renderStatistics(); 
     };
 }
