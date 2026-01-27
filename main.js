@@ -6,20 +6,35 @@ import { renderScheduleGrid } from './grid.js';
 import { 
     createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList, 
     renderClassroomsManageList, renderFilterOptions, renderAlerts, 
-    addGroup, addClassroom, renderGlobalMatrix, renderExternalClassesPanel, renderSettings 
+    addGroup, addClassroom, renderGlobalMatrix, renderExternalClassesPanel, renderSettings,
+    renderRoomHeatmap // Nueva Importación
 } from './ui.js';
 import { showClassForm, showTeacherForm, showSubjectForm, undoLastAction } from './actions.js';
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
 
 function initApp() {
-    console.log("IAEV Planner vSmartFilters");
+    console.log("IAEV Planner vPro (Hotkeys + Heatmap)");
     createTooltip();
     setupListeners();
     setupRealtimeListeners();
 }
 
 function setupListeners() {
+    // === ATAJOS DE TECLADO ===
+    document.addEventListener('keydown', (e) => {
+        // Ctrl + Z (Deshacer)
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            undoLastAction();
+        }
+        // Esc (Cerrar Modales)
+        if (e.key === 'Escape') {
+            document.getElementById('modal').classList.add('hidden');
+        }
+    });
+
+    // TABS
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.tab-button').forEach(b => {
@@ -27,35 +42,32 @@ function setupListeners() {
                 b.classList.add('text-gray-600');
             });
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            
             btn.classList.add('active', 'bg-white', 'text-indigo-600', 'shadow-sm');
             btn.classList.remove('text-gray-600');
             document.getElementById(`tab-content-${btn.dataset.tab}`).classList.remove('hidden');
             
-            if(btn.dataset.tab === 'horario') renderScheduleGrid();
-            if(btn.dataset.tab === 'mapa') initMapTab();
-            if(btn.dataset.tab === 'sabana') renderGlobalMatrix();
-            if(btn.dataset.tab === 'externas') renderExternalClassesPanel();
-            if(btn.dataset.tab === 'gestion') renderSettings();
+            // Renderizado condicional por pestaña
+            const tab = btn.dataset.tab;
+            if(tab === 'horario') renderScheduleGrid();
+            if(tab === 'mapa') initMapTab();
+            if(tab === 'sabana') renderGlobalMatrix();
+            if(tab === 'externas') renderExternalClassesPanel();
+            if(tab === 'gestion') renderSettings();
+            if(tab === 'reportes') renderRoomHeatmap(); // Renderizar mapa de calor
         };
     });
 
-    // === LISTENER ESPECIAL PARA TURNO ===
+    // Listeners Filtros
     const shiftEl = document.getElementById('filter-shift');
     if (shiftEl) {
         shiftEl.onchange = () => {
-            // 1. Resetear el filtro de cuatrimestre a "Todos" para mostrar todo el bloque
             const trimEl = document.getElementById('filter-trimester');
             if(trimEl) trimEl.value = "";
-            
-            // 2. Actualizar las opciones disponibles en el select de Cuatrimestre
             renderFilterOptions(); 
-            
-            // 3. Renderizar el grid con el nuevo turno completo
             renderScheduleGrid();
         };
     }
-
-    // Listeners genéricos para los otros filtros
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
         if(el) el.onchange = () => renderScheduleGrid();
@@ -106,13 +118,12 @@ function setupRealtimeListeners() {
         
         if(k === 'schedule' || k === 'external' || k === 'settings') renderScheduleGrid();
         
-        // Cuando cambian los grupos o settings, hay que refrescar las opciones de filtro (por si cambiaron turnos)
         if(['teachers','subjects','groups','classrooms','settings'].includes(k)) renderFilterOptions();
         
         if(k === 'teachers' || k === 'schedule') renderTeachersList();
         if(k === 'subjects') renderSubjectsList();
         if(k === 'groups') renderGroupsList();
-        if(k === 'classrooms') renderClassroomsManageList();
+        if(k === 'classrooms') { renderClassroomsManageList(); renderRoomHeatmap(); }
         if(k === 'schedule' || k === 'groups' || k === 'external') renderGlobalMatrix();
         if(k === 'groups' || k === 'external') renderExternalClassesPanel();
         if(['schedule', 'groups', 'subjects'].includes(k)) renderAlerts();
