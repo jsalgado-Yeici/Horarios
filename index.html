@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificador IAEV</title>
+    <title>Planificador IAEV - Clean</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -29,12 +29,12 @@
             </div>
 
             <nav class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                <button id="tab-btn-horario" data-tab="horario" class="tab-button active px-4 py-1.5 rounded-md text-sm font-medium transition-all">Horario</button>
-                <button id="tab-btn-sabana" data-tab="sabana" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Sábana</button>
-                <button id="tab-btn-mapa" data-tab="mapa" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Mapa</button>
-                <button id="tab-btn-gestion" data-tab="gestion" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Gestión</button>
-                <button id="tab-btn-estadisticas" data-tab="estadisticas" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Estadísticas</button>
-                <button id="tab-btn-reportes" data-tab="reportes" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Reportes</button>
+                <button data-tab="horario" class="tab-button active px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white text-indigo-600 shadow-sm">Horario</button>
+                <button data-tab="sabana" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Sábana</button>
+                <button data-tab="mapa" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Mapa</button>
+                <button data-tab="externas" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Externas</button>
+                <button data-tab="gestion" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Gestión</button>
+                <button data-tab="reportes" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Reportes</button>
             </nav>
         </header>
 
@@ -42,18 +42,21 @@
             
             <div id="tab-content-horario" class="tab-content h-full flex flex-col md:flex-row">
                 <aside class="w-full md:w-72 bg-white border-r border-gray-200 flex flex-col shadow-lg z-20">
-                    <div class="p-4 border-b border-gray-100 bg-gray-50"><h2 class="font-bold text-gray-800">Materias Pendientes</h2></div>
+                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h2 class="font-bold text-gray-800">Pendientes</h2>
+                        <span class="text-xs text-gray-400">Arrastra al grid</span>
+                    </div>
                     <div id="unassigned-subjects-container" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white"></div>
                 </aside>
                 <section class="flex-1 flex flex-col min-w-0 bg-white relative">
                     <div class="p-3 border-b border-gray-200 flex flex-wrap gap-3 bg-white items-center justify-between shadow-sm z-10">
                         <div class="flex gap-2">
-                            <select id="filter-trimester" class="filter-select border rounded p-1 text-sm text-gray-600"></select>
-                            <select id="filter-classroom" class="filter-select border rounded p-1 text-sm text-gray-600"></select>
-                            <select id="filter-teacher" class="filter-select border rounded p-1 text-sm text-gray-600"></select>
-                            <select id="filter-group" class="filter-select border rounded p-1 text-sm text-gray-600"></select>
+                            <select id="filter-trimester" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                            <select id="filter-classroom" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                            <select id="filter-teacher" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                            <select id="filter-group" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
                         </div>
-                        <button id="open-class-modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-sm shadow-sm flex items-center gap-2 transition-colors">+ Clase</button>
+                        <button id="open-class-modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-sm shadow-sm flex items-center gap-2 transition-colors">+ Clase Manual</button>
                     </div>
                     <div class="flex-1 overflow-auto relative bg-slate-50 p-4" id="schedule-scroll-area">
                         <div id="schedule-grid" class="schedule-grid bg-white min-w-[800px]"></div>
@@ -66,7 +69,7 @@
                     <h2 class="text-lg font-bold text-gray-700">Matriz General (Sábana)</h2>
                     <div class="flex items-center gap-2">
                         <label class="text-sm font-bold text-gray-500">Día:</label>
-                        <select id="sabana-day-filter" class="border p-2 rounded text-sm bg-gray-50">
+                        <select id="sabana-day-filter" class="border p-2 rounded text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none">
                             <option value="Lunes">Lunes</option>
                             <option value="Martes">Martes</option>
                             <option value="Miércoles">Miércoles</option>
@@ -75,8 +78,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="flex-1 overflow-auto p-4" id="sabana-container">
-                    </div>
+                <div class="flex-1 overflow-auto p-4" id="sabana-container"></div>
             </div>
 
             <div id="tab-content-mapa" class="tab-content hidden h-full p-4 overflow-y-auto bg-slate-100 flex flex-col items-center">
@@ -90,12 +92,51 @@
                 <div class="relative w-full max-w-6xl aspect-[16/9] bg-[#fdf6e3] rounded-xl shadow-inner border-4 border-white overflow-hidden" id="map-viewport"></div>
             </div>
 
+            <div id="tab-content-externas" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
+                <div class="max-w-4xl mx-auto">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800">Configuración de Materias Externas</h2>
+                                <p class="text-sm text-gray-500">Define horarios fijos para Idiomas y materias STEM. Estos horarios bloquearán automáticamente salones y grupos en el planificador.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex gap-4 items-end">
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Tipo</label>
+                                <select id="ext-type" class="w-full border p-2 rounded text-sm"><option value="IDIOMAS">Idiomas / Inglés</option><option value="STEM">Materias STEM</option></select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Grupo(s)</label>
+                                <select id="ext-group" class="w-full border p-2 rounded text-sm"></select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Día</label>
+                                <select id="ext-day" class="w-full border p-2 rounded text-sm"></select>
+                            </div>
+                            <div class="w-24">
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Inicio</label>
+                                <select id="ext-start" class="w-full border p-2 rounded text-sm"></select>
+                            </div>
+                            <div class="w-24">
+                                <label class="block text-xs font-bold text-gray-500 mb-1">Fin</label>
+                                <select id="ext-end" class="w-full border p-2 rounded text-sm"></select>
+                            </div>
+                            <button id="btn-add-external" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 font-bold text-sm">Agregar Regla</button>
+                        </div>
+                    </div>
+
+                    <div id="external-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        </div>
+                </div>
+            </div>
+
             <div id="tab-content-gestion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
                 <div class="max-w-7xl mx-auto space-y-6">
                     <div>
                         <h2 class="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
-                            Auditoría Académica 
-                            <span class="text-xs font-normal text-gray-400 bg-white border px-2 py-0.5 rounded-full">Automático</span>
+                            Auditoría Académica <span class="text-xs font-normal text-gray-400 bg-white border px-2 py-0.5 rounded-full">Automático</span>
                         </h2>
                         <div id="alerts-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"></div>
                     </div>
@@ -104,12 +145,10 @@
                             <h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Docentes <button id="add-teacher-btn" class="bg-blue-100 text-blue-700 px-2 rounded hover:bg-blue-200 transition">+</button></h2>
                             <div id="teachers-list" class="flex-1 overflow-y-auto space-y-1"></div>
                         </div>
-                        
                         <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]">
                              <h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Materias <button id="open-subject-modal-btn" class="bg-indigo-100 text-indigo-700 px-2 rounded hover:bg-indigo-200 transition">+</button></h2>
                             <div id="subjects-by-trimester" class="flex-1 overflow-y-auto space-y-2"></div>
                         </div>
-                        
                         <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]">
                             <h2 class="text-sm font-bold uppercase text-gray-500 mb-2">Grupos</h2>
                             <div id="groups-by-trimester" class="flex-1 overflow-y-auto space-y-2 mb-2"></div>
@@ -118,7 +157,6 @@
                                 <button id="add-group-btn" class="bg-purple-600 text-white px-2 rounded text-xs flex-1 hover:bg-purple-700 transition">Crear</button>
                             </div>
                         </div>
-                        
                         <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]">
                             <h2 class="text-sm font-bold uppercase text-gray-500 mb-2">Catálogo Aulas</h2>
                             <div id="classrooms-list-manage" class="flex-1 overflow-y-auto space-y-1"></div>
@@ -131,95 +169,12 @@
                 </div>
             </div>
 
-            <div id="tab-content-estadisticas" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                <div class="max-w-6xl mx-auto">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Carga Horaria Docente</h2>
-                        <div id="teacher-workload-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            </div>
-                    </div>
-
-                    <div class="flex justify-between items-center mb-6">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-800">Control de Asistencia</h2>
-                            <p class="text-sm text-gray-500">Métricas en tiempo real basadas en incidencias registradas.</p>
-                        </div>
-                        <div class="flex gap-3 bg-white p-2 rounded-lg shadow-sm border border-gray-200">
-                            <select id="stats-month" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2">
-                                <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-                                <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-                                <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-                                <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-                            </select>
-                            <select id="stats-year" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2">
-                                <option value="2025">2025</option>
-                                <option value="2026" selected>2026</option>
-                                <option value="2027">2027</option>
-                            </select>
-                            <button id="btn-add-absence" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-red-700 transition">
-                                + Registrar Falta
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="stats-content" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="stat-card bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-red-500 border-gray-100">
-                                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Faltas Reales (Carrera)</h3>
-                                <div class="text-3xl font-black text-gray-800" id="stat-total-absences">0</div>
-                                <div class="text-xs text-gray-400 mt-2">Incidencias reportadas este mes</div>
-                            </div>
-                            <div class="stat-card bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-green-500 border-gray-100">
-                                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Asistencia Global Promedio</h3>
-                                <div class="text-3xl font-black text-gray-800" id="stat-global-pct">100%</div>
-                                <div class="text-xs text-gray-400 mt-2">Basado en horario programado</div>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col lg:flex-row gap-6">
-                            <div class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div class="p-4 border-b border-gray-100 bg-gray-50">
-                                    <h3 class="font-bold text-gray-700">Desempeño por Grupo</h3>
-                                </div>
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left">
-                                        <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
-                                            <tr>
-                                                <th class="px-4 py-3">Grupo</th>
-                                                <th class="px-4 py-3 text-center">Faltas</th>
-                                                <th class="px-4 py-3 text-center">% Asistencia</th>
-                                                <th class="px-4 py-3 text-center">% Inasistencia</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="stats-table-body" class="divide-y divide-gray-100">
-                                            </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            <div class="w-full lg:w-96 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-[500px]">
-                                <div class="p-4 border-b border-gray-100 bg-gray-50">
-                                    <h3 class="font-bold text-gray-700">Registro de Incidencias</h3>
-                                </div>
-                                <div class="flex-1 overflow-y-auto">
-                                    <table class="w-full">
-                                        <tbody id="stats-log-body" class="divide-y divide-gray-100">
-                                            </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div id="tab-content-reportes" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
                  <div class="max-w-5xl mx-auto space-y-6">
                      <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
                          <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">Centro de Exportación</h2>
                          <p class="text-gray-500 mb-8 text-center">Genera documentos oficiales individuales o masivos.</p>
-                         
-                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                              <div class="border border-gray-100 bg-gray-50 p-6 rounded-xl text-center">
                                  <h3 class="font-bold text-lg mb-4 text-indigo-800">Exportar Vista Actual</h3>
                                  <div class="flex justify-center gap-4">
@@ -231,7 +186,6 @@
                                      </button>
                                  </div>
                              </div>
-
                              <div class="border border-indigo-100 bg-indigo-50 p-6 rounded-xl text-center relative overflow-hidden">
                                  <div class="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">RECOMENDADO</div>
                                  <h3 class="font-bold text-lg mb-4 text-indigo-900">Exportación Masiva (ZIP)</h3>
@@ -242,33 +196,20 @@
                              </div>
                          </div>
                      </div>
-
-                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                         <h3 class="font-bold text-lg mb-4 text-gray-700">Bloqueos Administrativos</h3>
-                         <div class="flex gap-4 mb-4">
-                             <select id="block-trimester" class="border p-2 rounded w-48"></select>
-                             <select id="block-time" class="border p-2 rounded w-48"></select>
-                             <button id="add-block-btn" class="bg-amber-500 text-white px-6 rounded font-medium hover:bg-amber-600 transition">Agregar</button>
-                         </div>
-                         <div id="blocks-list" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
-                     </div>
                  </div>
             </div>
         </main>
     </div>
 
     <div id="export-template"></div>
-
     <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all"></div>
     </div>
-    
     <div class="fixed bottom-6 left-6 z-[60]">
         <button id="btn-undo" class="bg-gray-800 hover:bg-black text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all opacity-50 cursor-not-allowed" disabled>
             <span class="text-lg">↩️</span> <span class="text-sm font-bold">Deshacer</span>
         </button>
     </div>
-    
     <div id="notification-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
 
     <script type="module" src="config.js"></script>
