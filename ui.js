@@ -11,16 +11,45 @@ export function renderSettings() {
     if(btn) btn.onclick = saveSettings;
 }
 
-// === LISTA DOCENTES ===
+// === LISTA DOCENTES (CON ASESORÍA) ===
 export function renderTeachersList() { 
     const l = document.getElementById('teachers-list'); if(!l) return; l.innerHTML = ''; 
     state.teachers.sort((a,b)=>a.name.localeCompare(b.name)).forEach(t => { 
-        const hours = state.schedule.filter(c => c.teacherId === t.id).reduce((acc, c) => acc + c.duration, 0);
-        const pct = Math.min((hours / 40) * 100, 100);
-        let color = "bg-green-500"; if(hours > 20) color = "bg-yellow-500"; if(hours > 30) color = "bg-orange-500"; if(hours > 35) color = "bg-red-500";
+        // 1. Horas de Clase
+        const classHours = state.schedule.filter(c => c.teacherId === t.id).reduce((acc, c) => acc + c.duration, 0);
+        // 2. Horas de Asesoría
+        const advisoryHours = t.advisoryHours || 0;
+        // 3. Total
+        const totalHours = classHours + advisoryHours;
+
+        const pct = Math.min((totalHours / 40) * 100, 100);
+        let color = "bg-green-500"; 
+        if(totalHours > 20) color = "bg-yellow-500"; 
+        if(totalHours > 30) color = "bg-orange-500"; 
+        if(totalHours > 35) color = "bg-red-500";
+        
         const div = document.createElement('div');
         div.className = "p-2 border-b text-sm bg-white hover:bg-gray-50 flex flex-col gap-1";
-        div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-gray-700 cursor-pointer truncate mr-2" title="${t.fullName || ''}">${t.name}</span><div class="flex gap-1 items-center"><span class="text-xs font-mono font-bold text-gray-500 mr-2">${hours}h</span><button class="btn-edit text-blue-400 px-1">✎</button><button class="btn-del text-red-400 px-1">×</button></div></div><div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden"><div class="${color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div></div>`;
+        
+        // Tooltip con desglose
+        const breakdownTitle = `Clases: ${classHours}h + Asesoría: ${advisoryHours}h`;
+
+        div.innerHTML = `
+            <div class="flex justify-between items-center">
+                <span class="font-bold text-gray-700 cursor-pointer truncate mr-2" title="${t.fullName || ''}">${t.name}</span>
+                <div class="flex gap-1 items-center">
+                    <span class="text-xs font-mono font-bold text-gray-500 mr-2 flex items-center gap-1" title="${breakdownTitle}">
+                        ${totalHours}h
+                        ${advisoryHours > 0 ? `<span class="text-[9px] text-blue-500 font-bold">(+${advisoryHours})</span>` : ''}
+                    </span>
+                    <button class="btn-edit text-blue-400 px-1">✎</button>
+                    <button class="btn-del text-red-400 px-1">×</button>
+                </div>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden" title="${breakdownTitle}">
+                <div class="${color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+            </div>
+        `;
         div.querySelector('.btn-edit').onclick = () => showTeacherForm(t);
         div.querySelector('.btn-del').onclick = () => deleteDocWrapper('teachers', t.id);
         l.appendChild(div);
@@ -30,20 +59,16 @@ export function renderTeachersList() {
 // === LISTA GRUPOS (CON EDITAR/BORRAR) ===
 export function renderGroupsList() { 
     const l = document.getElementById('groups-by-trimester'); if(!l) return; 
-    l.innerHTML = state.groups.map(g => {
-        // Usamos botones inline con onclick global o asignado despues
-        // Para simplicidad en string template, asignaremos listeners despues
-        return `
+    l.innerHTML = state.groups.map(g => `
         <div class="p-2 border bg-white text-sm flex justify-between items-center group-item" data-id="${g.id}">
             <span>${g.name}</span>
             <div class="flex gap-1">
                 <button class="text-blue-400 px-1 hover:text-blue-600 btn-edit-grp">✎</button>
                 <button class="text-red-400 px-1 hover:text-red-600 btn-del-grp">×</button>
             </div>
-        </div>`;
-    }).join('');
+        </div>`
+    ).join('');
 
-    // Asignar eventos
     l.querySelectorAll('.group-item').forEach(el => {
         const id = el.dataset.id;
         const g = state.groups.find(x => x.id === id);
@@ -65,7 +90,6 @@ export function renderClassroomsManageList() {
         </div>`
     ).join('');
     
-    // Asignar eventos
     l.querySelectorAll('.classroom-item').forEach(el => {
         const id = el.dataset.id;
         const c = state.classrooms.find(x => x.id === id);
@@ -89,18 +113,13 @@ export function renderAlerts() {
         if (missing.length > 0) {
             const el = document.createElement('div');
             el.className = "cursor-pointer hover:bg-orange-100 transition-colors border border-orange-200 bg-white rounded-full px-3 py-1 text-xs flex items-center gap-2 shadow-sm select-none";
-            el.innerHTML = `
-                <span class="font-bold text-gray-700">${g.name}</span>
-                <span class="bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold text-[10px] min-w-[20px] text-center">${missing.length}</span>
-            `;
+            el.innerHTML = `<span class="font-bold text-gray-700">${g.name}</span><span class="bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold text-[10px] min-w-[20px] text-center">${missing.length}</span>`;
             el.onclick = () => showAuditModal(g, missing);
             container.appendChild(el);
         }
     });
 
-    if(container.children.length === 0) {
-        container.innerHTML = `<div class="w-full text-center text-xs text-gray-400 italic py-4">🎉 Todo perfecto. No faltan materias.</div>`;
-    }
+    if(container.children.length === 0) container.innerHTML = `<div class="w-full text-center text-xs text-gray-400 italic py-4">🎉 Todo perfecto. No faltan materias.</div>`;
 }
 
 // === MODAL DE SUGERENCIAS ===
