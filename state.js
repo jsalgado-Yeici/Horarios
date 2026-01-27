@@ -5,11 +5,11 @@ export const timeSlots = Array.from({length: 14}, (_, i) => i + 7);
 
 export const state = {
     teachers: [], subjects: [], groups: [], schedule: [], 
-    classrooms: [], 
-    // Reemplazamos 'blocks' y 'attendance' con 'external'
-    external: [], 
+    classrooms: [], external: [], 
+    // Configuración global (ej. corte de turnos)
+    settings: { shiftCutoff: 4 }, // Valor por defecto
     history: [],
-    loading: { teachers: true, subjects: true, groups: true, schedule: true, classrooms: true, external: true }
+    loading: { teachers: true, subjects: true, groups: true, schedule: true, classrooms: true, external: true, settings: true }
 };
 
 export const cols = {
@@ -18,6 +18,6 @@ export const cols = {
     groups: collection(db, `artifacts/${APP_ID}/public/data/groups`),
     schedule: collection(db, `artifacts/${APP_ID}/public/data/schedule`),
     classrooms: collection(db, `artifacts/${APP_ID}/public/data/classrooms`),
-    // Nueva colección para STEM e Idiomas
-    external: collection(db, `artifacts/${APP_ID}/public/data/external`)
+    external: collection(db, `artifacts/${APP_ID}/public/data/external`),
+    settings: collection(db, `artifacts/${APP_ID}/public/data/settings`)
 };
