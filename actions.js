@@ -6,7 +6,6 @@ export async function saveSettings() {
     const val = document.getElementById('setting-shift-cutoff').value;
     if(val) {
         const num = parseInt(val);
-        // Usamos un ID fijo 'global' para la configuración
         await setDoc(doc(cols.settings, 'global'), { shiftCutoff: num });
         alert("Configuración guardada.");
     }
@@ -30,7 +29,7 @@ export async function undoLastAction() {
     } catch(e) { console.error(e); alert("Error al deshacer"); }
 }
 
-// === DRAG & DROP & FORMS (Sin cambios mayores, solo importaciones) ===
+// === FORMULARIOS Y ACCIONES ===
 export function handleDrop(e, day, hour) {
     e.preventDefault(); document.querySelectorAll('.droppable-hover').forEach(c => c.classList.remove('droppable-hover'));
     try { const rawData = e.dataTransfer.getData('application/json'); if (!rawData) return; const d = JSON.parse(rawData); if(d.type === 'subject') { const s = state.subjects.find(x => x.id === d.id); if(s) showClassForm({ day, startTime: hour, subjectId: d.id, teacherId: s.defaultTeacherId || null }); } } catch(err){ console.error(err); }
@@ -97,4 +96,76 @@ export function showSubjectForm(sub = null) {
     document.getElementById('modal-content').innerHTML = `<div class="p-6 bg-white"><h2 class="font-bold mb-4">${isEdit?'Editar':'Nueva'} Materia</h2><input id="s-name" value="${sub?sub.name:''}" class="w-full border p-2 mb-2" placeholder="Nombre Materia"><select id="s-trim" class="w-full border p-2 mb-2">${[1,2,3,4,5,6,7,8,9].map(i=>`<option value="${i}" ${sub&&sub.trimester==i?'selected':''}>Cuatri ${i}</option>`).join('')}</select><select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select><button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button></div>`; 
     document.getElementById('btn-s-save').onclick = async () => { const n = document.getElementById('s-name').value; const data = { name: n, trimester: parseInt(document.getElementById('s-trim').value), defaultTeacherId: document.getElementById('s-def').value }; if(n) { if(isEdit) { const {id:_, ...d}=sub; pushHistory({type:'update', col:'subjects', id:sub.id, data:d}); await updateDoc(doc(cols.subjects, sub.id), data); } else { const ref = await addDoc(cols.subjects, data); pushHistory({type:'delete', col:'subjects', id:ref.id}); } modal.classList.add('hidden'); } }; 
 }
-export function deleteDocWrapper(colName, id) { if(confirm('¿Seguro de borrar?')) { let old = null; if(colName==='schedule') old=state.schedule.find(x=>x.id===id); else if(colName==='external') old=state.external.find(x=>x.id===id); else if(colName==='teachers') old=state.teachers.find(x=>x.id===id); if(old) { const {id:_, ...d}=old; pushHistory({type:'add', col:colName, id, data:d}); } deleteDoc(doc(cols[colName], id)); } }
+
+// === NUEVO: FORMULARIO DE GRUPO ===
+export function showGroupForm(group = null) {
+    const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!group;
+    document.getElementById('modal-content').innerHTML = `
+        <div class="p-6 bg-white">
+            <h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nuevo'} Grupo</h2>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Grupo</label>
+                <input id="g-name" value="${group ? group.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: IAEV-10">
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Cuatrimestre</label>
+                <select id="g-trim" class="w-full border p-2 rounded">
+                    ${[1,2,3,4,5,6,7,8,9,10].map(i => `<option value="${i}" ${group && group.trimester == i ? 'selected' : ''}>${i}° Cuatrimestre</option>`).join('')}
+                </select>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500">Cancelar</button>
+                <button id="btn-g-save" class="bg-purple-600 text-white px-4 py-2 rounded font-bold">Guardar</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('btn-g-save').onclick = async () => {
+        const n = document.getElementById('g-name').value;
+        const t = parseInt(document.getElementById('g-trim').value);
+        if(n) {
+            const data = { name: n, trimester: t };
+            if(isEdit) {
+                const {id:_, ...d} = group; pushHistory({type:'update', col:'groups', id:group.id, data:d});
+                await updateDoc(doc(cols.groups, group.id), data);
+            } else {
+                const ref = await addDoc(cols.groups, data);
+                pushHistory({type:'delete', col:'groups', id:ref.id});
+            }
+            modal.classList.add('hidden');
+        }
+    };
+}
+
+// === NUEVO: FORMULARIO DE AULA ===
+export function showClassroomForm(room = null) {
+    const modal = document.getElementById('modal'); modal.classList.remove('hidden'); const isEdit = !!room;
+    document.getElementById('modal-content').innerHTML = `
+        <div class="p-6 bg-white">
+            <h2 class="font-bold mb-4">${isEdit ? 'Editar' : 'Nueva'} Aula</h2>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Aula</label>
+                <input id="r-name" value="${room ? room.name : ''}" class="w-full border p-2 rounded" placeholder="Ej: Lab. Cómputo 1">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500">Cancelar</button>
+                <button id="btn-r-save" class="bg-teal-600 text-white px-4 py-2 rounded font-bold">Guardar</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('btn-r-save').onclick = async () => {
+        const n = document.getElementById('r-name').value;
+        if(n) {
+            const data = { name: n };
+            if(isEdit) {
+                const {id:_, ...d} = room; pushHistory({type:'update', col:'classrooms', id:room.id, data:d});
+                await updateDoc(doc(cols.classrooms, room.id), data);
+            } else {
+                const ref = await addDoc(cols.classrooms, data);
+                pushHistory({type:'delete', col:'classrooms', id:ref.id});
+            }
+            modal.classList.add('hidden');
+        }
+    };
+}
+
+export function deleteDocWrapper(colName, id) { if(confirm('¿Seguro de borrar?')) { let old = null; if(colName==='schedule') old=state.schedule.find(x=>x.id===id); else if(colName==='external') old=state.external.find(x=>x.id===id); else if(colName==='teachers') old=state.teachers.find(x=>x.id===id); else if(colName==='groups') old=state.groups.find(x=>x.id===id); else if(colName==='classrooms') old=state.classrooms.find(x=>x.id===id); if(old) { const {id:_, ...d}=old; pushHistory({type:'add', col:colName, id, data:d}); } deleteDoc(doc(cols[colName], id)); } }
