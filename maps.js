@@ -26,18 +26,10 @@ export const MAP_DATA = {
 
     // === PLANTA BAJA ===
     pb: [
-        // Pasillo Principal (Rojo según dibujo) - Forma de U invertida o similar
-        // Pasillo Vertical Izquierdo (Entre Idiomas y Centro)
-        { id: 'corr_1', type: 'corridor', x: 23, y: 15, w: 7, h: 45 },
-        // Pasillo Horizontal Principal (Conecta todo)
-        { id: 'corr_2', type: 'corridor', x: 23, y: 55, w: 60, h: 8 },
-        // Pasillo Vertical Derecho (Hacia oficinas)
-        { id: 'corr_3', type: 'corridor', x: 70, y: 5, w: 8, h: 58 },
-
-        // Izquierda: Idiomas
+        // Izquierda: Idiomas (Bloque grande vertical)
         { id: 'idiomas', name: 'C. Idiomas', type: 'office', icon: '🗣️', door: 'right', x: 5, y: 15, w: 18, h: 45 },
 
-        // Centro: Certificación y Arte
+        // Centro: Certificación y Arte (Bloques centrales)
         { id: 'cert', name: 'Certific.', type: 'office', icon: '📜', door: 'left', x: 30, y: 15, w: 18, h: 30 },
         { id: 'arte', name: 'Lab. Arte', type: 'lab', icon: '🎨', door: 'right', x: 52, y: 15, w: 18, h: 30 },
 
@@ -51,7 +43,6 @@ export const MAP_DATA = {
         { id: 'modelado', name: 'L. Modelado', type: 'lab', icon: '🗿', door: 'top', x: 78, y: 65, w: 15, h: 25 },
 
         // Extras
-        { id: 'juntas', name: 'Juntas', type: 'office', icon: '🤝', door: 'bottom', x: 5, y: 5, w: 18, h: 8 },
         { id: 'stairs_down', name: 'Bajar', type: 'stairs', icon: '⬇️', x: 94, y: 5, w: 5, h: 10 }
     ]
 };
@@ -73,44 +64,42 @@ export function renderMap(floorId, container, scheduleData, onRoomClick) {
         el.style.width = `${item.w}%`;
         el.style.height = `${item.h}%`;
 
-        if (item.type !== 'corridor') {
-            // Icon & Name
-            const iconSpan = document.createElement('span');
-            iconSpan.className = 'room-icon';
-            iconSpan.textContent = item.icon || '';
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = item.name;
-            el.appendChild(iconSpan);
-            el.appendChild(nameSpan);
+        // Icon rendering
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'room-icon';
+        iconSpan.textContent = item.icon || '';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = item.name;
+        el.appendChild(iconSpan);
+        el.appendChild(nameSpan);
 
-            // Door Indicator
-            if (item.door) {
-                const door = document.createElement('div');
-                door.className = `door-indicator door-${item.door}`;
-                el.appendChild(door);
-            }
+        // Door Indicator
+        if (item.door) {
+            const door = document.createElement('div');
+            door.className = `door-indicator door-${item.door}`;
+            el.appendChild(door);
+        }
 
-            // Status Logic (Occupied/Free) - Solo para aulas/labs
-            if (item.type === 'classroom' || item.type === 'lab') {
-                const inUse = scheduleData.some(c =>
-                    c.classroomId === item.id &&
-                    c.day === currentDay &&
-                    c.startTime <= currentHour &&
-                    (c.startTime + c.duration) > currentHour
-                );
+        // Status Logic (Occupied/Free) - Aulas, Labs y Oficinas
+        if (item.type === 'classroom' || item.type === 'lab' || item.type === 'office') {
+            const inUse = scheduleData.some(c =>
+                c.classroomId === item.id &&
+                c.day === currentDay &&
+                c.startTime <= currentHour &&
+                (c.startTime + c.duration) > currentHour
+            );
 
-                if (inUse) {
-                    el.classList.add('occupied');
-                    el.title = "En Uso Ahora";
-                } else {
-                    el.classList.add('free');
-                }
-
-                el.onclick = () => onRoomClick(item);
-                el.style.cursor = "pointer";
+            if (inUse) {
+                el.classList.add('occupied');
+                el.title = "En Uso Ahora";
             } else {
-                el.style.cursor = "default";
+                el.classList.add('free');
             }
+
+            el.onclick = () => onRoomClick(item);
+            el.style.cursor = "pointer";
+        } else {
+            el.style.cursor = "default";
         }
 
         container.appendChild(el);
