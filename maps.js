@@ -33,10 +33,11 @@ export const MAP_DATA = {
         { id: 'cert', name: 'Certific.', type: 'office', icon: '📜', x: 30, y: 5, w: 18, h: 45 },
         { id: 'arte', name: 'Lab. Arte', type: 'lab', icon: '🎨', x: 50, y: 5, w: 18, h: 45 },
 
-        // SPLIT: Oficinas Admin divididas en 3 cubículos
-        { id: 'admin1', name: 'Director', type: 'office', icon: '👔', x: 75, y: 5, w: 20, h: 12 },
-        { id: 'admin2', name: 'Admin', type: 'office', icon: '📂', x: 75, y: 18, w: 20, h: 13 },
-        { id: 'admin3', name: 'Coord.', type: 'office', icon: '📋', x: 75, y: 32, w: 20, h: 13 },
+        // SPLIT: Oficinas Admin divididas en 4 cubículos
+        { id: 'admin1', name: 'Director', type: 'office', icon: '👔', x: 75, y: 5, w: 20, h: 9 },
+        { id: 'admin2', name: 'Admin', type: 'office', icon: '📂', x: 75, y: 15, w: 20, h: 9 },
+        { id: 'admin3', name: 'Coord.', type: 'office', icon: '📋', x: 75, y: 25, w: 20, h: 9 },
+        { id: 'admin4', name: 'Aux.', type: 'office', icon: '📇', x: 75, y: 35, w: 20, h: 10 },
 
         { id: 'modelado', name: 'L. Modelado', type: 'lab', icon: '🗿', x: 80, y: 55, w: 15, h: 20 },
 
