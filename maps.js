@@ -26,22 +26,25 @@ export const MAP_DATA = {
 
     // === PLANTA BAJA ===
     pb: [
-        { id: 'idiomas', name: 'C. Idiomas', type: 'office', icon: '🗣️', x: 10, y: 5, w: 15, h: 12 },
-        { id: 'juntas', name: 'Juntas', type: 'office', icon: '🤝', x: 10, y: 20, w: 15, h: 15 },
+        // Izquierda: Idiomas (Bloque grande vertical)
+        { id: 'idiomas', name: 'C. Idiomas', type: 'office', icon: '🗣️', x: 5, y: 15, w: 18, h: 45 },
 
-        // Certificador
-        { id: 'cert', name: 'Certific.', type: 'office', icon: '📜', x: 30, y: 5, w: 18, h: 45 },
-        { id: 'arte', name: 'Lab. Arte', type: 'lab', icon: '🎨', x: 50, y: 5, w: 18, h: 45 },
+        // Centro: Certificación y Arte (Bloques centrales)
+        { id: 'cert', name: 'Certific.', type: 'office', icon: '📜', x: 30, y: 15, w: 18, h: 30 },
+        { id: 'arte', name: 'Lab. Arte', type: 'lab', icon: '🎨', x: 52, y: 15, w: 18, h: 30 },
 
-        // SPLIT: Oficinas Admin divididas en 4 cubículos
-        { id: 'admin1', name: 'Director', type: 'office', icon: '👔', x: 75, y: 5, w: 20, h: 9 },
-        { id: 'admin2', name: 'Admin', type: 'office', icon: '📂', x: 75, y: 15, w: 20, h: 9 },
-        { id: 'admin3', name: 'Coord.', type: 'office', icon: '📋', x: 75, y: 25, w: 20, h: 9 },
-        { id: 'admin4', name: 'Aux.', type: 'office', icon: '📇', x: 75, y: 35, w: 20, h: 10 },
+        // Derecha Superior: Pila de Oficinas (4)
+        { id: 'admin1', name: 'Coord.', type: 'office', icon: '📋', x: 78, y: 5, w: 15, h: 10 },
+        { id: 'admin2', name: 'Of. 1', type: 'office', icon: '👔', x: 78, y: 17, w: 15, h: 10 },
+        { id: 'admin3', name: 'Of. 2', type: 'office', icon: '📂', x: 78, y: 29, w: 15, h: 10 },
+        { id: 'admin4', name: 'Of. Yeici', type: 'office', icon: '📇', x: 78, y: 41, w: 15, h: 10 },
 
-        { id: 'modelado', name: 'L. Modelado', type: 'lab', icon: '🗿', x: 80, y: 55, w: 15, h: 20 },
+        // Derecha Inferior: Modelado (Debajo de oficinas, separado por pasillo)
+        { id: 'modelado', name: 'L. Modelado', type: 'lab', icon: '🗿', x: 78, y: 65, w: 15, h: 25 },
 
-        { id: 'stairs_down', name: 'Bajar', type: 'stairs', icon: '⬇️', x: 20, y: 70, w: 10, h: 12 }
+        // Extras
+        { id: 'juntas', name: 'Juntas', type: 'office', icon: '🤝', x: 5, y: 5, w: 18, h: 8 }, // Arriba de idiomas? o removido? Lo dejo pequeño arriba
+        { id: 'stairs_down', name: 'Bajar', type: 'stairs', icon: '⬇️', x: 94, y: 5, w: 5, h: 10 } // Círculo gris top-right?
     ]
 };
 
