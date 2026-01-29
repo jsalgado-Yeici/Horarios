@@ -289,6 +289,7 @@ body {
     padding: 4px;
     line-height: 1.1;
     background-color: white;
+    /* Default background */
     border-radius: 6px;
     overflow: hidden;
 }
@@ -309,9 +310,9 @@ body {
     opacity: 0.7;
 }
 
-/* Classroom - Desk Pattern */
+/* Classroom - Desk Pattern removed to allow Gradient Heatmap clearly */
 .map-room.classroom {
-    background-color: #f8fafc;
+    /* background-color: #f8fafc;  <-- Removed to let gradient show */
     border-color: #94a3b8;
     color: #1e293b;
     /* Simulate rows of desks */
@@ -322,7 +323,7 @@ body {
 
 /* Lab - Technical Grid */
 .map-room.lab {
-    background-color: #fff7ed;
+    /* background-color: #fff7ed; <-- Removed */
     border-color: #fb923c;
     color: #9a3412;
     background-image: linear-gradient(0deg, transparent 24%, rgba(251, 146, 60, .1) 25%, rgba(251, 146, 60, .1) 26%, transparent 27%, transparent 74%, rgba(251, 146, 60, .1) 75%, rgba(251, 146, 60, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(251, 146, 60, .1) 25%, rgba(251, 146, 60, .1) 26%, transparent 27%, transparent 74%, rgba(251, 146, 60, .1) 75%, rgba(251, 146, 60, .1) 76%, transparent 77%, transparent);
@@ -331,10 +332,16 @@ body {
 
 /* Office - Clean & Professional */
 .map-room.office {
-    background-color: #f1f5f9;
+    /* background-color: #f1f5f9; <-- Removed */
     border-color: #cbd5e1;
     color: #475569;
-    background-image: repeating-linear-gradient(0deg, transparent, transparent 19px, #e2e8f0 20px);
+    /* background-image: repeating-linear-gradient(0deg, transparent, transparent 19px, #e2e8f0 20px); <-- Removed to let heatmap show */
+}
+
+/* Warning for missing catalog sync */
+.map-room.not-in-catalog {
+    border-style: dashed !important;
+    opacity: 0.7;
 }
 
 /* Stairs - Stripped Steps */

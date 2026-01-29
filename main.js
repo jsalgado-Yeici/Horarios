@@ -100,7 +100,7 @@ function switchFloor(floor) {
     const active = "px-4 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 transition-all";
     const inactive = "px-4 py-2 rounded-md text-sm font-bold text-gray-500 hover:bg-white hover:shadow transition-all";
     if (floor === 'pb') { btnPb.className = active; btnPa.className = inactive; } else { btnPa.className = active; btnPb.className = inactive; }
-    const container = document.getElementById('map-viewport'); renderMap(floor, container, state.schedule, (room) => showRoomDetails(room));
+    const container = document.getElementById('map-viewport'); renderMap(floor, container, state.schedule, state.classrooms, (room) => showRoomDetails(room));
 }
 function showRoomDetails(room) { /* Sin cambios */ }
 

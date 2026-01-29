@@ -47,7 +47,7 @@ export const MAP_DATA = {
     ]
 };
 
-export function renderMap(floorId, container, scheduleData, onRoomClick) {
+export function renderMap(floorId, container, scheduleData, catalog, onRoomClick) {
     container.innerHTML = '';
     const items = MAP_DATA[floorId] || [];
 
@@ -55,6 +55,9 @@ export function renderMap(floorId, container, scheduleData, onRoomClick) {
     const now = new Date();
     const currentDay = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][now.getDay()];
     const currentHour = now.getHours();
+
+    // Total horas semanales posibles (7am - 9pm = 14h * 5 días = 70h)
+    const TOTAL_WEEKLY_HOURS = 70;
 
     items.forEach(item => {
         const el = document.createElement('div');
@@ -80,8 +83,21 @@ export function renderMap(floorId, container, scheduleData, onRoomClick) {
             el.appendChild(door);
         }
 
-        // Status Logic (Occupied/Free) - Aulas, Labs y Oficinas
+        // Logic for Classrooms, Labs, and Offices
         if (item.type === 'classroom' || item.type === 'lab' || item.type === 'office') {
+
+            // 1. Catalog Sync Check
+            // Si pasamos catálogo, verificamos que el ID exista
+            if (catalog) {
+                const inCatalog = catalog.find(c => c.id === item.id);
+                if (!inCatalog) {
+                    el.classList.add('not-in-catalog');
+                    el.title = "No registrado en Catálogo";
+                    nameSpan.textContent += " (?)"; // Warning visual
+                }
+            }
+
+            // 2. In-Use Check (Realtime)
             const inUse = scheduleData.some(c =>
                 c.classroomId === item.id &&
                 c.day === currentDay &&
@@ -91,13 +107,34 @@ export function renderMap(floorId, container, scheduleData, onRoomClick) {
 
             if (inUse) {
                 el.classList.add('occupied');
-                el.title = "En Uso Ahora";
+                // el.title will be updated below
             } else {
                 el.classList.add('free');
             }
 
+            // 3. Weekly Usage Heatmap (Gradient Fill)
+            const hoursUsed = scheduleData
+                .filter(c => c.classroomId === item.id)
+                .reduce((acc, c) => acc + c.duration, 0);
+
+            const usagePct = Math.min((hoursUsed / TOTAL_WEEKLY_HOURS) * 100, 100).toFixed(0);
+
+            // Definir color de relleno según intensidad (Blue -> Orange -> Red)
+            let fillColor = 'rgba(59, 130, 246, 0.2)'; // Blue tint default
+            if (usagePct > 30) fillColor = 'rgba(249, 115, 22, 0.3)'; // Orange tint
+            if (usagePct > 60) fillColor = 'rgba(239, 68, 68, 0.3)'; // Red tint
+
+            // Aplicar gradiente: De abajo hacia arriba
+            // El resto (arriba del %) se queda transparente o blanco
+            el.style.background = `linear-gradient(to top, ${fillColor} ${usagePct}%, white ${usagePct}%)`;
+
+            // Tooltip info
+            el.title = `${item.name}\nUso Semanal: ${usagePct}% (${hoursUsed}h)\nEstado: ${inUse ? "OCUPADO AHORA" : "Libre"}`;
+
+            // Interaction
             el.onclick = () => onRoomClick(item);
             el.style.cursor = "pointer";
+
         } else {
             el.style.cursor = "default";
         }
