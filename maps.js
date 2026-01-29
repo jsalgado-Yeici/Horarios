@@ -26,31 +26,44 @@ export const MAP_DATA = {
 
     // === PLANTA BAJA ===
     pb: [
-        // Izquierda: Idiomas (Bloque grande vertical)
-        { id: 'idiomas', name: 'C. Idiomas', type: 'office', icon: '🗣️', x: 5, y: 15, w: 18, h: 45 },
+        // Pasillo Principal (Rojo según dibujo) - Forma de U invertida o similar
+        // Pasillo Vertical Izquierdo (Entre Idiomas y Centro)
+        { id: 'corr_1', type: 'corridor', x: 23, y: 15, w: 7, h: 45 },
+        // Pasillo Horizontal Principal (Conecta todo)
+        { id: 'corr_2', type: 'corridor', x: 23, y: 55, w: 60, h: 8 },
+        // Pasillo Vertical Derecho (Hacia oficinas)
+        { id: 'corr_3', type: 'corridor', x: 70, y: 5, w: 8, h: 58 },
 
-        // Centro: Certificación y Arte (Bloques centrales)
-        { id: 'cert', name: 'Certific.', type: 'office', icon: '📜', x: 30, y: 15, w: 18, h: 30 },
-        { id: 'arte', name: 'Lab. Arte', type: 'lab', icon: '🎨', x: 52, y: 15, w: 18, h: 30 },
+        // Izquierda: Idiomas
+        { id: 'idiomas', name: 'C. Idiomas', type: 'office', icon: '🗣️', door: 'right', x: 5, y: 15, w: 18, h: 45 },
 
-        // Derecha Superior: Pila de Oficinas (4)
-        { id: 'admin1', name: 'Coord.', type: 'office', icon: '📋', x: 78, y: 5, w: 15, h: 10 },
-        { id: 'admin2', name: 'Of. 1', type: 'office', icon: '👔', x: 78, y: 17, w: 15, h: 10 },
-        { id: 'admin3', name: 'Of. 2', type: 'office', icon: '📂', x: 78, y: 29, w: 15, h: 10 },
-        { id: 'admin4', name: 'Of. Yeici', type: 'office', icon: '📇', x: 78, y: 41, w: 15, h: 10 },
+        // Centro: Certificación y Arte
+        { id: 'cert', name: 'Certific.', type: 'office', icon: '📜', door: 'left', x: 30, y: 15, w: 18, h: 30 },
+        { id: 'arte', name: 'Lab. Arte', type: 'lab', icon: '🎨', door: 'right', x: 52, y: 15, w: 18, h: 30 },
 
-        // Derecha Inferior: Modelado (Debajo de oficinas, separado por pasillo)
-        { id: 'modelado', name: 'L. Modelado', type: 'lab', icon: '🗿', x: 78, y: 65, w: 15, h: 25 },
+        // Derecha Superior: Oficinas
+        { id: 'admin1', name: 'Coord.', type: 'office', icon: '📋', door: 'left', x: 78, y: 5, w: 15, h: 10 },
+        { id: 'admin2', name: 'Of. 1', type: 'office', icon: '👔', door: 'left', x: 78, y: 17, w: 15, h: 10 },
+        { id: 'admin3', name: 'Of. 2', type: 'office', icon: '📂', door: 'left', x: 78, y: 29, w: 15, h: 10 },
+        { id: 'admin4', name: 'Of. Yeici', type: 'office', icon: '📇', door: 'left', x: 78, y: 41, w: 15, h: 10 },
+
+        // Derecha Inferior: Modelado (Separado por pasillo horizontal)
+        { id: 'modelado', name: 'L. Modelado', type: 'lab', icon: '🗿', door: 'top', x: 78, y: 65, w: 15, h: 25 },
 
         // Extras
-        { id: 'juntas', name: 'Juntas', type: 'office', icon: '🤝', x: 5, y: 5, w: 18, h: 8 }, // Arriba de idiomas? o removido? Lo dejo pequeño arriba
-        { id: 'stairs_down', name: 'Bajar', type: 'stairs', icon: '⬇️', x: 94, y: 5, w: 5, h: 10 } // Círculo gris top-right?
+        { id: 'juntas', name: 'Juntas', type: 'office', icon: '🤝', door: 'bottom', x: 5, y: 5, w: 18, h: 8 },
+        { id: 'stairs_down', name: 'Bajar', type: 'stairs', icon: '⬇️', x: 94, y: 5, w: 5, h: 10 }
     ]
 };
 
 export function renderMap(floorId, container, scheduleData, onRoomClick) {
     container.innerHTML = '';
     const items = MAP_DATA[floorId] || [];
+
+    // Calcular hora actual para estado "En Uso"
+    const now = new Date();
+    const currentDay = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][now.getDay()];
+    const currentHour = now.getHours();
 
     items.forEach(item => {
         const el = document.createElement('div');
@@ -60,23 +73,44 @@ export function renderMap(floorId, container, scheduleData, onRoomClick) {
         el.style.width = `${item.w}%`;
         el.style.height = `${item.h}%`;
 
-        // Icon rendering
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'room-icon';
-        iconSpan.textContent = item.icon || '';
+        if (item.type !== 'corridor') {
+            // Icon & Name
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'room-icon';
+            iconSpan.textContent = item.icon || '';
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = item.name;
+            el.appendChild(iconSpan);
+            el.appendChild(nameSpan);
 
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = item.name;
+            // Door Indicator
+            if (item.door) {
+                const door = document.createElement('div');
+                door.className = `door-indicator door-${item.door}`;
+                el.appendChild(door);
+            }
 
-        el.appendChild(iconSpan);
-        el.appendChild(nameSpan);
+            // Status Logic (Occupied/Free) - Solo para aulas/labs
+            if (item.type === 'classroom' || item.type === 'lab') {
+                const inUse = scheduleData.some(c =>
+                    c.classroomId === item.id &&
+                    c.day === currentDay &&
+                    c.startTime <= currentHour &&
+                    (c.startTime + c.duration) > currentHour
+                );
 
-        // Solo permitir clic si es classroom o lab
-        if (item.type === 'classroom' || item.type === 'lab') {
-            el.onclick = () => onRoomClick(item);
-            el.style.cursor = "pointer";
-        } else {
-            el.style.cursor = "default";
+                if (inUse) {
+                    el.classList.add('occupied');
+                    el.title = "En Uso Ahora";
+                } else {
+                    el.classList.add('free');
+                }
+
+                el.onclick = () => onRoomClick(item);
+                el.style.cursor = "pointer";
+            } else {
+                el.style.cursor = "default";
+            }
         }
 
         container.appendChild(el);
