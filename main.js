@@ -182,7 +182,10 @@ function showRoomDetails(room) {
 
     html += `
             </div>
-            <div class="mt-6 flex justify-end">
+            <div class="mt-6 flex justify-between">
+                <button id="btn-quick-schedule" class="px-4 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg font-bold flex items-center gap-2">
+                    <span>➕ Programar Clase Aquí</span>
+                </button>
                 <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition-colors">Cerrar</button>
             </div>
         </div>
@@ -190,9 +193,16 @@ function showRoomDetails(room) {
 
     content.innerHTML = html;
 
-    // Bind close button
+    // Bind buttons
     const closeBtn = document.getElementById('close-room-details');
     if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+
+    const scheduleBtn = document.getElementById('btn-quick-schedule');
+    if (scheduleBtn) scheduleBtn.onclick = () => {
+        // Close details modal first? Or just swap content?
+        // showClassForm replaces innerHTML of modal-content, so it works.
+        showClassForm({ classroomId: room.id });
+    };
 }
 
 function setupRealtimeListeners() {
