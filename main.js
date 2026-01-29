@@ -102,7 +102,98 @@ function switchFloor(floor) {
     if (floor === 'pb') { btnPb.className = active; btnPa.className = inactive; } else { btnPa.className = active; btnPb.className = inactive; }
     const container = document.getElementById('map-viewport'); renderMap(floor, container, state.schedule, state.classrooms, (room) => showRoomDetails(room));
 }
-function showRoomDetails(room) { /* Sin cambios */ }
+function showRoomDetails(room) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-content');
+    modal.classList.remove('hidden');
+
+    // 1. Filtrar clases de este salón
+    const roomClasses = state.schedule.filter(c => c.classroomId === room.id);
+
+    // 2. Calcular estadísticas
+    const totalHours = roomClasses.reduce((acc, c) => acc + c.duration, 0);
+    const capacity = 70; // 14h * 5 días
+    const usagePct = Math.min((totalHours / capacity) * 100, 100).toFixed(0);
+
+    // 3. Ordenar por día y hora
+    const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5 };
+    roomClasses.sort((a, b) => {
+        const d = dayOrder[a.day] - dayOrder[b.day];
+        if (d !== 0) return d;
+        return a.startTime - b.startTime;
+    });
+
+    // 4. Generar HTML
+    let html = `
+        <div class="p-6 bg-white relative">
+            <button id="close-room-details" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-xl">×</button>
+            
+            <div class="flex items-center gap-3 mb-4">
+                <div class="text-3xl">${room.icon || '📍'}</div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">${room.name}</h2>
+                    <p class="text-sm text-gray-500 uppercase tracking-wide font-bold">${room.type === 'office' ? 'Oficina Administrativa' : 'Espacio Académico'}</p>
+                </div>
+            </div>
+
+            <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-gray-200">
+                <div class="flex justify-between items-end mb-2">
+                    <span class="text-sm font-bold text-gray-600">Uso Semanal</span>
+                    <span class="text-2xl font-bold ${usagePct > 60 ? 'text-red-500' : 'text-indigo-600'}">${usagePct}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div class="h-full transition-all duration-1000 ${usagePct > 60 ? 'bg-red-500' : (usagePct > 30 ? 'bg-orange-500' : 'bg-blue-500')}" style="width: ${usagePct}%"></div>
+                </div>
+                <p class="text-xs text-right text-gray-400 mt-1">${totalHours} horas ocupadas de ${capacity} disponibles.</p>
+            </div>
+
+            <h3 class="font-bold text-gray-700 mb-3 border-b pb-2">📅 Horario Asignado</h3>
+            <div class="overflow-y-auto max-h-[400px] space-y-2 pr-1">
+    `;
+
+    if (roomClasses.length === 0) {
+        html += `<div class="text-center py-8 text-gray-400 italic">No hay clases asignadas a este espacio.</div>`;
+    } else {
+        roomClasses.forEach(c => {
+            const subject = state.subjects.find(s => s.id === c.subjectId);
+            const group = state.groups.find(g => g.id === c.groupId);
+            const teacher = state.teachers.find(t => t.id === c.teacherId);
+
+            html += `
+                <div class="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-indigo-500">
+                    <div class="flex flex-col items-center justify-center bg-gray-100 rounded p-2 min-w-[60px]">
+                        <span class="text-xs font-bold text-gray-500 uppercase">${c.day.substring(0, 3)}</span>
+                        <span class="text-lg font-bold text-indigo-700">${c.startTime}:00</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-800 text-sm">${subject ? subject.name : 'Materia Desconocida'}</h4>
+                        <div class="text-xs text-gray-500 flex gap-2">
+                            <span class="bg-gray-100 px-1.5 rounded text-gray-600">👥 ${group ? group.name : 'S/G'}</span>
+                            <span class="bg-gray-100 px-1.5 rounded text-gray-600">👨‍🏫 ${teacher ? teacher.name : 'S/D'}</span>
+                        </div>
+                    </div>
+                    <div class="ml-auto text-xs font-bold text-gray-400">
+                        ${c.duration}h
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    html += `
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition-colors">Cerrar</button>
+            </div>
+        </div>
+    `;
+
+    content.innerHTML = html;
+
+    // Bind close button
+    const closeBtn = document.getElementById('close-room-details');
+    if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+}
 
 function setupRealtimeListeners() {
     const update = (k, s) => {
