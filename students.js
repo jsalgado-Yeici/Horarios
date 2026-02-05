@@ -112,6 +112,36 @@ export function initStudents() {
     });
 }
 
+// Función para recargar alumnos desde los grupos cargados (Persistencia)
+export function loadStudentsFromGroups(groups) {
+    if (!groups) return;
+
+    const allStudents = [];
+    groups.forEach(g => {
+        if (g.students && Array.isArray(g.students)) {
+            g.students.forEach(s => {
+                // Reconstruir objeto alumno plano para la UI
+                allStudents.push({
+                    matricula: s.matricula || s.id,
+                    nombre: s.name,
+                    grupo: g.name // Asignar grupo actual
+                });
+            });
+        }
+    });
+
+    // Actualizar estado si encontramos alumnos
+    if (allStudents.length > 0) {
+        state.students = allStudents;
+        // Actualizar contador visual si estamos en la pestaña
+        const countSpan = document.getElementById('student-count');
+        if (countSpan) countSpan.innerText = allStudents.length;
+
+        // Mostrar alerta discreta o log
+        console.log(`[Persistencia] ${allStudents.length} alumnos cargados desde grupos.`);
+    }
+}
+
 async function processFile(file) {
     const extension = file.name.split('.').pop().toLowerCase();
 

@@ -9,7 +9,7 @@ import {
     addGroup, addClassroom, renderGlobalMatrix, renderExternalClassesPanel, renderSettings,
     renderRoomHeatmap, renderVersion // Nueva Importación
 } from './ui.js';
-import { initStudents } from './students.js';
+import { initStudents, loadStudentsFromGroups } from './students.js';
 import { showClassForm, showTeacherForm, showSubjectForm, undoLastAction } from './actions.js';
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
@@ -226,7 +226,10 @@ function setupRealtimeListeners() {
 
         if (k === 'teachers' || k === 'schedule') renderTeachersList();
         if (k === 'subjects') renderSubjectsList();
-        if (k === 'groups') renderGroupsList();
+        if (k === 'groups') {
+            renderGroupsList();
+            loadStudentsFromGroups(state.groups);
+        }
         if (k === 'classrooms') { renderClassroomsManageList(); renderRoomHeatmap(); }
         if (k === 'schedule' || k === 'groups' || k === 'external') renderGlobalMatrix();
         if (k === 'groups' || k === 'external') renderExternalClassesPanel();
