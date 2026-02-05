@@ -91,54 +91,86 @@ async function processPDF(file) {
     const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
     let fullText = "";
 
+    // Improve text concatenation to try to preserve some separation
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + "\n";
+        // Join with double spaces to ensure we don't accidentally merge words across items
+        const pageText = textContent.items.map(item => item.str).join('  ');
+        fullText += " " + pageText;
     }
 
-    // Heuristic parsing for PDF text (very basic implementation)
-    // Looking for patterns like: 123456 LastName FirstName Group
-    console.log("PDF Raw Text Preview:", fullText.substring(0, 500)); // Debugging
+    console.log("PDF Raw Text Preview:", fullText.substring(0, 500));
 
     if (!fullText || fullText.trim().length === 0) {
         alert("El PDF no contiene texto legible. Es probable que sea una imagen o escaneo. Por favor use un archivo Excel o un PDF con texto seleccionable.");
         return [];
     }
 
-    const lines = fullText.split('\n');
     const students = [];
 
-    // Regex for typical matricula (digits, 3-9 chars to be safer)
-    const matriculaRegex = /\b\d{3,10}\b/;
+    // STRATEGY: Find all matriculas (6-10 digits) and split the text based on them.
+    // We assume the structure: ... Index Matricula Name ... NextIndex NextMatricula ...
+    const matriculaRegex = /\b(\d{6,10})\b/g;
+    const matches = [...fullText.matchAll(matriculaRegex)];
 
-    // Simple heuristic: if line has numbers resembling matricula, treat as student line
-    // This will likely need refinement based on real docs
-    lines.forEach(line => {
-        const match = line.match(matriculaRegex);
-        if (match) {
-            const matricula = match[0];
-            // Name often near matricula, cleaning up digits
-            let nameCandidate = line.replace(matricula, '').trim();
-            // Remove common academic words that might appear
-            nameCandidate = nameCandidate.replace(/universidad|politecnica|santa|rosa|jauregui|ingenieria|licenciatura/gi, '').trim();
-            // Basic cleanup of common noise
-            nameCandidate = nameCandidate.replace(/[^\w\sÁÉÍÓÚÑáéíóúñ]/g, '');
+    console.log(`Found ${matches.length} potential matriculas.`);
 
-            if (nameCandidate.length > 5) {
-                console.log(`Found candidate: ${matricula} - ${nameCandidate}`);
-                students.push({
-                    matricula: matricula,
-                    nombre: nameCandidate,
-                    grupo: "Desconocido (PDF)", // Group is hard to extract reliably without strict format
-                    generacion: "N/A"
-                });
-            }
+    for (let i = 0; i < matches.length; i++) {
+        const match = matches[i];
+        const matricula = match[1]; // The captured digits
+
+        // Define the text range for this student:
+        // From the end of this matricula to the start of the next matricula (or end of text)
+        const startIdx = match.index + match[0].length;
+        const endIdx = (i < matches.length - 1) ? matches[i + 1].index : fullText.length;
+
+        // Extract raw data segment for this student
+        let segment = fullText.substring(startIdx, endIdx).trim();
+
+        // CLEANUP: 
+        // 1. Remove the "Next Index" number that might be at the end of the segment (e.g. "... IAEV-42 2")
+        //    Looking for a single or double digit number at the very end of the string.
+        segment = segment.replace(/\s+\d{1,3}\s*$/, '');
+
+        // 2. Extract Group (e.g. "IAEV-42", "IAEV 42", "GPO 1")
+        //    Looking for typical group patterns at the end of the name string
+        let grupo = "Desconocido";
+        const groupRegex = /\b(IAEV[-\s]?\d+|GPO\s?\d+|[A-Z]{2,5}-\d+)\b/i;
+        const groupMatch = segment.match(groupRegex);
+
+        if (groupMatch) {
+            grupo = groupMatch[0].replace(/\s/g, '-').toUpperCase(); // Normalize: IAEV 42 -> IAEV-42
+            // Remove group from the name string to clean it up
+            segment = segment.replace(groupMatch[0], '');
         }
-    });
 
-    console.log(`Extracted ${students.length} students from PDF.`);
+        // 3. Extract Generation if present (e.g. "25BIS")
+        let generacion = "N/A";
+        const genRegex = /\b(\d{1,2}(BIS|GEN)?)\b/i; // Matches 25BIS, 19, etc. careful not to match dates
+        // Only run this if we have a reasonably clear token structure, otherwise skipping gen extraction is safer
+        // to avoid cutting parts of names.
+        // Let's rely on cleaning know words instead.
+
+        // 4. Clean up Name
+        // Remove common words that might remain
+        let nombre = segment.replace(/25BIS|19BIS|23BIS|\bBIS\b/gi, '') // Remove generations explicitly if known
+            .replace(/universidad|politecnica|santa|rosa|jauregui|ingenieria|licenciatura/gi, '')
+            .replace(/[^\w\sÁÉÍÓÚÑáéíóúñ]/g, '') // Remove weird chars
+            .replace(/\s+/g, ' ') // Collapse spaces
+            .trim();
+
+        if (nombre.length > 3) {
+            students.push({
+                matricula: matricula,
+                nombre: nombre,
+                grupo: grupo,
+                generacion: generacion
+            });
+        }
+    }
+
+    console.log(`Extracted ${students.length} students from PDF via stream parsing.`);
     return students;
 }
 
