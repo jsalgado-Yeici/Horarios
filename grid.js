@@ -19,6 +19,7 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
             if (!customFilters && targetElement.id === 'schedule-grid') {
                 cell.ondragover = e => {
                     e.preventDefault();
+                    e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
                     const dragging = window.currentDrag;
 
                     if (dragging) {
@@ -228,7 +229,11 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
 
     if (!isExporting) {
         el.onclick = (e) => { e.stopPropagation(); showClassForm(c); };
-        el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
+        el.ondragover = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
+        };
         el.ondrop = (e) => handleDrop(e, c.day, c.startTime);
 
         // Make draggable
@@ -247,6 +252,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
             };
             window.currentDrag = draggingInfo; // Global state for drag visual feedback
             e.dataTransfer.setData('application/json', JSON.stringify(draggingInfo));
+            e.dataTransfer.effectAllowed = 'copyMove';
             el.style.opacity = '0.4';
         };
         el.ondragend = () => { el.style.opacity = '1'; window.currentDrag = null; };
