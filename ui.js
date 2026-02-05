@@ -220,43 +220,63 @@ export function createTooltip() { const tooltipEl = document.createElement('div'
 export function showTooltip(html) { const t = document.getElementById('custom-tooltip'); t.innerHTML = html; t.classList.add('visible'); }
 export function hideTooltip() { document.getElementById('custom-tooltip').classList.remove('visible'); }
 export function renderSubjectsList() {
-    const c = document.getElementById('unassigned-subjects-container');
-    if (!c) return;
-
-    // Check if search input already exists (state preservation)
-    let searchInput = document.getElementById('subject-manage-search');
-    let listContainer = document.getElementById('subject-manage-list');
-
-    if (!searchInput) {
-        c.innerHTML = `
-            <div class="mb-3 px-2">
-                <input type="text" id="subject-manage-search" placeholder="🔍 Buscar materia..." class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all">
-            </div>
-            <div id="subject-manage-list"></div>
-        `;
-        searchInput = document.getElementById('subject-manage-search');
-        listContainer = document.getElementById('subject-manage-list');
-
-        searchInput.oninput = (e) => {
-            renderFilteredSubjects(listContainer, e.target.value);
-        };
+    // 1. Sidebar Link (Drag & Drop Mode) - unassigned-subjects-container
+    const sidebarC = document.getElementById('unassigned-subjects-container');
+    if (sidebarC) {
+        sidebarC.innerHTML = '';
+        const grouped = {};
+        state.subjects.forEach(s => { const t = s.trimester || 0; if (!grouped[t]) grouped[t] = []; grouped[t].push(s); });
+        Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => {
+            const details = document.createElement('details'); details.className = "trimester-group"; details.open = true;
+            details.innerHTML = `<summary>Cuatri ${t}</summary><div class="content"></div>`;
+            grouped[t].forEach(s => {
+                const el = document.createElement('div'); el.className = "draggable-subject"; el.draggable = true; el.textContent = s.name;
+                if (s.color) el.style.borderLeftColor = s.color;
+                el.addEventListener('dragstart', (e) => { hideTooltip(); window.currentDrag = { duration: 2, id: null }; e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id })); });
+                el.addEventListener('dragend', () => { window.currentDrag = null; });
+                details.querySelector('.content').appendChild(el);
+            });
+            sidebarC.appendChild(details);
+        });
     }
 
-    renderFilteredSubjects(listContainer, searchInput.value);
+    // 2. Management List (Edit Mode) - subjects-by-trimester
+    const manageC = document.getElementById('subjects-by-trimester');
+    if (manageC) {
+        // Ensure Search Input Exists
+        let searchInput = document.getElementById('sub-manage-search');
+        let listContent = document.getElementById('sub-manage-content');
+
+        // If the container was cleared or doesn't have our structure yet
+        if (!searchInput || !manageC.contains(searchInput)) {
+            manageC.innerHTML = `
+                <div class="sticky top-0 bg-white z-10 pb-2 border-b mb-2 pt-1">
+                    <input type="text" id="sub-manage-search" placeholder="🔍 Buscar materia..." class="w-full border p-2 rounded text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-indigo-200 outline-none transition-all">
+                </div>
+                <div id="sub-manage-content" class="space-y-2"></div>
+            `;
+            searchInput = document.getElementById('sub-manage-search');
+            listContent = document.getElementById('sub-manage-content');
+
+            searchInput.addEventListener('input', (e) => {
+                renderManagerSubjects(listContent, e.target.value);
+            });
+        }
+
+        // Render with current filter
+        renderManagerSubjects(listContent, searchInput.value);
+    }
 }
 
-function renderFilteredSubjects(container, filterText) {
+function renderManagerSubjects(container, filterText) {
     if (!container) return;
     container.innerHTML = '';
-
-    // Normalization for search
     const norm = (str) => (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const term = norm(filterText);
 
     const grouped = {};
     state.subjects.forEach(s => {
-        if (term && !norm(s.name).includes(term)) return; // Filter
-
+        if (term && !norm(s.name).includes(term)) return;
         const t = s.trimester || 0;
         if (!grouped[t]) grouped[t] = [];
         grouped[t].push(s);
@@ -268,43 +288,17 @@ function renderFilteredSubjects(container, filterText) {
     }
 
     Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => {
-        const details = document.createElement('details');
-        details.className = "trimester-group mb-2";
-        details.open = true; // Keep open by default for search visibility
-        details.innerHTML = `<summary class="font-bold text-gray-700 cursor-pointer bg-gray-100 p-2 rounded select-none">Cuatrimestre ${t}</summary><div class="content mt-1 space-y-1 pl-2 border-l-2 border-gray-200"></div>`;
-
+        const div = document.createElement('div');
+        div.className = "bg-gray-50 border p-2 rounded";
+        div.innerHTML = `<h3 class="font-bold text-xs mb-1 text-gray-500 uppercase tracking-wider">C${t}</h3>`;
         grouped[t].forEach(s => {
-            const el = document.createElement('div');
-            el.className = "draggable-subject p-2 bg-white border rounded shadow-sm hover:shadow-md transition-all cursor-grab flex justify-between items-center group";
-            el.draggable = true;
-            el.innerHTML = `<span class="text-sm text-gray-700 font-medium">${s.name}</span><button class="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-blue-600 px-2" onclick="window.editSub('${s.id}')">✎</button>`;
-
-            if (s.color) {
-                el.style.borderLeft = `4px solid ${s.color}`;
-            }
-
-            el.addEventListener('dragstart', (e) => {
-                hideTooltip();
-                window.currentDrag = { duration: 2, id: null };
-                /* Mock for sidebar drag logic */
-                e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id }));
-            });
-            el.addEventListener('dragend', () => {
-                window.currentDrag = null;
-            });
-            details.querySelector('.content').appendChild(el);
+            const row = document.createElement('div');
+            row.className = "flex justify-between items-center text-xs border-b p-1 hover:bg-white transition-colors group";
+            row.innerHTML = `<span class="truncate pr-1" title="${s.name}">${s.name}</span><button class="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity font-bold px-1" onclick="window.editSub('${s.id}')">✎</button>`;
+            div.appendChild(row);
         });
-        container.appendChild(details);
+        container.appendChild(div);
     });
-
-    // Update the sidebar list if it exists (legacy support)
-    const l2 = document.getElementById('subjects-by-trimester');
-    if (l2) {
-        l2.innerHTML = '';
-        Object.keys(grouped).forEach(t => {
-            l2.innerHTML += `<div class="bg-gray-50 border p-2 mb-2 rounded"><h3 class="font-bold text-xs mb-1">C${t}</h3>${grouped[t].map(s => `<div class="flex justify-between text-xs border-b p-1"><span>${s.name}</span><button class="text-blue-400" onclick="window.editSub('${s.id}')">✎</button></div>`).join('')}</div>`;
-        });
-    }
     window.editSub = (id) => showSubjectForm(state.subjects.find(s => s.id === id));
 }
 function showGroupStudents(group) {
