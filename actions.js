@@ -157,6 +157,7 @@ export function showClassForm(defs = {}) {
                 </div>
                 <div class="class-field">
                     <label class="block font-bold text-gray-500 mb-1">Materia</label>
+                    <input type="text" id="f-sub-search" placeholder="Buscar materia..." class="w-full border p-2 mb-1 rounded text-sm bg-gray-50">
                     <select id="f-sub" class="w-full border p-2 rounded">${genOpts(state.subjects, defs.subjectId)}</select>
                 </div>
 
@@ -201,16 +202,42 @@ export function showClassForm(defs = {}) {
     const selTch = document.getElementById('f-tch');
     const selSub = document.getElementById('f-sub');
     const selGrp = document.getElementById('f-grp');
+    const inpSubSearch = document.getElementById('f-sub-search');
 
     const updateSubjectOptions = () => {
         if (typeInput.value === 'advisory') return;
-        const selectedGrpId = selGrp.value; const selectedTchId = selTch.value; const currentSubId = selSub.value;
-        const grp = state.groups.find(g => g.id === selectedGrpId); const targetTrimester = grp ? grp.trimester : null;
-        const validSubjects = state.subjects.filter(s => { const matchesGroup = !targetTrimester || s.trimester === targetTrimester; const matchesTeacher = !selectedTchId || s.defaultTeacherId === selectedTchId; return s.id === defs.subjectId || (matchesGroup && matchesTeacher); });
+        const selectedGrpId = selGrp.value;
+        const selectedTchId = selTch.value;
+        const currentSubId = selSub.value;
+        const filterText = inpSubSearch.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        const grp = state.groups.find(g => g.id === selectedGrpId);
+        const targetTrimester = grp ? grp.trimester : null;
+
+        const validSubjects = state.subjects.filter(s => {
+            const matchesGroup = !targetTrimester || s.trimester === targetTrimester;
+            const matchesTeacher = !selectedTchId || s.defaultTeacherId === selectedTchId;
+
+            // Search filter
+            const sNameNorm = s.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const matchesSearch = !filterText || sNameNorm.includes(filterText);
+
+            return (s.id === defs.subjectId || (matchesGroup && matchesTeacher)) && matchesSearch;
+        });
+
         selSub.innerHTML = validSubjects.sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${s.id}" ${s.id === currentSubId ? 'selected' : ''}>${s.name}</option>`).join('');
-        if (validSubjects.length > 0 && !validSubjects.find(s => s.id === selSub.value)) selSub.value = validSubjects[0].id;
+
+        // Auto-select first if current is invalid
+        if (validSubjects.length > 0 && !validSubjects.find(s => s.id === selSub.value)) {
+            selSub.value = validSubjects[0].id;
+        }
     };
-    selGrp.onchange = updateSubjectOptions; selTch.onchange = updateSubjectOptions; selSub.onchange = () => { const sub = state.subjects.find(s => s.id === selSub.value); if (sub && sub.defaultTeacherId) selTch.value = sub.defaultTeacherId; };
+
+    selGrp.onchange = updateSubjectOptions;
+    selTch.onchange = updateSubjectOptions;
+    inpSubSearch.oninput = updateSubjectOptions; // Trigger on typing
+
+    selSub.onchange = () => { const sub = state.subjects.find(s => s.id === selSub.value); if (sub && sub.defaultTeacherId) selTch.value = sub.defaultTeacherId; };
 
     // Init state
     toggleType(currentType);
