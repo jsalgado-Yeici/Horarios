@@ -219,7 +219,94 @@ export function renderVersion() {
 export function createTooltip() { const tooltipEl = document.createElement('div'); tooltipEl.id = 'custom-tooltip'; document.body.appendChild(tooltipEl); document.addEventListener('mousemove', e => { if (tooltipEl.classList.contains('visible')) { tooltipEl.style.left = (e.clientX + 15) + 'px'; tooltipEl.style.top = (e.clientY + 15) + 'px'; } }); }
 export function showTooltip(html) { const t = document.getElementById('custom-tooltip'); t.innerHTML = html; t.classList.add('visible'); }
 export function hideTooltip() { document.getElementById('custom-tooltip').classList.remove('visible'); }
-export function renderSubjectsList() { const c = document.getElementById('unassigned-subjects-container'); if (!c) return; c.innerHTML = ''; const grouped = {}; state.subjects.forEach(s => { const t = s.trimester || 0; if (!grouped[t]) grouped[t] = []; grouped[t].push(s); }); Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => { const details = document.createElement('details'); details.className = "trimester-group"; details.open = true; details.innerHTML = `<summary>Cuatri ${t}</summary><div class="content"></div>`; grouped[t].forEach(s => { const el = document.createElement('div'); el.className = "draggable-subject"; el.draggable = true; el.textContent = s.name; if (s.color) { el.style.borderLeftColor = s.color; } el.addEventListener('dragstart', (e) => { hideTooltip(); window.currentDrag = { duration: 2, id: null }; /* Mock for sidebar drag logic */ e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id })); }); el.addEventListener('dragend', () => { window.currentDrag = null; }); details.querySelector('.content').appendChild(el); }); c.appendChild(details); }); const l2 = document.getElementById('subjects-by-trimester'); if (l2) { l2.innerHTML = ''; Object.keys(grouped).forEach(t => { l2.innerHTML += `<div class="bg-gray-50 border p-2 mb-2 rounded"><h3 class="font-bold text-xs mb-1">C${t}</h3>${grouped[t].map(s => `<div class="flex justify-between text-xs border-b p-1"><span>${s.name}</span><button class="text-blue-400" onclick="window.editSub('${s.id}')">✎</button></div>`).join('')}</div>`; }); window.editSub = (id) => showSubjectForm(state.subjects.find(s => s.id === id)); } }
+export function renderSubjectsList() {
+    const c = document.getElementById('unassigned-subjects-container');
+    if (!c) return;
+
+    // Check if search input already exists (state preservation)
+    let searchInput = document.getElementById('subject-manage-search');
+    let listContainer = document.getElementById('subject-manage-list');
+
+    if (!searchInput) {
+        c.innerHTML = `
+            <div class="mb-3 px-2">
+                <input type="text" id="subject-manage-search" placeholder="🔍 Buscar materia..." class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all">
+            </div>
+            <div id="subject-manage-list"></div>
+        `;
+        searchInput = document.getElementById('subject-manage-search');
+        listContainer = document.getElementById('subject-manage-list');
+
+        searchInput.oninput = (e) => {
+            renderFilteredSubjects(listContainer, e.target.value);
+        };
+    }
+
+    renderFilteredSubjects(listContainer, searchInput.value);
+}
+
+function renderFilteredSubjects(container, filterText) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Normalization for search
+    const norm = (str) => (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const term = norm(filterText);
+
+    const grouped = {};
+    state.subjects.forEach(s => {
+        if (term && !norm(s.name).includes(term)) return; // Filter
+
+        const t = s.trimester || 0;
+        if (!grouped[t]) grouped[t] = [];
+        grouped[t].push(s);
+    });
+
+    if (Object.keys(grouped).length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 text-xs py-4 italic">No se encontraron materias.</div>`;
+        return;
+    }
+
+    Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => {
+        const details = document.createElement('details');
+        details.className = "trimester-group mb-2";
+        details.open = true; // Keep open by default for search visibility
+        details.innerHTML = `<summary class="font-bold text-gray-700 cursor-pointer bg-gray-100 p-2 rounded select-none">Cuatrimestre ${t}</summary><div class="content mt-1 space-y-1 pl-2 border-l-2 border-gray-200"></div>`;
+
+        grouped[t].forEach(s => {
+            const el = document.createElement('div');
+            el.className = "draggable-subject p-2 bg-white border rounded shadow-sm hover:shadow-md transition-all cursor-grab flex justify-between items-center group";
+            el.draggable = true;
+            el.innerHTML = `<span class="text-sm text-gray-700 font-medium">${s.name}</span><button class="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-blue-600 px-2" onclick="window.editSub('${s.id}')">✎</button>`;
+
+            if (s.color) {
+                el.style.borderLeft = `4px solid ${s.color}`;
+            }
+
+            el.addEventListener('dragstart', (e) => {
+                hideTooltip();
+                window.currentDrag = { duration: 2, id: null };
+                /* Mock for sidebar drag logic */
+                e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id }));
+            });
+            el.addEventListener('dragend', () => {
+                window.currentDrag = null;
+            });
+            details.querySelector('.content').appendChild(el);
+        });
+        container.appendChild(details);
+    });
+
+    // Update the sidebar list if it exists (legacy support)
+    const l2 = document.getElementById('subjects-by-trimester');
+    if (l2) {
+        l2.innerHTML = '';
+        Object.keys(grouped).forEach(t => {
+            l2.innerHTML += `<div class="bg-gray-50 border p-2 mb-2 rounded"><h3 class="font-bold text-xs mb-1">C${t}</h3>${grouped[t].map(s => `<div class="flex justify-between text-xs border-b p-1"><span>${s.name}</span><button class="text-blue-400" onclick="window.editSub('${s.id}')">✎</button></div>`).join('')}</div>`;
+        });
+    }
+    window.editSub = (id) => showSubjectForm(state.subjects.find(s => s.id === id));
+}
 function showGroupStudents(group) {
     const modal = document.getElementById('modal');
     const content = document.getElementById('modal-content');
