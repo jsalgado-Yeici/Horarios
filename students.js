@@ -102,6 +102,11 @@ async function processPDF(file) {
     // Looking for patterns like: 123456 LastName FirstName Group
     console.log("PDF Raw Text Preview:", fullText.substring(0, 500)); // Debugging
 
+    if (!fullText || fullText.trim().length === 0) {
+        alert("El PDF no contiene texto legible. Es probable que sea una imagen o escaneo. Por favor use un archivo Excel o un PDF con texto seleccionable.");
+        return [];
+    }
+
     const lines = fullText.split('\n');
     const students = [];
 
