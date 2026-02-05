@@ -556,9 +556,12 @@ function showGroupStudents(group) {
                 </thead>
                 <tbody class="divide-y">
                     ${groupStudents.length > 0 ? groupStudents.map(s => `
-                        <tr class="hover:bg-gray-50">
+                        <tr class="hover:bg-gray-50 group">
                             <td class="p-2 font-mono text-gray-600">${s.matricula}</td>
-                            <td class="p-2 text-gray-800 font-medium">${s.nombre}</td>
+                            <td class="p-2 text-gray-800 font-medium flex justify-between items-center bg-transparent">
+                                <span>${s.nombre}</span>
+                                <button class="btn-del-std opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 px-2 font-bold transition-opacity" data-id="${s.matricula}">×</button>
+                            </td>
                         </tr>
                     `).join('') : `<tr><td colspan="2" class="p-8 text-center text-gray-400">No hay alumnos en la lista actual.</td></tr>`}
                 </tbody>
@@ -573,6 +576,35 @@ function showGroupStudents(group) {
         const toggleBtn = document.getElementById('btn-toggle-add-std');
         const formDiv = document.getElementById('add-student-form');
         const saveBtn = document.getElementById('btn-save-new-std');
+
+        // Delete Handler
+        content.querySelectorAll('.btn-del-std').forEach(btn => {
+            btn.onclick = async () => {
+                const mat = btn.dataset.id;
+                if (!confirm(`¿Eliminar al alumno con matrícula ${mat}?`)) return;
+
+                try {
+                    // 1. Update State
+                    state.students = state.students.filter(s => s.matricula !== mat);
+
+                    // 2. Persist to Firestore Group
+                    const currentGroupDocs = group.students || [];
+                    const updatedStudents = currentGroupDocs.filter(s => s.matricula !== mat && s.id !== mat);
+
+                    // Update Group in Firestore
+                    const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+                    await updateDoc(doc(collections.groups, group.id), { students: updatedStudents });
+
+                    // Update Local Group State
+                    group.students = updatedStudents;
+
+                    showGroupStudents(group); // Reload modal
+                } catch (e) {
+                    console.error(e);
+                    alert("Error al eliminar alumno.");
+                }
+            };
+        });
 
         if (toggleBtn) toggleBtn.onclick = () => formDiv.classList.toggle('hidden');
 
