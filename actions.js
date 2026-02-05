@@ -166,9 +166,16 @@ export function showClassForm(defs = {}) {
                 <div><label class="block font-bold text-gray-500 mb-1">Duración (hrs)</label><input type="number" id="f-dur" value="${defs.duration || 1}" min="1" max="6" class="w-full border p-2 rounded"></div>
             </div>
             
-            <div class="flex justify-end gap-3 mt-6">
-                <button id="btn-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
-                <button id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow font-bold">Guardar</button>
+            <div class="flex justify-between mt-6">
+                <!-- Botón Eliminar (Solo si estamos editando) -->
+                <div>
+                    ${defs.id ? `<button id="btn-delete" class="px-4 py-2 text-red-600 hover:bg-red-50 hover:text-red-800 rounded font-bold border border-red-200">Eliminar</button>` : ''}
+                </div>
+                
+                <div class="flex gap-3">
+                    <button id="btn-cancel" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                    <button id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow font-bold">Guardar</button>
+                </div>
             </div>
         </div>`;
 
@@ -210,6 +217,16 @@ export function showClassForm(defs = {}) {
     updateSubjectOptions();
 
     document.getElementById('btn-cancel').onclick = () => modal.classList.add('hidden');
+
+    // Botón Eliminar
+    const btnDelete = document.getElementById('btn-delete');
+    if (btnDelete) {
+        btnDelete.onclick = () => {
+            deleteDocWrapper('schedule', defs.id);
+            modal.classList.add('hidden');
+        };
+    }
+
     document.getElementById('btn-save').onclick = async () => {
         const type = document.getElementById('f-type').value;
         const payload = {
