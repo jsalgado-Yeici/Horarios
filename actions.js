@@ -428,4 +428,36 @@ export function showClassroomForm(room = null) {
     document.getElementById('btn-r-save').onclick = async () => { const n = document.getElementById('r-name').value; if (n) { const data = { name: n }; if (isEdit) { const { id: _, ...d } = room; pushHistory({ type: 'update', col: 'classrooms', id: room.id, data: d }); await updateDoc(doc(cols.classrooms, room.id), data); } else { const ref = await addDoc(cols.classrooms, data); pushHistory({ type: 'delete', col: 'classrooms', id: ref.id }); } modal.classList.add('hidden'); } };
 }
 
-export function deleteDocWrapper(colName, id) { if (confirm('¿Seguro de borrar?')) { let old = null; if (colName === 'schedule') old = state.schedule.find(x => x.id === id); else if (colName === 'external') old = state.external.find(x => x.id === id); else if (colName === 'teachers') old = state.teachers.find(x => x.id === id); else if (colName === 'groups') old = state.groups.find(x => x.id === id); else if (colName === 'classrooms') old = state.classrooms.find(x => x.id === id); if (old) { const { id: _, ...d } = old; pushHistory({ type: 'add', col: colName, id, data: d }); } deleteDoc(doc(cols[colName], id)); } }
+export async function restoreDoc(item) {
+    try {
+        const { id, _col, _deletedAt, ...data } = item;
+        await setDoc(doc(cols[_col], id), data);
+        state.deletedItems = state.deletedItems.filter(i => i.id !== id);
+        alert("Elemento restaurado.");
+        // Notify UI update if needed (will happen via realtime listener)
+    } catch (e) {
+        console.error(e);
+        alert("Error al restaurar.");
+    }
+}
+
+export function deleteDocWrapper(colName, id) {
+    if (confirm('¿Seguro de borrar?')) {
+        let old = null;
+        if (colName === 'schedule') old = state.schedule.find(x => x.id === id);
+        else if (colName === 'external') old = state.external.find(x => x.id === id);
+        else if (colName === 'teachers') old = state.teachers.find(x => x.id === id);
+        else if (colName === 'groups') old = state.groups.find(x => x.id === id);
+        else if (colName === 'classrooms') old = state.classrooms.find(x => x.id === id);
+
+        if (old) {
+            const { id: _, ...d } = old;
+            pushHistory({ type: 'add', col: colName, id, data: d }); // Keep sequential undo
+
+            // Add to Recycle Bin
+            state.deletedItems.unshift({ ...old, _col: colName, _deletedAt: new Date() });
+            if (state.deletedItems.length > 50) state.deletedItems.pop();
+        }
+        deleteDoc(doc(cols[colName], id));
+    }
+}

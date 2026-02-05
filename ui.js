@@ -1,7 +1,7 @@
 import { state, cols, days, timeSlots } from './state.js';
 import {
     showTeacherForm, showSubjectForm, deleteDocWrapper, addExternalRule,
-    saveSettings, showGroupForm, showClassroomForm
+    saveSettings, showGroupForm, showClassroomForm, restoreDoc
 } from './actions.js';
 import { addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { cols as collections } from './state.js';
@@ -14,9 +14,109 @@ export function renderSettings() {
     if (btn) btn.onclick = saveSettings;
 }
 
-// === LISTA DOCENTES ===
+// === HERRAMIENTAS UI ===
+function renderStickyToolbar(container, searchPlaceholder, onSearch, onAdd, addLabel) {
+    let toolbar = container.querySelector('.sticky-toolbar');
+    if (!toolbar) {
+        toolbar = document.createElement('div');
+        toolbar.className = "sticky-toolbar sticky top-0 bg-white/95 backdrop-blur z-10 pb-4 pt-1 mb-2 border-b flex gap-2 items-center";
+        toolbar.innerHTML = `
+            <div class="relative flex-1">
+                <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                <input type="text" class="w-full pl-9 pr-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all" placeholder="${searchPlaceholder}">
+            </div>
+            <button class="btn-recycle text-gray-400 hover:text-gray-600 p-2 rounded hover:bg-gray-100 transition" title="Papelera">🗑️</button>
+            <button class="btn-add bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2 text-sm whitespace-nowrap">
+                <span>+ ${addLabel}</span>
+            </button>
+        `;
+        container.prepend(toolbar);
+
+        const input = toolbar.querySelector('input');
+        input.addEventListener('input', (e) => onSearch(e.target.value));
+        toolbar.querySelector('.btn-add').onclick = onAdd;
+        toolbar.querySelector('.btn-recycle').onclick = showRecycleBin;
+    }
+}
+
+function showRecycleBin() {
+    const modal = document.getElementById('modal');
+    modal.classList.remove('hidden');
+    const content = document.getElementById('modal-content');
+
+    if (state.deletedItems.length === 0) {
+        content.innerHTML = `<div class="p-6 text-center"><h2 class="text-xl font-bold text-gray-400 mb-4">Papelera Vacía</h2><button onclick="document.getElementById('modal').classList.add('hidden')" class="bg-gray-200 px-4 py-2 rounded">Cerrar</button></div>`;
+        return;
+    }
+
+    content.innerHTML = `
+        <div class="p-6 bg-white max-h-[80vh] overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🗑️ Papelera de Reciclaje (${state.deletedItems.length})</h2>
+            <div class="space-y-2">
+                ${state.deletedItems.map(item => `
+                    <div class="border p-3 rounded flex justify-between items-center bg-gray-50">
+                        <div>
+                            <p class="font-bold text-sm text-gray-800">${item.name || 'Sin Nombre'}</p>
+                            <p class="text-[10px] text-gray-500 uppercase">${item._col} • Eliminado: ${item._deletedAt?.toLocaleTimeString() || ''}</p>
+                        </div>
+                        <button class="text-green-600 hover:text-green-800 font-bold text-sm bg-green-50 px-3 py-1 rounded border border-green-200" onclick='restoreItemWrapper("${item.id}")'>Restaurar</button>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="mt-4 text-right">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded font-bold">Cerrar</button>
+            </div>
+        </div>
+    `;
+
+    // Global helper for the button onclick string (or attach listeners distinct way, but this is quick)
+    window.restoreItemWrapper = (id) => {
+        const item = state.deletedItems.find(i => i.id === id);
+        if (item) restoreDoc(item);
+        showRecycleBin(); // Refresh
+    };
+}
+
+
+// === LISTA DOCENTES (CARDS) ===
 export function renderTeachersList() {
-    const l = document.getElementById('teachers-list'); if (!l) return; l.innerHTML = '';
+    const l = document.getElementById('teachers-list'); if (!l) return;
+    const container = l.parentElement;
+
+    // Hide legacy add button if exists
+    const oldBtn = document.getElementById('add-teacher-btn');
+    if (oldBtn) oldBtn.closest('.absolute')?.classList.add('hidden'); // Hide container
+
+    // Setup Toolbar
+    renderStickyToolbar(container, "Buscar docente...", (term) => {
+        // Simple search filter
+        const cards = l.querySelectorAll('.teacher-card');
+        term = term.toLowerCase();
+        cards.forEach(c => {
+            const name = c.dataset.name.toLowerCase();
+            if (name.includes(term)) c.classList.remove('hidden');
+            else c.classList.add('hidden');
+        });
+    }, () => showTeacherForm(), "Nuevo Docente");
+
+    // Grid Setup
+    l.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1 pb-20 overflow-y-auto h-full content-start";
+    l.innerHTML = '';
+
+    // Clear Content but Keep Toolbar (or re-render it)
+    // Actually, simpler to just clear and re-add for now to avoid state complexity, 
+    // or better: checking if toolbar exists inside element is tricky if we clear innerHTML.
+    // Strategy: The container for the list in HTML is just the list. The Add button was outside in HTML.
+    // We will HIDE the old "Add" button in HTML via CSS or logic and inject our own.
+
+    // Let's assume we empty it and rebuild.
+    l.innerHTML = '';
+
+    // Render Toolbar (Injected into list container? better in parent, but let's put it at top of list for now)
+    // NOTE: HTML structure has a parent with relative positioning. Let's put toolbar there?
+    // Current HTML: #subtab-teachers > div.relative > #teachers-list
+    // We'll stick to rendering cards inside #teachers-list.
+
     state.teachers.sort((a, b) => a.name.localeCompare(b.name)).forEach(t => {
         const classHours = state.schedule.filter(c => c.teacherId === t.id && c.type !== 'advisory').reduce((acc, c) => acc + c.duration, 0);
         const advisoryScheduled = state.schedule.filter(c => c.teacherId === t.id && c.type === 'advisory').reduce((acc, c) => acc + c.duration, 0);
@@ -29,30 +129,140 @@ export function renderTeachersList() {
         if (totalScheduled > 30) color = "bg-orange-500";
         if (totalScheduled > 35) color = "bg-red-500";
 
-        const advStatusColor = advisoryScheduled >= advisoryGoal ? "text-green-600" : "text-red-500";
-        const advText = advisoryGoal > 0 ? `<span class="text-[9px] ${advStatusColor} font-bold ml-1" title="Asesorías: Programadas ${advisoryScheduled} / Meta ${advisoryGoal}">(Ases. ${advisoryScheduled}/${advisoryGoal}h)</span>` : '';
-        const breakdownTitle = `Clases: ${classHours}h + Asesoría: ${advisoryScheduled}h (Meta Ases: ${advisoryGoal}h)`;
+        const card = document.createElement('div');
+        card.className = "teacher-card bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group relative";
+        card.dataset.name = t.name + " " + (t.fullName || "");
 
-        const div = document.createElement('div');
-        div.className = "p-2 border-b text-sm bg-white hover:bg-gray-50 flex flex-col gap-1";
-        div.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-gray-700 cursor-pointer truncate mr-2" title="${t.fullName || ''}">${t.name}</span><div class="flex gap-1 items-center"><div class="flex flex-col items-end leading-none mr-2"><span class="text-xs font-mono font-bold text-gray-700" title="${breakdownTitle}">${totalScheduled}h Totales</span>${advText}</div><button class="btn-edit text-blue-400 px-1 hover:text-blue-600">✎</button><button class="btn-del text-red-400 px-1 hover:text-red-600">×</button></div></div><div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden" title="${breakdownTitle}"><div class="${color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div></div>`;
-        div.querySelector('.btn-edit').onclick = () => showTeacherForm(t);
-        div.querySelector('.btn-del').onclick = () => deleteDocWrapper('teachers', t.id);
-        l.appendChild(div);
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-lg font-bold text-indigo-600">
+                        ${t.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-sm leading-tight">${t.name}</h3>
+                        <p class="text-[10px] text-gray-500 uppercase font-bold">${t.fullName || 'Sin nombre completo'}</p>
+                    </div>
+                </div>
+                <button class="btn-edit opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-indigo-600">✏️</button>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex justify-between items-end text-xs">
+                    <span class="text-gray-500 font-bold">Carga Total</span>
+                    <span class="font-mono font-bold text-gray-700">${totalScheduled}h</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div class="${color} h-full rounded-full" style="width: ${pct}%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center pt-2 border-t border-dashed">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Asesorías</span>
+                    <div class="flex items-center gap-1 text-xs">
+                        <span class="${advisoryScheduled >= advisoryGoal ? 'text-green-600' : 'text-orange-500'} font-bold">${advisoryScheduled}h</span>
+                        <span class="text-gray-300">/</span>
+                        <span class="text-gray-400">${advisoryGoal}h</span>
+                    </div>
+                </div>
+            </div>
+
+            <button class="absolute -top-2 -right-2 bg-white text-red-500 rounded-full w-6 h-6 shadow border opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-red-50 transition-all btn-del scale-75 hover:scale-100">×</button>
+        `;
+
+        card.querySelector('.btn-edit').onclick = () => showTeacherForm(t);
+        card.querySelector('.btn-del').onclick = () => deleteDocWrapper('teachers', t.id);
+        l.appendChild(card);
     });
 }
 
-// === LISTAS GESTIÓN ===
+// === LISTA GRUPOS (CARDS) ===
 export function renderGroupsList() {
     const l = document.getElementById('groups-by-trimester'); if (!l) return;
-    l.innerHTML = state.groups.map(g => `<div class="p-2 border bg-white text-sm flex justify-between items-center group-item" data-id="${g.id}"><span>${g.name}</span><div class="flex gap-1"><button class="text-indigo-500 px-1 hover:text-indigo-700 btn-view-std" title="Ver Alumnos">👥</button><button class="text-blue-400 px-1 hover:text-blue-600 btn-edit-grp">✎</button><button class="text-red-400 px-1 hover:text-red-600 btn-del-grp">×</button></div></div>`).join('');
-    l.querySelectorAll('.group-item').forEach(el => { const id = el.dataset.id; const g = state.groups.find(x => x.id === id); el.querySelector('.btn-view-std').onclick = () => showGroupStudents(g); el.querySelector('.btn-edit-grp').onclick = () => showGroupForm(g); el.querySelector('.btn-del-grp').onclick = () => deleteDocWrapper('groups', id); });
+    const container = l.parentElement; // #subtab-groups .bg-white...
+
+    // Hide legacy inputs
+    const oldInput = document.getElementById('group-number-input');
+    if (oldInput) oldInput.parentElement.classList.add('hidden');
+
+    renderStickyToolbar(container, "Buscar grupo...", (term) => {
+        const cards = l.querySelectorAll('.group-card');
+        term = term.toLowerCase();
+        cards.forEach(c => {
+            if (c.dataset.name.toLowerCase().includes(term)) c.classList.remove('hidden');
+            else c.classList.add('hidden');
+        });
+    }, () => showGroupForm(), "Nuevo Grupo");
+
+    l.className = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1 pb-20 overflow-y-auto h-full content-start";
+    l.innerHTML = '';
+
+    state.groups.sort((a, b) => a.name.localeCompare(b.name)).forEach(g => {
+        const hasStudents = state.students?.some(s => s.grupo === g.name); // Simple check
+
+        const card = document.createElement('div');
+        card.className = "group-card bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between h-32";
+        card.dataset.name = g.name;
+
+        card.innerHTML = `
+            <div class="flex justify-between items-start">
+                <h3 class="font-bold text-lg text-gray-800">${g.name}</h3>
+                <span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded">C${g.trimester}</span>
+            </div>
+            
+            <div class="flex gap-2 mt-2">
+                <button class="btn-view-std flex-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 py-1.5 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1">
+                    👥 Alumnos
+                </button>
+                <div class="flex ml-auto">
+                    <button class="btn-edit-grp w-8 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-indigo-600 rounded transition-colors rounded-r-none border-r border-white">✏️</button>
+                    <button class="btn-del-grp w-8 flex items-center justify-center bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 rounded rounded-l-none">×</button>
+                </div>
+            </div>
+        `;
+
+        card.querySelector('.btn-view-std').onclick = () => showGroupStudents(g);
+        card.querySelector('.btn-edit-grp').onclick = () => showGroupForm(g);
+        card.querySelector('.btn-del-grp').onclick = () => deleteDocWrapper('groups', g.id);
+        l.appendChild(card);
+    });
 }
 
 export function renderClassroomsManageList() {
     const l = document.getElementById('classrooms-list-manage'); if (!l) return;
-    l.innerHTML = state.classrooms.map(c => `<div class="p-1 border-b text-xs flex justify-between items-center classroom-item" data-id="${c.id}"><span>${c.name}</span> <div class="flex gap-1"><button class="text-blue-400 hover:text-blue-600 btn-edit-room">✎</button><button class="text-red-500 hover:text-red-700 btn-del-room">x</button></div></div>`).join('');
-    l.querySelectorAll('.classroom-item').forEach(el => { const id = el.dataset.id; const c = state.classrooms.find(x => x.id === id); el.querySelector('.btn-edit-room').onclick = () => showClassroomForm(c); el.querySelector('.btn-del-room').onclick = () => deleteDocWrapper('classrooms', id); });
+    const container = l.parentElement;
+
+    // Hide legacy
+    const oldInput = document.getElementById('classroom-name-input');
+    if (oldInput) oldInput.parentElement.classList.add('hidden');
+
+    renderStickyToolbar(container, "Buscar aula...", (term) => {
+        const cards = l.querySelectorAll('.room-card');
+        term = term.toLowerCase();
+        cards.forEach(c => {
+            if (c.dataset.name.toLowerCase().includes(term)) c.classList.remove('hidden');
+            else c.classList.add('hidden');
+        });
+    }, () => showClassroomForm(), "Nueva Aula");
+
+    l.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 overflow-y-auto pr-2 content-start p-1";
+    l.innerHTML = state.classrooms.map(c => `
+        <div class="room-card bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-all group relative flex items-center gap-4" data-name="${c.name}">
+            <div class="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center text-2xl">
+                ${c.icon || '🏫'}
+            </div>
+            <div class="flex-1">
+                <h3 class="font-bold text-gray-800 leading-tight">${c.name}</h3>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">${c.type === 'office' ? 'Oficina' : 'Aula'}</p>
+            </div>
+            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 bg-white/90 backdrop-blur rounded p-1 shadow-sm">
+                <button class="btn-edit-room w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded text-xs">✏️</button>
+                <button class="btn-del-room w-6 h-6 flex items-center justify-center hover:bg-red-100 text-red-500 rounded text-xs">×</button>
+            </div>
+        </div>
+    `).join('');
+
+    l.querySelectorAll('.btn-edit-room').forEach((btn, i) => btn.onclick = () => showClassroomForm(state.classrooms[i]));
+    l.querySelectorAll('.btn-del-room').forEach((btn, i) => btn.onclick = () => deleteDocWrapper('classrooms', state.classrooms[i].id));
 }
 
 // === AUDITORÍA INTELIGENTE ===
