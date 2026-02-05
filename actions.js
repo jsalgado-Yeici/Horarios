@@ -337,9 +337,10 @@ export function showTeacherForm(teacher = null) {
             </div>
             <div class="mb-4">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Materias que imparte</label>
-                <div class="h-32 overflow-y-auto border p-2 rounded bg-gray-50 grid grid-cols-1 gap-1">
+                <input type="text" id="search-subjects-teacher" placeholder="🔍 Buscar materia..." class="w-full border p-1 mb-2 rounded text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-indigo-200 outline-none transition-all">
+                <div id="teacher-subjects-list" class="h-32 overflow-y-auto border p-2 rounded bg-gray-50 grid grid-cols-1 gap-1">
                     ${state.subjects.map(s => `
-                        <label class="flex items-center gap-2 text-xs">
+                        <label class="flex items-center gap-2 text-xs hover:bg-white p-1 rounded transition-colors" data-name="${s.name.toLowerCase()}">
                             <input type="checkbox" class="t-sub-check" value="${s.id}" ${teacher && teacher.subjectIds && teacher.subjectIds.includes(s.id) ? 'checked' : ''}>
                             <span class="truncate" title="${s.name}">${s.name}</span>
                         </label>
@@ -351,6 +352,20 @@ export function showTeacherForm(teacher = null) {
                 <button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-blue-700">Guardar</button>
             </div>
         </div>`;
+
+    // Search Logic
+    document.getElementById('search-subjects-teacher').addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const labels = document.querySelectorAll('#teacher-subjects-list label');
+        labels.forEach(lbl => {
+            const name = lbl.dataset.name;
+            if (name.includes(term)) {
+                lbl.classList.remove('hidden');
+            } else {
+                lbl.classList.add('hidden');
+            }
+        });
+    });
     document.getElementById('btn-t-save').onclick = async () => {
         const n = document.getElementById('t-name').value;
         const f = document.getElementById('t-full').value;

@@ -409,9 +409,10 @@ export function renderCommandPalette() {
 
     // Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'KeyK')) {
             e.preventDefault();
-            toggle(!document.getElementById('cmd-palette-overlay').classList.contains('hidden')); // Toggle logic fixed
+            const overlay = document.getElementById('cmd-palette-overlay');
+            toggle(overlay.classList.contains('hidden')); // Pass true if hidden (to show it)
         }
         if (e.key === 'Escape' && !document.getElementById('cmd-palette-overlay').classList.contains('hidden')) {
             toggle(false);
