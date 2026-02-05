@@ -232,7 +232,12 @@ export function renderSubjectsList() {
             grouped[t].forEach(s => {
                 const el = document.createElement('div'); el.className = "draggable-subject"; el.draggable = true; el.textContent = s.name;
                 if (s.color) el.style.borderLeftColor = s.color;
-                el.addEventListener('dragstart', (e) => { hideTooltip(); window.currentDrag = { duration: 2, id: null }; e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id })); });
+                el.addEventListener('dragstart', (e) => {
+                    hideTooltip();
+                    // Populate global drag state for real-time validation in grid.js
+                    window.currentDrag = { type: 'subject', id: s.id, duration: 2 };
+                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id }));
+                });
                 el.addEventListener('dragend', () => { window.currentDrag = null; });
                 details.querySelector('.content').appendChild(el);
             });
@@ -318,39 +323,173 @@ function showGroupStudents(group) {
         return sGroup.includes(targetName) || targetName.includes(sGroup);
     });
 
-    const html = `
-        <div class="p-6 bg-white max-h-[80vh] overflow-y-auto">
+    content.innerHTML = `
+        <div class="p-6 bg-white flex flex-col h-[80vh]">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">Alumnos: <span class="text-indigo-600">${group.name}</span></h2>
-                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm font-bold">${studentsInGroup.length} encontrados</span>
+                <h2 class="text-xl font-bold text-gray-800">Grupo: <span class="text-indigo-600">${group.name}</span></h2>
+                <div class="flex gap-2">
+                    <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                        👥 ${studentsInGroup.length}
+                    </span>
+                    <button onclick="document.getElementById('modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">×</button>
+                </div>
             </div>
             
-            <div class="overflow-x-auto">
+            <div class="flex-1 overflow-y-auto border rounded-xl bg-gray-50 shadow-inner p-1">
                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-100 sticky top-0">
                         <tr>
-                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Matrícula</th>
-                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Nombre</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matrícula</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         ${studentsInGroup.length > 0 ? studentsInGroup.map(s => `
-                            <tr>
-                                <td class="px-3 py-2 text-sm text-gray-900 font-mono">${s.matricula}</td>
-                                <td class="px-3 py-2 text-sm text-gray-600">${s.nombre}</td>
+                            <tr class="hover:bg-indigo-50 transition-colors">
+                                <td class="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-500">${s.matricula || 'N/A'}</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-700">${s.nombre}</td>
                             </tr>
-                        `).join('') : `<tr><td colspan="2" class="px-3 py-4 text-center text-sm text-gray-400 italic">No se encontraron alumnos asignados a este grupo en la lista cargada.</td></tr>`}
+                        `).join('') : '<tr><td colspan="2" class="p-4 text-center text-gray-500 italic">No se encontraron alumnos coincidentes.</td></tr>'}
                     </tbody>
                 </table>
             </div>
+        </div>
+    `;
+}
 
-            <div class="mt-6 text-right">
-                <button onclick="document.getElementById('modal').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-4 py-2 rounded transition-colors">Cerrar</button>
+// === COMMAND PALETTE (CTRL+K) ===
+export function renderCommandPalette() {
+    if (document.getElementById('cmd-palette-overlay')) return;
+
+    // 1. Create UI
+    const overlay = document.createElement('div');
+    overlay.id = 'cmd-palette-overlay';
+    overlay.className = "fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] hidden flex items-start justify-center pt-20 transition-all opacity-0";
+    overlay.innerHTML = `
+        <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden transform scale-95 transition-all" id="cmd-palette-box">
+            <div class="border-b p-4 flex items-center gap-3">
+                <span class="text-xl">🔍</span>
+                <input id="cmd-input" type="text" placeholder="Buscar materia, docente, grupo o comando... (Esc para salir)" 
+                    class="w-full text-lg outline-none text-gray-700 placeholder-gray-400">
+                <span class="text-xs text-gray-400 font-mono border px-2 py-1 rounded">ESC</span>
+            </div>
+            <div id="cmd-results" class="max-h-[60vh] overflow-y-auto p-2 space-y-1">
+                <div class="text-center text-gray-400 py-8 text-sm">Empieza a escribir para buscar...</div>
+            </div>
+            <div class="bg-gray-50 px-4 py-2 text-[10px] text-gray-400 border-t flex justify-between">
+                <span><strong>↑↓</strong> para navegar</span>
+                <span><strong>Enter</strong> para seleccionar</span>
             </div>
         </div>
     `;
-    content.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // 2. Logic
+    const input = document.getElementById('cmd-input');
+    const resultsContainer = document.getElementById('cmd-results');
+    const box = document.getElementById('cmd-palette-box');
+
+    const toggle = (show) => {
+        if (show) {
+            overlay.classList.remove('hidden');
+            // Small timeout to allow removing hidden before transition
+            setTimeout(() => {
+                overlay.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                input.focus();
+            }, 10);
+        } else {
+            overlay.classList.add('opacity-0');
+            box.classList.add('scale-95');
+            setTimeout(() => overlay.classList.add('hidden'), 200);
+            input.value = '';
+            resultsContainer.innerHTML = '<div class="text-center text-gray-400 py-8 text-sm">Empieza a escribir para buscar...</div>';
+        }
+    };
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            toggle(!document.getElementById('cmd-palette-overlay').classList.contains('hidden')); // Toggle logic fixed
+        }
+        if (e.key === 'Escape' && !document.getElementById('cmd-palette-overlay').classList.contains('hidden')) {
+            toggle(false);
+        }
+    });
+
+    overlay.onclick = (e) => { if (e.target === overlay) toggle(false); };
+
+    // Search Logic
+    input.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase().trim();
+        if (!term) {
+            resultsContainer.innerHTML = '<div class="text-center text-gray-400 py-8 text-sm">Empieza a escribir para buscar...</div>';
+            return;
+        }
+
+        const matches = [];
+
+        // Search Teachers
+        state.teachers.forEach(t => {
+            if (t.name.toLowerCase().includes(term) || (t.fullName && t.fullName.toLowerCase().includes(term))) {
+                matches.push({ type: 'Docente', icon: '👨‍🏫', name: t.name, sub: t.fullName, action: () => showTeacherForm(t) });
+            }
+        });
+
+        // Search Subjects
+        state.subjects.forEach(s => {
+            if (s.name.toLowerCase().includes(term)) {
+                matches.push({ type: 'Materia', icon: '📚', name: s.name, sub: `Cuatri ${s.trimester}`, action: () => showSubjectForm(s) });
+            }
+        });
+
+        // Search Groups
+        state.groups.forEach(g => {
+            if (g.name.toLowerCase().includes(term)) {
+                matches.push({ type: 'Grupo', icon: '👥', name: g.name, sub: `C${g.trimester}`, action: () => showGroupForm(g) });
+            }
+        });
+
+        // Search Classrooms
+        state.classrooms.forEach(c => {
+            if (c.name.toLowerCase().includes(term)) {
+                matches.push({ type: 'Aula', icon: '🏫', name: c.name, sub: 'Espacio físico', action: () => showClassroomForm(c) });
+            }
+        });
+
+        renderResults(matches);
+    });
+
+    function renderResults(items) {
+        if (items.length === 0) {
+            resultsContainer.innerHTML = '<div class="text-center text-gray-400 py-4 text-sm">No se encontraron resultados.</div>';
+            return;
+        }
+
+        resultsContainer.innerHTML = items.map((item, idx) => `
+            <div class="cmd-item p-3 rounded-lg hover:bg-indigo-50 cursor-pointer flex items-center justify-between border border-transparent hover:border-indigo-100 transition-all group" data-idx="${idx}">
+                <div class="flex items-center gap-3">
+                    <span class="text-xl bg-gray-100 p-2 rounded-md group-hover:bg-white transition-colors">${item.icon}</span>
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800 text-sm">${item.name}</span>
+                        <span class="text-xs text-gray-400">${item.type} • ${item.sub || ''}</span>
+                    </div>
+                </div>
+                <span class="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 font-bold">↵ Enter</span>
+            </div>
+        `).join('');
+
+        // Click Handling
+        resultsContainer.querySelectorAll('.cmd-item').forEach((el, idx) => {
+            el.onclick = () => {
+                items[idx].action();
+                toggle(false);
+            };
+        });
+    }
 }
+
 
 export function addGroup() { const n = document.getElementById('group-number-input').value; if (n) addDoc(collections.groups, { name: `IAEV-${n}`, trimester: 1 }); }
 export function addClassroom() { const n = document.getElementById('classroom-name-input').value; if (n) addDoc(collections.classrooms, { name: n }); }

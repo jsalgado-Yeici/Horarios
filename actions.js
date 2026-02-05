@@ -335,12 +335,43 @@ export function showTeacherForm(teacher = null) {
                 <input type="number" id="t-advisory" value="${teacher ? (teacher.advisoryHours || 0) : 0}" class="w-full border p-2 rounded" min="0">
                 <p class="text-[10px] text-gray-400 mt-1">Define cuántas horas de asesoría *debe* cumplir este docente.</p>
             </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Materias que imparte</label>
+                <div class="h-32 overflow-y-auto border p-2 rounded bg-gray-50 grid grid-cols-1 gap-1">
+                    ${state.subjects.map(s => `
+                        <label class="flex items-center gap-2 text-xs">
+                            <input type="checkbox" class="t-sub-check" value="${s.id}" ${teacher && teacher.subjectIds && teacher.subjectIds.includes(s.id) ? 'checked' : ''}>
+                            <span class="truncate" title="${s.name}">${s.name}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
             <div class="flex justify-end gap-2">
                 <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">Cancelar</button>
                 <button id="btn-t-save" class="bg-blue-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-blue-700">Guardar</button>
             </div>
         </div>`;
-    document.getElementById('btn-t-save').onclick = async () => { const n = document.getElementById('t-name').value; const f = document.getElementById('t-full').value; const adv = parseInt(document.getElementById('t-advisory').value) || 0; if (n) { const data = { name: n, fullName: f, advisoryHours: adv }; if (isEdit) { const { id: _, ...d } = teacher; pushHistory({ type: 'update', col: 'teachers', id: teacher.id, data: d }); await updateDoc(doc(cols.teachers, teacher.id), data); } else { const ref = await addDoc(cols.teachers, data); pushHistory({ type: 'delete', col: 'teachers', id: ref.id }); } modal.classList.add('hidden'); } };
+    document.getElementById('btn-t-save').onclick = async () => {
+        const n = document.getElementById('t-name').value;
+        const f = document.getElementById('t-full').value;
+        const adv = parseInt(document.getElementById('t-advisory').value) || 0;
+
+        // Collect checked subjects
+        const checkedSubjects = Array.from(document.querySelectorAll('.t-sub-check:checked')).map(cb => cb.value);
+
+        if (n) {
+            const data = { name: n, fullName: f, advisoryHours: adv, subjectIds: checkedSubjects };
+            if (isEdit) {
+                const { id: _, ...d } = teacher;
+                pushHistory({ type: 'update', col: 'teachers', id: teacher.id, data: d });
+                await updateDoc(doc(cols.teachers, teacher.id), data);
+            } else {
+                const ref = await addDoc(cols.teachers, data);
+                pushHistory({ type: 'delete', col: 'teachers', id: ref.id });
+            }
+            modal.classList.add('hidden');
+        }
+    };
 }
 
 export function showSubjectForm(sub = null) {

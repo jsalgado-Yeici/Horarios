@@ -7,7 +7,7 @@ import {
     createTooltip, renderTeachersList, renderSubjectsList, renderGroupsList,
     renderClassroomsManageList, renderFilterOptions, renderAlerts,
     addGroup, addClassroom, renderGlobalMatrix, renderExternalClassesPanel, renderSettings,
-    renderRoomHeatmap, renderVersion // Nueva Importación
+    renderRoomHeatmap, renderVersion, renderCommandPalette
 } from './ui.js';
 import { initStudents, loadStudentsFromGroups } from './students.js';
 import { showClassForm, showTeacherForm, showSubjectForm, undoLastAction } from './actions.js';
@@ -18,6 +18,7 @@ function initApp() {
     console.log("IAEV Planner vPro (Hotkeys + Heatmap)");
     createTooltip();
     renderVersion();
+    renderCommandPalette();
     initStudents();
     setupListeners();
     setupRealtimeListeners();

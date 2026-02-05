@@ -19,28 +19,59 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
             if (!customFilters && targetElement.id === 'schedule-grid') {
                 cell.ondragover = e => {
                     e.preventDefault();
-
-                    // Simple logic to detect conflict visually
-                    // Requires tracking what is being dragged. Since dataTransfer is protected in dragover, 
-                    // we assume standard duration or we'd need a global state for 'draggingItem'
-                    // For now, let's use the 'droppable-hover' as base and try to guess conflict
-                    // Improving: We can't easily read JSON in dragOver. 
-                    // Strategy: We'll show green generic, unless we can detect simple collision.
-                    // But wait, we can't read ID in dragOver to filter itself out. 
-                    // So we will just show Highlighting. 
-                    // To do it perfectly we need a global variable 'window.currentDrag' set on dragstart.
-
                     const dragging = window.currentDrag;
-                    if (dragging) {
-                        const newStart = parseInt(cell.dataset.hour);
-                        const newEnd = newStart + dragging.duration;
-                        const conflicts = state.schedule.filter(c =>
-                            c.id !== dragging.id && c.day === d && c.startTime < newEnd && (c.startTime + c.duration) > newStart
-                        );
 
-                        cell.classList.remove('droppable-hover', 'drag-allow', 'drag-conflict');
-                        if (conflicts.length > 0) cell.classList.add('drag-conflict');
-                        else cell.classList.add('drag-allow');
+                    if (dragging) {
+                        const newStart = parseInt(h);
+                        const newEnd = newStart + dragging.duration;
+
+                        // 1. Identify Target Context
+                        const targetGroup = customFilters ? customFilters.groupId : document.getElementById('filter-group')?.value;
+                        const targetTeacherFilter = customFilters ? customFilters.teacherId : document.getElementById('filter-teacher')?.value;
+
+                        let targetTeacherId = null;
+                        if (dragging.type === 'move') targetTeacherId = dragging.teacherId;
+                        else if (dragging.type === 'subject') {
+                            const sub = state.subjects.find(s => s.id === dragging.id);
+                            targetTeacherId = sub ? sub.defaultTeacherId : null;
+                        }
+
+                        // 2. Check Conflicts
+                        let hasConflict = false;
+
+                        // Check Group Conflict (Only if we know the group)
+                        if (targetGroup) {
+                            const groupBusy = state.schedule.some(c =>
+                                c.id !== dragging.id &&
+                                c.groupId === targetGroup &&
+                                c.day === d &&
+                                c.startTime < newEnd && (c.startTime + c.duration) > newStart
+                            );
+                            if (groupBusy) hasConflict = true;
+                        }
+
+                        // Check Teacher Conflict (Only if we know the teacher)
+                        const finalTeacher = targetTeacherFilter || targetTeacherId;
+                        if (finalTeacher && !hasConflict) {
+                            const teacherBusy = state.schedule.some(c =>
+                                c.id !== dragging.id &&
+                                c.teacherId === finalTeacher &&
+                                c.day === d &&
+                                c.startTime < newEnd && (c.startTime + c.duration) > newStart
+                            );
+                            if (teacherBusy) hasConflict = true;
+                        }
+
+                        // 3. Visual Feedback
+                        cell.classList.remove('droppable-hover', 'bg-green-100', 'bg-red-100');
+                        if (hasConflict) {
+                            cell.classList.add('bg-red-100');
+                            cell.title = "⚠️ Conflicto detectado";
+                        } else {
+                            cell.classList.add('bg-green-100');
+                            cell.title = "✅ Disponible";
+                        }
+
                     } else {
                         cell.classList.add('droppable-hover');
                     }
