@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,202 +8,201 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <!-- SheetJS for Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- PDF.js for PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
+        <link rel="stylesheet" href="style.css">
+            <link rel="icon" type="image/png" href="logo_iaev.png">
+            </head>
+            <body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
 
-    <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="loader mb-4"></div>
-        <h2 class="text-xl font-semibold text-gray-700 animate-pulse">Cargando Sistema...</h2>
-        <p id="loading-text" class="text-sm text-gray-500 mt-2"></p>
-    </div>
+                <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+                    <div class="loader mb-4"></div>
+                    <h2 class="text-xl font-semibold text-gray-700 animate-pulse">Cargando Sistema...</h2>
+                    <p id="loading-text" class="text-sm text-gray-500 mt-2"></p>
+                </div>
 
-    <div class="h-screen flex flex-col">
-        <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-30">
-            <div class="flex items-center">
-                <img src="logo_iaev.png" alt="Planificador IAEV" class="h-12 w-auto object-contain hover:opacity-90 transition-opacity" onerror="this.style.display='none'; document.getElementById('fallback-title').classList.remove('hidden');">
-                <h1 id="fallback-title" class="hidden text-2xl font-bold text-indigo-700 tracking-tight ml-2">Planificador IAEV</h1>
-            </div>
-            <nav class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                <button data-tab="horario" class="tab-button active px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white text-indigo-600 shadow-sm">Horario</button>
-                <button data-tab="sabana" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Sábana</button>
-                <button data-tab="mapa" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Mapa</button>
-                <button data-tab="externas" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Externas</button>
-                <button data-tab="gestion" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Gestión</button>
-                <button data-tab="alumnos" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Alumnos</button>
-                <button data-tab="reportes" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Reportes</button>
-            </nav>
-        </header>
-
-        <main class="flex-1 overflow-hidden relative">
-            <div id="tab-content-horario" class="tab-content h-full flex flex-col md:flex-row">
-                <aside class="w-full md:w-72 bg-white border-r border-gray-200 flex flex-col shadow-lg z-20">
-                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h2 class="font-bold text-gray-800">Pendientes</h2>
-                        <span class="text-xs text-gray-400">Arrastra al grid</span>
-                    </div>
-                    <div id="unassigned-subjects-container" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white"></div>
-                </aside>
-                <section class="flex-1 flex flex-col min-w-0 bg-white relative">
-                    <div class="p-3 border-b border-gray-200 flex flex-wrap gap-3 bg-white items-center justify-between shadow-sm z-10">
-                        <div class="flex gap-2">
-                            <select id="filter-shift" class="filter-select border rounded p-1 text-sm text-gray-600 font-bold bg-indigo-50 border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none">
-                                <option value="">Todos los Turnos</option>
-                                <option value="matutino">☀️ Matutino</option>
-                                <option value="vespertino">🌙 Vespertino</option>
-                            </select>
-                            <div class="w-px h-6 bg-gray-300 mx-1"></div>
-                            <select id="filter-trimester" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
-                            <select id="filter-classroom" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
-                            <select id="filter-teacher" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
-                            <select id="filter-group" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                <div class="h-screen flex flex-col">
+                    <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-30">
+                        <div class="flex items-center">
+                            <img src="logo_iaev.png" alt="Planificador IAEV" class="h-12 w-auto object-contain hover:opacity-90 transition-opacity" onerror="this.style.display='none'; document.getElementById('fallback-title').classList.remove('hidden');">
+                                <h1 id="fallback-title" class="hidden text-2xl font-bold text-indigo-700 tracking-tight ml-2">Planificador IAEV</h1>
                         </div>
-                        <button id="open-class-modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-sm shadow-sm flex items-center gap-2 transition-colors">+ Clase Manual</button>
-                    </div>
-                    <div class="flex-1 overflow-auto relative bg-slate-50 p-4" id="schedule-scroll-area">
-                        <div id="schedule-grid" class="schedule-grid bg-white min-w-[800px]"></div>
-                    </div>
-                </section>
-            </div>
+                        <nav class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                            <button data-tab="horario" class="tab-button active px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white text-indigo-600 shadow-sm">Horario</button>
+                            <button data-tab="sabana" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Sábana</button>
+                            <button data-tab="mapa" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Mapa</button>
+                            <button data-tab="externas" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Externas</button>
+                            <button data-tab="gestion" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Gestión</button>
+                            <button data-tab="alumnos" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Alumnos</button>
+                            <button data-tab="reportes" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Reportes</button>
+                        </nav>
+                    </header>
 
-            <div id="tab-content-sabana" class="tab-content hidden h-full flex flex-col bg-slate-50">
-                <div class="p-4 bg-white border-b border-gray-200 shadow-sm flex justify-between items-center z-20">
-                    <h2 class="text-lg font-bold text-gray-700">Matriz General (Sábana)</h2>
-                    <div class="flex items-center gap-2">
-                        <label class="text-sm font-bold text-gray-500">Día:</label>
-                        <select id="sabana-day-filter" class="border p-2 rounded text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="Lunes">Lunes</option>
-                            <option value="Martes">Martes</option>
-                            <option value="Miércoles">Miércoles</option>
-                            <option value="Jueves">Jueves</option>
-                            <option value="Viernes">Viernes</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="flex-1 overflow-auto p-4" id="sabana-container"></div>
-            </div>
-
-            <div id="tab-content-mapa" class="tab-content hidden h-full p-4 overflow-y-auto bg-slate-100 flex flex-col items-center">
-                <div class="w-full max-w-6xl bg-white rounded-xl shadow border p-4 mb-4 flex justify-between items-center sticky top-0 z-40">
-                    <h2 class="text-xl font-bold text-gray-800">Mapa de Instalaciones</h2>
-                    <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
-                        <button id="floor-btn-pb" class="px-4 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600">Planta Baja</button>
-                        <button id="floor-btn-pa" class="px-4 py-2 rounded-md text-sm font-bold text-gray-500">Planta Alta</button>
-                    </div>
-                </div>
-                <div class="relative w-full max-w-6xl aspect-[16/9] bg-[#fdf6e3] rounded-xl shadow-inner border-4 border-white overflow-hidden" id="map-viewport"></div>
-            </div>
-
-            <div id="tab-content-externas" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                <div class="max-w-4xl mx-auto">
-                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-2">Configuración de Materias Externas</h2>
-                        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex gap-4 items-end">
-                            <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Tipo</label><select id="ext-type" class="w-full border p-2 rounded text-sm"><option value="IDIOMAS">Idiomas / Inglés</option><option value="STEM">Materias STEM</option></select></div>
-                            <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Grupo(s)</label><select id="ext-group" class="w-full border p-2 rounded text-sm"></select></div>
-                            <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Día</label><select id="ext-day" class="w-full border p-2 rounded text-sm"></select></div>
-                            <div class="w-24"><label class="block text-xs font-bold text-gray-500 mb-1">Inicio</label><select id="ext-start" class="w-full border p-2 rounded text-sm"></select></div>
-                            <div class="w-24"><label class="block text-xs font-bold text-gray-500 mb-1">Fin</label><select id="ext-end" class="w-full border p-2 rounded text-sm"></select></div>
-                            <button id="btn-add-external" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 font-bold text-sm">Agregar</button>
+                    <main class="flex-1 overflow-hidden relative">
+                        <div id="tab-content-horario" class="tab-content h-full flex flex-col md:flex-row">
+                            <aside class="w-full md:w-72 bg-white border-r border-gray-200 flex flex-col shadow-lg z-20">
+                                <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                    <h2 class="font-bold text-gray-800">Pendientes</h2>
+                                    <span class="text-xs text-gray-400">Arrastra al grid</span>
+                                </div>
+                                <div id="unassigned-subjects-container" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white"></div>
+                            </aside>
+                            <section class="flex-1 flex flex-col min-w-0 bg-white relative">
+                                <div class="p-3 border-b border-gray-200 flex flex-wrap gap-3 bg-white items-center justify-between shadow-sm z-10">
+                                    <div class="flex gap-2">
+                                        <select id="filter-shift" class="filter-select border rounded p-1 text-sm text-gray-600 font-bold bg-indigo-50 border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            <option value="">Todos los Turnos</option>
+                                            <option value="matutino">☀️ Matutino</option>
+                                            <option value="vespertino">🌙 Vespertino</option>
+                                        </select>
+                                        <div class="w-px h-6 bg-gray-300 mx-1"></div>
+                                        <select id="filter-trimester" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                                        <select id="filter-classroom" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                                        <select id="filter-teacher" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                                        <select id="filter-group" class="filter-select border rounded p-1 text-sm text-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                                    </div>
+                                    <button id="open-class-modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-sm shadow-sm flex items-center gap-2 transition-colors">+ Clase Manual</button>
+                                </div>
+                                <div class="flex-1 overflow-auto relative bg-slate-50 p-4" id="schedule-scroll-area">
+                                    <div id="schedule-grid" class="schedule-grid bg-white min-w-[800px]"></div>
+                                </div>
+                            </section>
                         </div>
-                    </div>
-                    <div id="external-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                </div>
-            </div>
 
-            <div id="tab-content-gestion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                <div class="max-w-7xl mx-auto space-y-6">
-                    <div class="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
-                        <div><h2 class="text-lg font-bold text-gray-700">Configuración de Turnos</h2><p class="text-sm text-gray-500">Define qué cuatrimestres pertenecen al turno vespertino.</p></div>
-                        <div class="flex items-center gap-4"><div class="text-right"><label class="block text-xs font-bold text-gray-500 uppercase">Inicio Vespertino</label><span class="text-xs text-gray-400">A partir de Cuatri:</span></div><input type="number" id="setting-shift-cutoff" min="1" max="10" class="w-16 border-2 border-indigo-100 rounded-lg p-2 text-center font-bold text-indigo-600 text-lg" value="4"><button id="btn-save-settings" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">Guardar</button></div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Docentes <button id="add-teacher-btn" class="bg-blue-100 text-blue-700 px-2 rounded hover:bg-blue-200 transition">+</button></h2><div id="teachers-list" class="flex-1 overflow-y-auto space-y-1 pr-1"></div></div>
-                        <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Materias <button id="open-subject-modal-btn" class="bg-indigo-100 text-indigo-700 px-2 rounded hover:bg-indigo-200 transition">+</button></h2><div id="subjects-by-trimester" class="flex-1 overflow-y-auto space-y-2"></div></div>
-                        <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2">Grupos</h2><div id="groups-by-trimester" class="flex-1 overflow-y-auto space-y-2 mb-2"></div><div class="flex gap-2 bg-gray-50 p-2 rounded border mt-auto"><input type="number" id="group-number-input" placeholder="#" class="p-1 border rounded w-16 text-sm"><button id="add-group-btn" class="bg-purple-600 text-white px-2 rounded text-xs flex-1 hover:bg-purple-700 transition">Crear</button></div></div>
-                        <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2">Catálogo Aulas</h2><div id="classrooms-list-manage" class="flex-1 overflow-y-auto space-y-1"></div><div class="flex gap-2 bg-gray-50 p-2 rounded border mt-auto"><input id="classroom-name-input" placeholder="Nombre" class="p-1 border rounded w-full text-sm"><button id="add-classroom-btn" class="bg-teal-600 text-white px-2 rounded text-xs hover:bg-teal-700 transition">Ok</button></div></div>
-                    </div>
-                    <div class="pt-6 border-t border-gray-200 pb-12">
-                        <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Auditoría Académica</h2>
-                        <div id="alerts-container"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="tab-content-alumnos" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                <div class="max-w-6xl mx-auto space-y-6">
-                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Carga de Listas de Alumnos</h2>
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-indigo-50 transition-colors" id="drop-zone">
-                            <input type="file" id="student-file-input" class="hidden" accept=".xlsx, .xls, .pdf">
-                            <p class="text-gray-500 mb-2">Arrastra tu archivo Excel o PDF aquí</p>
-                            <button onclick="document.getElementById('student-file-input').click()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 transition">Seleccionar Archivo</button>
+                        <div id="tab-content-sabana" class="tab-content hidden h-full flex flex-col bg-slate-50">
+                            <div class="p-4 bg-white border-b border-gray-200 shadow-sm flex justify-between items-center z-20">
+                                <h2 class="text-lg font-bold text-gray-700">Matriz General (Sábana)</h2>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-sm font-bold text-gray-500">Día:</label>
+                                    <select id="sabana-day-filter" class="border p-2 rounded text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        <option value="Lunes">Lunes</option>
+                                        <option value="Martes">Martes</option>
+                                        <option value="Miércoles">Miércoles</option>
+                                        <option value="Jueves">Jueves</option>
+                                        <option value="Viernes">Viernes</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-auto p-4" id="sabana-container"></div>
                         </div>
-                    </div>
 
-                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 hidden" id="students-preview-container">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-bold text-gray-700">Vista Previa (<span id="student-count">0</span> alumnos)</h3>
-                            <div class="flex gap-2">
-                                <button id="btn-save-students" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-bold text-sm transition">Guardar en Sistema</button>
-                                <button id="btn-download-students" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold text-sm transition">Descargar JSON</button>
+                        <div id="tab-content-mapa" class="tab-content hidden h-full p-4 overflow-y-auto bg-slate-100 flex flex-col items-center">
+                            <div class="w-full max-w-6xl bg-white rounded-xl shadow border p-4 mb-4 flex justify-between items-center sticky top-0 z-40">
+                                <h2 class="text-xl font-bold text-gray-800">Mapa de Instalaciones</h2>
+                                <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                                    <button id="floor-btn-pb" class="px-4 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600">Planta Baja</button>
+                                    <button id="floor-btn-pa" class="px-4 py-2 rounded-md text-sm font-bold text-gray-500">Planta Alta</button>
+                                </div>
+                            </div>
+                            <div class="relative w-full max-w-6xl aspect-[16/9] bg-[#fdf6e3] rounded-xl shadow-inner border-4 border-white overflow-hidden" id="map-viewport"></div>
+                        </div>
+
+                        <div id="tab-content-externas" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
+                            <div class="max-w-4xl mx-auto">
+                                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+                                    <h2 class="text-xl font-bold text-gray-800 mb-2">Configuración de Materias Externas</h2>
+                                    <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex gap-4 items-end">
+                                        <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Tipo</label><select id="ext-type" class="w-full border p-2 rounded text-sm"><option value="IDIOMAS">Idiomas / Inglés</option><option value="STEM">Materias STEM</option></select></div>
+                                        <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Grupo(s)</label><select id="ext-group" class="w-full border p-2 rounded text-sm"></select></div>
+                                        <div class="flex-1"><label class="block text-xs font-bold text-gray-500 mb-1">Día</label><select id="ext-day" class="w-full border p-2 rounded text-sm"></select></div>
+                                        <div class="w-24"><label class="block text-xs font-bold text-gray-500 mb-1">Inicio</label><select id="ext-start" class="w-full border p-2 rounded text-sm"></select></div>
+                                        <div class="w-24"><label class="block text-xs font-bold text-gray-500 mb-1">Fin</label><select id="ext-end" class="w-full border p-2 rounded text-sm"></select></div>
+                                        <button id="btn-add-external" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 font-bold text-sm">Agregar</button>
+                                    </div>
+                                </div>
+                                <div id="external-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                             </div>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matrícula</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grupo</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200" id="students-table-body">
-                                </tbody>
-                            </table>
+
+                        <div id="tab-content-gestion" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
+                            <div class="max-w-7xl mx-auto space-y-6">
+                                <div class="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
+                                    <div><h2 class="text-lg font-bold text-gray-700">Configuración de Turnos</h2><p class="text-sm text-gray-500">Define qué cuatrimestres pertenecen al turno vespertino.</p></div>
+                                    <div class="flex items-center gap-4"><div class="text-right"><label class="block text-xs font-bold text-gray-500 uppercase">Inicio Vespertino</label><span class="text-xs text-gray-400">A partir de Cuatri:</span></div><input type="number" id="setting-shift-cutoff" min="1" max="10" class="w-16 border-2 border-indigo-100 rounded-lg p-2 text-center font-bold text-indigo-600 text-lg" value="4"><button id="btn-save-settings" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition">Guardar</button></div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Docentes <button id="add-teacher-btn" class="bg-blue-100 text-blue-700 px-2 rounded hover:bg-blue-200 transition">+</button></h2><div id="teachers-list" class="flex-1 overflow-y-auto space-y-1 pr-1"></div></div>
+                                    <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2 flex justify-between">Materias <button id="open-subject-modal-btn" class="bg-indigo-100 text-indigo-700 px-2 rounded hover:bg-indigo-200 transition">+</button></h2><div id="subjects-by-trimester" class="flex-1 overflow-y-auto space-y-2"></div></div>
+                                    <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2">Grupos</h2><div id="groups-by-trimester" class="flex-1 overflow-y-auto space-y-2 mb-2"></div><div class="flex gap-2 bg-gray-50 p-2 rounded border mt-auto"><input type="number" id="group-number-input" placeholder="#" class="p-1 border rounded w-16 text-sm"><button id="add-group-btn" class="bg-purple-600 text-white px-2 rounded text-xs flex-1 hover:bg-purple-700 transition">Crear</button></div></div>
+                                    <div class="bg-white rounded-xl shadow p-4 border flex flex-col h-[500px]"><h2 class="text-sm font-bold uppercase text-gray-500 mb-2">Catálogo Aulas</h2><div id="classrooms-list-manage" class="flex-1 overflow-y-auto space-y-1"></div><div class="flex gap-2 bg-gray-50 p-2 rounded border mt-auto"><input id="classroom-name-input" placeholder="Nombre" class="p-1 border rounded w-full text-sm"><button id="add-classroom-btn" class="bg-teal-600 text-white px-2 rounded text-xs hover:bg-teal-700 transition">Ok</button></div></div>
+                                </div>
+                                <div class="pt-6 border-t border-gray-200 pb-12">
+                                    <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Auditoría Académica</h2>
+                                    <div id="alerts-container"></div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+
+                        <div id="tab-content-alumnos" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
+                            <div class="max-w-6xl mx-auto space-y-6">
+                                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                                    <h2 class="text-xl font-bold text-gray-800 mb-4">Carga de Listas de Alumnos</h2>
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-indigo-50 transition-colors" id="drop-zone">
+                                        <input type="file" id="student-file-input" class="hidden" accept=".xlsx, .xls, .pdf">
+                                            <p class="text-gray-500 mb-2">Arrastra tu archivo Excel o PDF aquí</p>
+                                            <button onclick="document.getElementById('student-file-input').click()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 transition">Seleccionar Archivo</button>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 hidden" id="students-preview-container">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="text-lg font-bold text-gray-700">Vista Previa (<span id="student-count">0</span> alumnos)</h3>
+                                        <div class="flex gap-2">
+                                            <button id="btn-save-students" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-bold text-sm transition">Guardar en Sistema</button>
+                                            <button id="btn-download-students" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold text-sm transition">Descargar JSON</button>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matrícula</th>
+                                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
+                                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grupo</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200" id="students-table-body">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab-content-reportes" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
+                            <div class="max-w-6xl mx-auto space-y-6">
+
+                                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                                    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        📊 Análisis de Espacios (Mapa de Calor)
+                                        <span class="text-xs font-normal text-gray-400 bg-gray-100 px-2 rounded">Semanal</span>
+                                    </h2>
+                                    <div id="room-heatmap-container"></div>
+                                </div>
+
+                                <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+                                    <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">Centro de Exportación</h2>
+                                    <div class="flex justify-center gap-4 mt-8">
+                                        <button id="btn-export-all" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center justify-center gap-2"><span>📦</span> Descargar Todo (ZIP)</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
                 </div>
-            </div>
 
-            <div id="tab-content-reportes" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
-                 <div class="max-w-6xl mx-auto space-y-6">
-                     
-                     <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
-                         <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                             📊 Análisis de Espacios (Mapa de Calor)
-                             <span class="text-xs font-normal text-gray-400 bg-gray-100 px-2 rounded">Semanal</span>
-                         </h2>
-                         <div id="room-heatmap-container"></div>
-                     </div>
+                <div id="export-template"></div>
+                <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"><div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all"></div></div>
+                <div class="fixed bottom-6 left-6 z-[60]"><button id="btn-undo" class="bg-gray-800 hover:bg-black text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all opacity-50 cursor-not-allowed" disabled><span class="text-lg">↩️</span> <span class="text-sm font-bold">Deshacer</span></button></div>
+                <div id="notification-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
 
-                     <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
-                         <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">Centro de Exportación</h2>
-                         <div class="flex justify-center gap-4 mt-8">
-                             <button id="btn-export-all" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center justify-center gap-2"><span>📦</span> Descargar Todo (ZIP)</button>
-                         </div>
-                     </div>
-                 </div>
-            </div>
-        </main>
-    </div>
-
-    <div id="export-template"></div>
-    <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"><div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all"></div></div>
-    <div class="fixed bottom-6 left-6 z-[60]"><button id="btn-undo" class="bg-gray-800 hover:bg-black text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all opacity-50 cursor-not-allowed" disabled><span class="text-lg">↩️</span> <span class="text-sm font-bold">Deshacer</span></button></div>
-    <div id="notification-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"></div>
-
-    <script type="module" src="config.js"></script>
+                <script type="module" src="config.js"></script>
     <script type="module" src="state.js"></script>
     <script type="module" src="actions.js"></script>
     <script type="module" src="ui.js"></script>
@@ -210,6 +210,6 @@
     <script type="module" src="export.js"></script>
     <script type="module" src="maps.js"></script>
     <script type="module" src="main.js"></script>
-    <script type="module" src="students.js"></script>
-</body>
+    </body>
+
 </html>
