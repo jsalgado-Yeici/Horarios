@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { cols } from './state.js'; // Assuming cols provides collection refs including 'groups'
 
 export function initStudents() {
@@ -42,40 +42,73 @@ export function initStudents() {
             return;
         }
 
-        const groupsToCreate = new Set();
-        const existingGroups = state.groups.map(g => g.name.trim().toUpperCase());
+        const studentsByGroup = {};
 
+        // 1. Agrupar alumnos por grupo
         state.students.forEach(s => {
             if (s.grupo && s.grupo !== "Desconocido") {
-                const standardizedName = s.grupo.trim().toUpperCase();
-                if (!existingGroups.includes(standardizedName)) {
-                    groupsToCreate.add(standardizedName);
+                const standardizedName = s.grupo.trim().toUpperCase().replace(/\s+/g, '-');
+                if (!studentsByGroup[standardizedName]) {
+                    studentsByGroup[standardizedName] = [];
                 }
+
+                // Mapear al formato que espera TestListasv2
+                studentsByGroup[standardizedName].push({
+                    id: s.matricula, // Usamos matrícula como ID estable
+                    name: s.nombre,
+                    matricula: s.matricula,
+                    // Campos opcionales para TestListasv2
+                    team: null,
+                    isRepeating: false
+                });
             }
         });
 
-        if (groupsToCreate.size > 0) {
-            const confirmCreate = confirm(`Se detectaron ${groupsToCreate.size} grupos nuevos (${[...groupsToCreate].join(', ')}). ¿Deseas crearlos automáticamente?`);
+        const groupsToProcess = Object.keys(studentsByGroup);
+        if (groupsToProcess.length > 0) {
+            const confirmCreate = confirm(`Se van a actualizar/crear ${groupsToProcess.length} grupos con sus alumnos. ¿Continuar?`);
             if (confirmCreate) {
                 try {
-                    const promises = [...groupsToCreate].map(groupName => {
-                        return addDoc(cols.groups, {
-                            name: groupName,
-                            trimester: 1 // Default trimester, user can edit later
-                        });
-                    });
-                    await Promise.all(promises);
-                    alert(`Se han creado ${groupsToCreate.size} grupos nuevos.`);
+                    let createdCount = 0;
+                    let updatedCount = 0;
+
+                    for (const groupName of groupsToProcess) {
+                        // Buscar si el grupo ya existe en el state (lectura optimizada)
+                        // AVISO: Idealmente deberíamos buscar en Firestore para estar 100% seguros, 
+                        // pero usamos state.groups que se sincroniza al inicio.
+                        const existingGroup = state.groups.find(g => g.name.trim().toUpperCase() === groupName);
+
+                        if (existingGroup) {
+                            // Actualizar grupo existente
+                            await updateDoc(doc(cols.groups, existingGroup.id), {
+                                students: studentsByGroup[groupName]
+                            });
+                            updatedCount++;
+                        } else {
+                            // Crear nuevo grupo
+                            await addDoc(cols.groups, {
+                                name: groupName,
+                                trimester: 1, // Default
+                                students: studentsByGroup[groupName],
+                                classDays: [], // Campos extra para compatibilidad
+                                evaluationTypes: { // Estructura por defecto para TestListasv2
+                                    partial1: [{ id: crypto.randomUUID(), name: 'General', weight: 100 }],
+                                    partial2: [{ id: crypto.randomUUID(), name: 'General', weight: 100 }]
+                                }
+                            });
+                            createdCount++;
+                        }
+                    }
+
+                    alert(`Proceso finalizado:\n- Grupos actualizados: ${updatedCount}\n- Grupos nuevos creados: ${createdCount}`);
                 } catch (error) {
-                    console.error("Error creando grupos:", error);
-                    alert("Hubo un error al crear los grupos.");
+                    console.error("Error guardando alumnos en Firebase:", error);
+                    alert("Hubo un error al guardar los datos en la nube.");
                 }
             }
+        } else {
+            alert('No se encontraron grupos válidos en la lista.');
         }
-
-        // Since we don't have a 'students' collection in Firestore as per original design (light file),
-        // we just confirm they are in memory. If the requirement changes to persist students in DB, do it here.
-        alert('Datos de alumnos procesados y grupos actualizados en el sistema.');
     });
 }
 
