@@ -2,6 +2,11 @@ import { state } from './state.js';
 
 export function initStudents() {
     const dropZone = document.getElementById('drop-zone');
+    if (!dropZone) {
+        console.warn('Elements for student upload not found. Skipping initStudents.');
+        return;
+    }
+
     const fileInput = document.getElementById('student-file-input');
     const btnSave = document.getElementById('btn-save-students');
     const btnDownload = document.getElementById('btn-download-students');
