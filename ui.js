@@ -178,7 +178,11 @@ export function renderExternalClassesPanel() {
 }
 
 export function renderGlobalMatrix() {
-    const container = document.getElementById('sabana-container'); const dayFilter = document.getElementById('sabana-day-filter').value; if (!container) return; container.innerHTML = '';
+    const container = document.getElementById('sabana-container');
+    const filterEl = document.getElementById('sabana-day-filter');
+    if (!container || !filterEl) return;
+    const dayFilter = filterEl.value;
+    container.innerHTML = '';
     const table = document.createElement('table'); table.className = "w-full border-collapse border border-gray-300 text-xs";
     const thead = document.createElement('thead'); const headerRow = document.createElement('tr'); headerRow.innerHTML = `<th class="bg-gray-100 border p-2 sticky left-0 z-10 w-24">Grupo</th>`; timeSlots.forEach(t => { headerRow.innerHTML += `<th class="bg-gray-50 border p-2 min-w-[80px]">${t}:00</th>`; }); thead.appendChild(headerRow); table.appendChild(thead);
     const tbody = document.createElement('tbody');
