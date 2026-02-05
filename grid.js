@@ -204,11 +204,16 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
         let bgColor, borderColor;
         if (subj.color) {
             bgColor = subj.color;
-            borderColor = subj.color; // Simplify border to match
+            borderColor = subj.color;
         } else {
             const cIdx = subj.id.split('').reduce((a, x) => a + x.charCodeAt(0), 0) % PALETTE.length;
             bgColor = PALETTE[cIdx];
             borderColor = PALETTE[cIdx];
+        }
+
+        // Teacher Color Override (Border)
+        if (teach.color) {
+            borderColor = teach.color;
         }
 
         if (isExporting) {
@@ -219,8 +224,10 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
         else {
             el.style.borderLeftColor = borderColor;
 
-            // To make custom color more visible, maybe add a very light tint?
-            // Converting hex to rgba is complex without helper. Let's stick to border.
+            // If teacher color is used, make border thicker for visibility
+            if (teach.color) {
+                el.style.borderLeftWidth = "5px";
+            }
         }
 
         const isNarrow = totalOverlaps >= 3 && !isExporting;

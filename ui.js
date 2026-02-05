@@ -423,7 +423,7 @@ export function renderFilterOptions() {
 export function renderVersion() {
     const v = document.createElement('div');
     v.className = "fixed bottom-1 left-1 text-[10px] text-gray-300 pointer-events-none z-50 font-mono";
-    v.innerText = "v1.3.0 (Drag-Swap + Manual Students)";
+    v.innerText = "v1.4.0 (Colors + UI)";
     document.body.appendChild(v);
 }
 export function createTooltip() { const tooltipEl = document.createElement('div'); tooltipEl.id = 'custom-tooltip'; document.body.appendChild(tooltipEl); document.addEventListener('mousemove', e => { if (tooltipEl.classList.contains('visible')) { tooltipEl.style.left = (e.clientX + 15) + 'px'; tooltipEl.style.top = (e.clientY + 15) + 'px'; } }); }

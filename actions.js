@@ -351,6 +351,16 @@ export function showTeacherForm(teacher = null) {
                 <p class="text-[10px] text-gray-400 mt-1">Define cuántas horas de asesoría *debe* cumplir este docente.</p>
             </div>
             <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Color Distintivo</label>
+                <div class="flex gap-2 items-center">
+                    <input type="color" id="t-color" value="${teacher ? (teacher.color || '#3b82f6') : '#3b82f6'}" class="h-9 w-16 p-0 border rounded cursor-pointer" oninput="document.getElementById('t-color-text').value = this.value">
+                    <input type="text" id="t-color-text" value="${teacher ? (teacher.color || '#3b82f6') : '#3b82f6'}" class="flex-1 border p-2 rounded text-sm uppercase font-mono" 
+                        oninput="document.getElementById('t-color').value = this.value"
+                        onchange="document.getElementById('t-color').value = this.value">
+                </div>
+                <p class="text-[10px] text-gray-400 mt-1">Este color identificará al docente en el horario.</p>
+            </div>
+            <div class="mb-4">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Materias que imparte</label>
                 <input type="text" id="search-subjects-teacher" placeholder="🔍 Buscar materia..." class="w-full border p-1 mb-2 rounded text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-indigo-200 outline-none transition-all">
                 <div id="teacher-subjects-list" class="h-32 overflow-y-auto border p-2 rounded bg-gray-50 grid grid-cols-1 gap-1">
@@ -385,12 +395,13 @@ export function showTeacherForm(teacher = null) {
         const n = document.getElementById('t-name').value;
         const f = document.getElementById('t-full').value;
         const adv = parseInt(document.getElementById('t-advisory').value) || 0;
+        const col = document.getElementById('t-color').value;
 
         // Collect checked subjects
         const checkedSubjects = Array.from(document.querySelectorAll('.t-sub-check:checked')).map(cb => cb.value);
 
         if (n) {
-            const data = { name: n, fullName: f, advisoryHours: adv, subjectIds: checkedSubjects };
+            const data = { name: n, fullName: f, advisoryHours: adv, subjectIds: checkedSubjects, color: col };
             if (isEdit) {
                 const { id: _, ...d } = teacher;
                 pushHistory({ type: 'update', col: 'teachers', id: teacher.id, data: d });
