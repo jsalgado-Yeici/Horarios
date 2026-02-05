@@ -45,8 +45,8 @@ export function renderTeachersList() {
 // === LISTAS GESTIÓN ===
 export function renderGroupsList() {
     const l = document.getElementById('groups-by-trimester'); if (!l) return;
-    l.innerHTML = state.groups.map(g => `<div class="p-2 border bg-white text-sm flex justify-between items-center group-item" data-id="${g.id}"><span>${g.name}</span><div class="flex gap-1"><button class="text-blue-400 px-1 hover:text-blue-600 btn-edit-grp">✎</button><button class="text-red-400 px-1 hover:text-red-600 btn-del-grp">×</button></div></div>`).join('');
-    l.querySelectorAll('.group-item').forEach(el => { const id = el.dataset.id; const g = state.groups.find(x => x.id === id); el.querySelector('.btn-edit-grp').onclick = () => showGroupForm(g); el.querySelector('.btn-del-grp').onclick = () => deleteDocWrapper('groups', id); });
+    l.innerHTML = state.groups.map(g => `<div class="p-2 border bg-white text-sm flex justify-between items-center group-item" data-id="${g.id}"><span>${g.name}</span><div class="flex gap-1"><button class="text-indigo-500 px-1 hover:text-indigo-700 btn-view-std" title="Ver Alumnos">👥</button><button class="text-blue-400 px-1 hover:text-blue-600 btn-edit-grp">✎</button><button class="text-red-400 px-1 hover:text-red-600 btn-del-grp">×</button></div></div>`).join('');
+    l.querySelectorAll('.group-item').forEach(el => { const id = el.dataset.id; const g = state.groups.find(x => x.id === id); el.querySelector('.btn-view-std').onclick = () => showGroupStudents(g); el.querySelector('.btn-edit-grp').onclick = () => showGroupForm(g); el.querySelector('.btn-del-grp').onclick = () => deleteDocWrapper('groups', id); });
 }
 
 export function renderClassroomsManageList() {
@@ -220,5 +220,56 @@ export function createTooltip() { const tooltipEl = document.createElement('div'
 export function showTooltip(html) { const t = document.getElementById('custom-tooltip'); t.innerHTML = html; t.classList.add('visible'); }
 export function hideTooltip() { document.getElementById('custom-tooltip').classList.remove('visible'); }
 export function renderSubjectsList() { const c = document.getElementById('unassigned-subjects-container'); if (!c) return; c.innerHTML = ''; const grouped = {}; state.subjects.forEach(s => { const t = s.trimester || 0; if (!grouped[t]) grouped[t] = []; grouped[t].push(s); }); Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => { const details = document.createElement('details'); details.className = "trimester-group"; details.open = true; details.innerHTML = `<summary>Cuatri ${t}</summary><div class="content"></div>`; grouped[t].forEach(s => { const el = document.createElement('div'); el.className = "draggable-subject"; el.draggable = true; el.textContent = s.name; if (s.color) { el.style.borderLeftColor = s.color; } el.addEventListener('dragstart', (e) => { hideTooltip(); window.currentDrag = { duration: 2, id: null }; /* Mock for sidebar drag logic */ e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id })); }); el.addEventListener('dragend', () => { window.currentDrag = null; }); details.querySelector('.content').appendChild(el); }); c.appendChild(details); }); const l2 = document.getElementById('subjects-by-trimester'); if (l2) { l2.innerHTML = ''; Object.keys(grouped).forEach(t => { l2.innerHTML += `<div class="bg-gray-50 border p-2 mb-2 rounded"><h3 class="font-bold text-xs mb-1">C${t}</h3>${grouped[t].map(s => `<div class="flex justify-between text-xs border-b p-1"><span>${s.name}</span><button class="text-blue-400" onclick="window.editSub('${s.id}')">✎</button></div>`).join('')}</div>`; }); window.editSub = (id) => showSubjectForm(state.subjects.find(s => s.id === id)); } }
+function showGroupStudents(group) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-content');
+    modal.classList.remove('hidden');
+
+    if (!state.students || state.students.length === 0) {
+        content.innerHTML = `<div class="p-6 text-center"><h2 class="text-xl font-bold mb-4">Grupo: ${group.name}</h2><p class="text-gray-500">No hay alumnos cargados en el sistema (Memoria temporal vacía).</p><button onclick="document.getElementById('modal').classList.add('hidden')" class="mt-4 bg-gray-200 px-4 py-2 rounded">Cerrar</button></div>`;
+        return;
+    }
+
+    // Filter students by normalized group name
+    const targetName = group.name.replace(/-/g, '').replace(/\s/g, '').toUpperCase();
+    const studentsInGroup = state.students.filter(s => {
+        const sGroup = (s.grupo || '').replace(/-/g, '').replace(/\s/g, '').toUpperCase();
+        return sGroup.includes(targetName) || targetName.includes(sGroup);
+    });
+
+    const html = `
+        <div class="p-6 bg-white max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Alumnos: <span class="text-indigo-600">${group.name}</span></h2>
+                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm font-bold">${studentsInGroup.length} encontrados</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Matrícula</th>
+                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Nombre</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${studentsInGroup.length > 0 ? studentsInGroup.map(s => `
+                            <tr>
+                                <td class="px-3 py-2 text-sm text-gray-900 font-mono">${s.matricula}</td>
+                                <td class="px-3 py-2 text-sm text-gray-600">${s.nombre}</td>
+                            </tr>
+                        `).join('') : `<tr><td colspan="2" class="px-3 py-4 text-center text-sm text-gray-400 italic">No se encontraron alumnos asignados a este grupo en la lista cargada.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 text-right">
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-4 py-2 rounded transition-colors">Cerrar</button>
+            </div>
+        </div>
+    `;
+    content.innerHTML = html;
+}
+
 export function addGroup() { const n = document.getElementById('group-number-input').value; if (n) addDoc(collections.groups, { name: `IAEV-${n}`, trimester: 1 }); }
 export function addClassroom() { const n = document.getElementById('classroom-name-input').value; if (n) addDoc(collections.classrooms, { name: n }); }

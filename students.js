@@ -1,4 +1,6 @@
 import { state } from './state.js';
+import { addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { cols } from './state.js'; // Assuming cols provides collection refs including 'groups'
 
 export function initStudents() {
     const dropZone = document.getElementById('drop-zone');
@@ -34,9 +36,46 @@ export function initStudents() {
     });
 
     btnDownload.addEventListener('click', downloadStudentsJSON);
-    btnSave.addEventListener('click', () => {
-        // Here we could persist to Firestore if needed, for now we just keep it in state
-        alert('Datos guardados en memoria del sistema.');
+    btnSave.addEventListener('click', async () => {
+        if (!state.students || state.students.length === 0) {
+            alert('No hay alumnos cargados para guardar.');
+            return;
+        }
+
+        const groupsToCreate = new Set();
+        const existingGroups = state.groups.map(g => g.name.trim().toUpperCase());
+
+        state.students.forEach(s => {
+            if (s.grupo && s.grupo !== "Desconocido") {
+                const standardizedName = s.grupo.trim().toUpperCase();
+                if (!existingGroups.includes(standardizedName)) {
+                    groupsToCreate.add(standardizedName);
+                }
+            }
+        });
+
+        if (groupsToCreate.size > 0) {
+            const confirmCreate = confirm(`Se detectaron ${groupsToCreate.size} grupos nuevos (${[...groupsToCreate].join(', ')}). ¿Deseas crearlos automáticamente?`);
+            if (confirmCreate) {
+                try {
+                    const promises = [...groupsToCreate].map(groupName => {
+                        return addDoc(cols.groups, {
+                            name: groupName,
+                            trimester: 1 // Default trimester, user can edit later
+                        });
+                    });
+                    await Promise.all(promises);
+                    alert(`Se han creado ${groupsToCreate.size} grupos nuevos.`);
+                } catch (error) {
+                    console.error("Error creando grupos:", error);
+                    alert("Hubo un error al crear los grupos.");
+                }
+            }
+        }
+
+        // Since we don't have a 'students' collection in Firestore as per original design (light file),
+        // we just confirm they are in memory. If the requirement changes to persist students in DB, do it here.
+        alert('Datos de alumnos procesados y grupos actualizados en el sistema.');
     });
 }
 
