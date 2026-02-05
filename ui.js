@@ -579,30 +579,35 @@ function showGroupStudents(group) {
 
         // Delete Handler
         content.querySelectorAll('.btn-del-std').forEach(btn => {
-            btn.onclick = async () => {
+            btn.onclick = () => {
                 const mat = btn.dataset.id;
-                if (!confirm(`¿Eliminar al alumno con matrícula ${mat}?`)) return;
 
-                try {
-                    // 1. Update State
-                    state.students = state.students.filter(s => s.matricula !== mat);
+                showConfirmModal(
+                    'Eliminar Alumno',
+                    `¿Seguro que deseas eliminar al alumno con matrícula ${mat}?`,
+                    async () => {
+                        try {
+                            // 1. Update State
+                            state.students = state.students.filter(s => s.matricula !== mat);
 
-                    // 2. Persist to Firestore Group
-                    const currentGroupDocs = group.students || [];
-                    const updatedStudents = currentGroupDocs.filter(s => s.matricula !== mat && s.id !== mat);
+                            // 2. Persist to Firestore Group
+                            const currentGroupDocs = group.students || [];
+                            const updatedStudents = currentGroupDocs.filter(s => s.matricula !== mat && s.id !== mat);
 
-                    // Update Group in Firestore
-                    const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
-                    await updateDoc(doc(collections.groups, group.id), { students: updatedStudents });
+                            // Update Group in Firestore
+                            const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+                            await updateDoc(doc(collections.groups, group.id), { students: updatedStudents });
 
-                    // Update Local Group State
-                    group.students = updatedStudents;
+                            // Update Local Group State
+                            group.students = updatedStudents;
 
-                    showGroupStudents(group); // Reload modal
-                } catch (e) {
-                    console.error(e);
-                    alert("Error al eliminar alumno.");
-                }
+                            showGroupStudents(group); // Reload modal
+                        } catch (e) {
+                            console.error(e);
+                            alert("Error al eliminar alumno.");
+                        }
+                    }
+                );
             };
         });
 

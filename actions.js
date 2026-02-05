@@ -39,15 +39,30 @@ export async function handleDrop(e, day, hour) {
         if (!rawData) return;
         const d = JSON.parse(rawData);
 
-        // === MOVER CLASE EXISTENTE (SWAP) ===
+        // === MOVER CLASE EXISTENTE (SWAP O DUPLICAR) ===
         if (d.type === 'move') {
             const sourceId = d.id;
             const sourceClass = state.schedule.find(x => x.id === sourceId);
             if (!sourceClass) return;
 
-            // Ignorar si se suelta en el mismo lugar
-            if (sourceClass.day === day && sourceClass.startTime === hour) return;
+            // Ignorar si se suelta en el mismo lugar (y no es duplicado)
+            if (!e.ctrlKey && sourceClass.day === day && sourceClass.startTime === hour) return;
 
+            // DUPLICACIÓN (CTRL + DROP)
+            if (e.ctrlKey) {
+                const newClass = {
+                    ...sourceClass,
+                    day,
+                    startTime: hour,
+                };
+                delete newClass.id; // Remove source ID
+
+                const ref = await addDoc(cols.schedule, newClass);
+                pushHistory({ type: 'delete', col: 'schedule', id: ref.id });
+                return;
+            }
+
+            // MOVIMIENTO NORMAL (SIN DUPLICAR)
             const newStart = hour;
             const newEnd = hour + sourceClass.duration;
 
@@ -63,8 +78,6 @@ export async function handleDrop(e, day, hour) {
                 // Caso SWAP
                 if (conflicts.length === 1) {
                     const targetClass = conflicts[0];
-
-                    // Helper para nombre legible
                     const getMsg = (c) => {
                         if (c.type === 'advisory') return "Asesoría " + (state.teachers.find(t => t.id === c.teacherId)?.name || 'Docente');
                         const s = state.subjects.find(x => x.id === c.subjectId);
@@ -75,26 +88,28 @@ export async function handleDrop(e, day, hour) {
                     const msgA = getMsg(sourceClass);
                     const msgB = getMsg(targetClass);
 
-                    if (confirm(`¿Quieres intercambiar estas dos clases de horario?\n\n"${msgA}"  ↔  "${msgB}"`)) {
-                        // Realizar SWAP
+                    import('./ui.js').then(({ showConfirmModal }) => {
+                        showConfirmModal(
+                            'Confirmar Intercambio',
+                            `¿Quieres intercambiar estas dos clases de horario?\n\n"${msgA}"  ↔  "${msgB}"`,
+                            async () => {
+                                // Realizar SWAP
+                                const dataA = { day: day, startTime: hour };
+                                const dataB = { day: sourceClass.day, startTime: sourceClass.startTime };
 
-                        // Mover A -> Sitio B
-                        const dataA = { day: day, startTime: hour };
-                        // Mover B -> Sitio A (Original)
-                        const dataB = { day: sourceClass.day, startTime: sourceClass.startTime };
+                                // Source
+                                const { id: _, ...oldDataA } = sourceClass;
+                                pushHistory({ type: 'update', col: 'schedule', id: sourceId, data: oldDataA });
+                                await updateDoc(doc(cols.schedule, sourceId), dataA);
 
-                        // Undo Logic: Registramos dos acciones, el usuario tendría que dar Ctrl+Z dos veces. Aceptable.
+                                // Target
+                                const { id: __, ...oldDataB } = targetClass;
+                                pushHistory({ type: 'update', col: 'schedule', id: targetClass.id, data: oldDataB });
+                                await updateDoc(doc(cols.schedule, targetClass.id), dataB);
+                            }
+                        );
+                    });
 
-                        // Update Source
-                        const { id: _, ...oldDataA } = sourceClass;
-                        pushHistory({ type: 'update', col: 'schedule', id: sourceId, data: oldDataA });
-                        await updateDoc(doc(cols.schedule, sourceId), dataA);
-
-                        // Update Target
-                        const { id: __, ...oldDataB } = targetClass;
-                        pushHistory({ type: 'update', col: 'schedule', id: targetClass.id, data: oldDataB });
-                        await updateDoc(doc(cols.schedule, targetClass.id), dataB);
-                    }
                 } else {
                     alert("⚠️ Conflicto múltiple: Hay varias clases en el destino. No se puede intercambiar automáticamente.");
                 }
@@ -442,22 +457,30 @@ export async function restoreDoc(item) {
 }
 
 export function deleteDocWrapper(colName, id) {
-    if (confirm('¿Seguro de borrar?')) {
-        let old = null;
-        if (colName === 'schedule') old = state.schedule.find(x => x.id === id);
-        else if (colName === 'external') old = state.external.find(x => x.id === id);
-        else if (colName === 'teachers') old = state.teachers.find(x => x.id === id);
-        else if (colName === 'groups') old = state.groups.find(x => x.id === id);
-        else if (colName === 'classrooms') old = state.classrooms.find(x => x.id === id);
+    import('./ui.js').then(({ showConfirmModal }) => {
+        showConfirmModal(
+            'Confirmar Eliminación',
+            '¿Seguro de borrar este elemento? Esta acción se enviará a la Papelera.',
+            async () => {
+                let old = null;
+                if (colName === 'schedule') old = state.schedule.find(x => x.id === id);
+                else if (colName === 'external') old = state.external.find(x => x.id === id);
+                else if (colName === 'teachers') old = state.teachers.find(x => x.id === id);
+                else if (colName === 'groups') old = state.groups.find(x => x.id === id);
+                else if (colName === 'classrooms') old = state.classrooms.find(x => x.id === id);
 
-        if (old) {
-            const { id: _, ...d } = old;
-            pushHistory({ type: 'add', col: colName, id, data: d }); // Keep sequential undo
+                if (old) {
+                    const { id: _, ...d } = old;
+                    pushHistory({ type: 'add', col: colName, id, data: d }); // Keep sequential undo
 
-            // Add to Recycle Bin
-            state.deletedItems.unshift({ ...old, _col: colName, _deletedAt: new Date() });
-            if (state.deletedItems.length > 50) state.deletedItems.pop();
-        }
-        deleteDoc(doc(cols[colName], id));
-    }
+                    // Add to Recycle Bin (In-Memory State)
+                    if (state.deletedItems) {
+                        state.deletedItems.push({ ...old, _deletedAt: new Date(), _col: colName });
+                    }
+                }
+
+                await deleteDoc(doc(cols[colName], id));
+            }
+        );
+    });
 }
