@@ -175,7 +175,7 @@ async function processPDF(file) {
         // 2. Extract Group (e.g. "IAEV-42", "IAEV 42", "GPO 1")
         //    Looking for typical group patterns at the end of the name string
         let grupo = "Desconocido";
-        const groupRegex = /\b(IAEV[-\s]?\d+|GPO\s?\d+|[A-Z]{2,5}-\d+)\b/i;
+        const groupRegex = /\b(IAEV[-\s]?(?:[A-Z]{1,4}[-\s]?)?\d+|GPO\s?\d+|[A-Z]{2,5}-\d{2,3})\b/i;
         const groupMatch = segment.match(groupRegex);
 
         if (groupMatch) {
