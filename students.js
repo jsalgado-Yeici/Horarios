@@ -184,16 +184,21 @@ async function processPDF(file) {
             segment = segment.replace(groupMatch[0], '');
         }
 
-        // 3. Extract Generation if present (e.g. "25BIS")
+        // 3. Extract Generation (e.g. "29BIS", "26INM")
         let generacion = "N/A";
-        const genRegex = /\b(\d{1,2}(BIS|GEN)?)\b/i; // Matches 25BIS, 19, etc. careful not to match dates
-        // Only run this if we have a reasonably clear token structure, otherwise skipping gen extraction is safer
-        // to avoid cutting parts of names.
-        // Let's rely on cleaning know words instead.
+        // Matches: 2 digits followed by 2-4 uppercase letters (e.g. 29BIS, 26INM)
+        const genRegex = /\b(\d{2}[A-Z]{2,4})\b/;
+        const genMatch = segment.match(genRegex);
+
+        if (genMatch) {
+            generacion = genMatch[0];
+            segment = segment.replace(generacion, ''); // Remove from name
+        }
 
         // 4. Clean up Name
-        // Remove common words that might remain
-        let nombre = segment.replace(/25BIS|19BIS|23BIS|\bBIS\b/gi, '') // Remove generations explicitly if known
+        // Remove common words that might remain, including the stray "IAEV" at the end
+        let nombre = segment
+            .replace(/\bIAEV\b/g, '') // Explicitly remove stray IAEV
             .replace(/universidad|politecnica|santa|rosa|jauregui|ingenieria|licenciatura/gi, '')
             .replace(/[^\w\sÁÉÍÓÚÑáéíóúñ]/g, '') // Remove weird chars
             .replace(/\s+/g, ' ') // Collapse spaces
