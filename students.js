@@ -100,12 +100,13 @@ async function processPDF(file) {
 
     // Heuristic parsing for PDF text (very basic implementation)
     // Looking for patterns like: 123456 LastName FirstName Group
-    // This is strictly best-effort as PDF structures vary wildly.
+    console.log("PDF Raw Text Preview:", fullText.substring(0, 500)); // Debugging
+
     const lines = fullText.split('\n');
     const students = [];
 
-    // Regex for typical matricula (digits, 5-8 chars)
-    const matriculaRegex = /\b\d{5,8}\b/;
+    // Regex for typical matricula (digits, 3-9 chars to be safer)
+    const matriculaRegex = /\b\d{3,10}\b/;
 
     // Simple heuristic: if line has numbers resembling matricula, treat as student line
     // This will likely need refinement based on real docs
@@ -115,10 +116,13 @@ async function processPDF(file) {
             const matricula = match[0];
             // Name often near matricula, cleaning up digits
             let nameCandidate = line.replace(matricula, '').trim();
+            // Remove common academic words that might appear
+            nameCandidate = nameCandidate.replace(/universidad|politecnica|santa|rosa|jauregui|ingenieria|licenciatura/gi, '').trim();
             // Basic cleanup of common noise
             nameCandidate = nameCandidate.replace(/[^\w\sÁÉÍÓÚÑáéíóúñ]/g, '');
 
             if (nameCandidate.length > 5) {
+                console.log(`Found candidate: ${matricula} - ${nameCandidate}`);
                 students.push({
                     matricula: matricula,
                     nombre: nameCandidate,
@@ -129,6 +133,7 @@ async function processPDF(file) {
         }
     });
 
+    console.log(`Extracted ${students.length} students from PDF.`);
     return students;
 }
 
