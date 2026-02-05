@@ -199,7 +199,10 @@ async function processPDF(file) {
         // Remove common words that might remain, including the stray "IAEV" at the end
         let nombre = segment
             .replace(/\bIAEV\b/g, '') // Explicitly remove stray IAEV
-            .replace(/universidad|politecnica|santa|rosa|jauregui|ingenieria|licenciatura/gi, '')
+            .replace(/UNIVERSIDAD POLITECNICA DE SANTA ROSA JAUREGUI/gi, '') // Remove full university name
+            .replace(/INGENIERIA EN [A-Z\s]+/gi, '') // Remove degree names like "INGENIERIA EN SOFTWARE"
+            .replace(/LICENCIATURA EN [A-Z\s]+/gi, '') // Remove degree names
+            .replace(/Página\s+\d+/gi, '') // Remove "Página X"
             .replace(/[^\w\sÁÉÍÓÚÑáéíóúñ]/g, '') // Remove weird chars
             .replace(/\s+/g, ' ') // Collapse spaces
             .trim();
