@@ -423,7 +423,7 @@ export function renderFilterOptions() {
 export function renderVersion() {
     const v = document.createElement('div');
     v.className = "fixed bottom-1 left-1 text-[10px] text-gray-300 pointer-events-none z-50 font-mono";
-    v.innerText = "v1.2.0 (Drag-Swap)";
+    v.innerText = "v1.3.0 (Drag-Swap + Manual Students)";
     document.body.appendChild(v);
 }
 export function createTooltip() { const tooltipEl = document.createElement('div'); tooltipEl.id = 'custom-tooltip'; document.body.appendChild(tooltipEl); document.addEventListener('mousemove', e => { if (tooltipEl.classList.contains('visible')) { tooltipEl.style.left = (e.clientX + 15) + 'px'; tooltipEl.style.top = (e.clientY + 15) + 'px'; } }); }
@@ -521,50 +521,91 @@ function showGroupStudents(group) {
     const content = document.getElementById('modal-content');
     modal.classList.remove('hidden');
 
-    if (!state.students || state.students.length === 0) {
-        content.innerHTML = `<div class="p-6 text-center"><h2 class="text-xl font-bold mb-4">Grupo: ${group.name}</h2><p class="text-gray-500">No hay alumnos cargados en el sistema (Memoria temporal vacía).</p><button onclick="document.getElementById('modal').classList.add('hidden')" class="mt-4 bg-gray-200 px-4 py-2 rounded">Cerrar</button></div>`;
-        return;
-    }
-
     // Filter students by normalized group name
     const targetName = group.name.replace(/-/g, '').replace(/\s/g, '').toUpperCase();
-    const studentsInGroup = state.students.filter(s => {
-        const sGroup = (s.grupo || '').replace(/-/g, '').replace(/\s/g, '').toUpperCase();
-        return sGroup.includes(targetName) || targetName.includes(sGroup);
-    });
+    const groupStudents = state.students.filter(s =>
+        (s.grupo && s.grupo.replace(/-/g, '').replace(/\s/g, '').toUpperCase() === targetName) ||
+        (s.grupoId === group.id) // Fallback if we start using IDs
+    ).sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-    content.innerHTML = `
-        <div class="p-6 bg-white flex flex-col h-[80vh]">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">Grupo: <span class="text-indigo-600">${group.name}</span></h2>
-                <div class="flex gap-2">
-                    <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-                        👥 ${studentsInGroup.length}
-                    </span>
-                    <button onclick="document.getElementById('modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">×</button>
-                </div>
-            </div>
-            
-            <div class="flex-1 overflow-y-auto border rounded-xl bg-gray-50 shadow-inner p-1">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100 sticky top-0">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matrícula</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        ${studentsInGroup.length > 0 ? studentsInGroup.map(s => `
-                            <tr class="hover:bg-indigo-50 transition-colors">
-                                <td class="px-4 py-2 whitespace-nowrap text-xs font-mono text-gray-500">${s.matricula || 'N/A'}</td>
-                                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-700">${s.nombre}</td>
-                            </tr>
-                        `).join('') : '<tr><td colspan="2" class="p-4 text-center text-gray-500 italic">No se encontraron alumnos coincidentes.</td></tr>'}
-                    </tbody>
-                </table>
+    // Form HTML for adding student
+    const addFormHtml = `
+        <div id="add-student-form" class="mb-4 bg-gray-50 p-3 rounded border hidden">
+            <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">Agregar Alumno Manualmente</h3>
+            <div class="flex gap-2">
+                <input id="new-std-mat" placeholder="Matrícula" class="border p-2 rounded text-sm w-1/3">
+                <input id="new-std-name" placeholder="Nombre Completo" class="border p-2 rounded text-sm flex-1">
+                <button id="btn-save-new-std" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm font-bold">Guardar</button>
             </div>
         </div>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">Grupo: ${group.name} <span class="text-sm font-normal text-gray-500">(${groupStudents.length} alumnos)</span></h2>
+            <button id="btn-toggle-add-std" class="bg-green-600 text-white px-3 py-1 rounded text-sm font-bold hover:bg-green-700 transition">Reference + Alumno</button>
+        </div>
     `;
+
+    // Table HTML
+    const tableHtml = `
+        <div class="max-h-[60vh] overflow-y-auto border rounded">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-100 sticky top-0">
+                    <tr>
+                        <th class="p-2 border-b">Matrícula</th>
+                        <th class="p-2 border-b">Nombre</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    ${groupStudents.length > 0 ? groupStudents.map(s => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-2 font-mono text-gray-600">${s.matricula}</td>
+                            <td class="p-2 text-gray-800 font-medium">${s.nombre}</td>
+                        </tr>
+                    `).join('') : `<tr><td colspan="2" class="p-8 text-center text-gray-400">No hay alumnos en la lista actual.</td></tr>`}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    content.innerHTML = `<div class="p-6 bg-white">${addFormHtml}${tableHtml}<div class="mt-4 text-right"><button onclick="document.getElementById('modal').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded font-bold">Cerrar</button></div></div>`;
+
+    // Event Listeners
+    setTimeout(() => {
+        const toggleBtn = document.getElementById('btn-toggle-add-std');
+        const formDiv = document.getElementById('add-student-form');
+        const saveBtn = document.getElementById('btn-save-new-std');
+
+        if (toggleBtn) toggleBtn.onclick = () => formDiv.classList.toggle('hidden');
+
+        if (saveBtn) saveBtn.onclick = async () => {
+            const mat = document.getElementById('new-std-mat').value.trim();
+            const nom = document.getElementById('new-std-name').value.trim();
+
+            if (!mat || !nom) return alert("Ingresa matrícula y nombre.");
+
+            try {
+                // 1. Update State
+                const newStudent = { matricula: mat, nombre: nom.toUpperCase(), grupo: group.name, grupoId: group.id };
+                state.students.push(newStudent);
+
+                // 2. Persist to Firestore Group
+                const currentGroupDocs = group.students || [];
+                const updatedStudents = [...currentGroupDocs, { id: mat, matricula: mat, name: nom.toUpperCase() }]; // Align with TestListasv2 format if needed
+
+                // Update Group in Firestore
+                const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+                await updateDoc(doc(collections.groups, group.id), { students: updatedStudents });
+
+                // Update Local Group State
+                group.students = updatedStudents;
+
+                alert("Alumno agregado correctamente.");
+                showGroupStudents(group); // Reload modal
+            } catch (e) {
+                console.error(e);
+                alert("Error al guardar alumno.");
+            }
+        };
+    }, 0);
 }
 
 // === COMMAND PALETTE (CTRL+K) ===
