@@ -9,6 +9,7 @@ import {
     addGroup, addClassroom, renderGlobalMatrix, renderExternalClassesPanel, renderSettings,
     renderRoomHeatmap, renderVersion // Nueva Importación
 } from './ui.js';
+import { initStudents } from './students.js';
 import { showClassForm, showTeacherForm, showSubjectForm, undoLastAction } from './actions.js';
 import { renderMap } from './maps.js';
 import { exportSchedule, exportAllSchedules } from './export.js';
@@ -17,6 +18,7 @@ function initApp() {
     console.log("IAEV Planner vPro (Hotkeys + Heatmap)");
     createTooltip();
     renderVersion();
+    initStudents();
     setupListeners();
     setupRealtimeListeners();
 }

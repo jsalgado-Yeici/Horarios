@@ -9,6 +9,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script> 
+    <!-- SheetJS for Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PDF.js for PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -32,6 +39,7 @@
                 <button data-tab="mapa" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Mapa</button>
                 <button data-tab="externas" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Externas</button>
                 <button data-tab="gestion" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Gestión</button>
+                <button data-tab="alumnos" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Alumnos</button>
                 <button data-tab="reportes" class="tab-button px-4 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Reportes</button>
             </nav>
         </header>
@@ -131,6 +139,42 @@
                 </div>
             </div>
 
+            <div id="tab-content-alumnos" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
+                <div class="max-w-6xl mx-auto space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Carga de Listas de Alumnos</h2>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-indigo-50 transition-colors" id="drop-zone">
+                            <input type="file" id="student-file-input" class="hidden" accept=".xlsx, .xls, .pdf">
+                            <p class="text-gray-500 mb-2">Arrastra tu archivo Excel o PDF aquí</p>
+                            <button onclick="document.getElementById('student-file-input').click()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 transition">Seleccionar Archivo</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 hidden" id="students-preview-container">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-700">Vista Previa (<span id="student-count">0</span> alumnos)</h3>
+                            <div class="flex gap-2">
+                                <button id="btn-save-students" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-bold text-sm transition">Guardar en Sistema</button>
+                                <button id="btn-download-students" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold text-sm transition">Descargar JSON</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Matrícula</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grupo</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="students-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="tab-content-reportes" class="tab-content hidden h-full overflow-y-auto bg-slate-50 p-6">
                  <div class="max-w-6xl mx-auto space-y-6">
                      
@@ -166,5 +210,6 @@
     <script type="module" src="export.js"></script>
     <script type="module" src="maps.js"></script>
     <script type="module" src="main.js"></script>
+    <script type="module" src="students.js"></script>
 </body>
 </html>
