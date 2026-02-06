@@ -176,6 +176,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     // Absolute position left=0 is inside the border.
     // Col 1 is 60px wide. Ends at 60px.
     // Col 2 starts at 60px.
+    const rowH = 60; // RESTORED: Height per hour slot
     const leftOffset = 60;
 
     // Use calc for precise sub-pixel rendering allowed by CSS
