@@ -229,7 +229,7 @@ function setupRealtimeListeners() {
         if (['teachers', 'subjects', 'groups', 'classrooms', 'settings'].includes(k)) renderFilterOptions();
 
         if (k === 'teachers' || k === 'schedule') renderTeachersList();
-        if (k === 'subjects') renderSubjectsList();
+        if (k === 'subjects' || k === 'schedule') renderSubjectsList();
         if (k === 'groups') {
             renderGroupsList();
             loadStudentsFromGroups(state.groups);
