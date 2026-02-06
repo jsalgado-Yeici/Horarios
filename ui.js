@@ -88,8 +88,8 @@ export function renderTeachersList() {
     if (oldBtn) oldBtn.closest('.absolute')?.classList.add('hidden'); // Hide container
 
     // Setup Toolbar
+    // Toolbar Injection with Toggle
     renderStickyToolbar(container, "Buscar docente...", (term) => {
-        // Simple search filter
         const cards = l.querySelectorAll('.teacher-card');
         term = term.toLowerCase();
         cards.forEach(c => {
@@ -99,35 +99,71 @@ export function renderTeachersList() {
         });
     }, () => showTeacherForm(), "Nuevo Docente");
 
-    // Grid Setup
-    l.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1 pb-20 overflow-y-auto h-full content-start";
-    l.innerHTML = '';
+    // Add "Ver Carga Teórica" switch to toolbar if not exists
+    const tb = container.querySelector('.sticky-toolbar');
+    if (tb && !tb.querySelector('#toggle-theory-load')) {
+        const div = document.createElement('div');
+        div.className = "flex items-center gap-2 ml-2 border-l pl-2";
+        div.innerHTML = `
+            <label class="flex items-center gap-1 cursor-pointer select-none text-xs font-bold text-gray-500">
+                <input type="checkbox" id="toggle-theory-load" class="rounded text-purple-600 focus:ring-0">
+                ⚖️ Carga Teórica
+            </label>
+        `;
+        // Insert before the LAST element (which is usually the ADD button or Recycle)
+        // Let's insert before the Recycle bin button if possible, or just append
+        tb.insertBefore(div, tb.querySelector('.btn-recycle'));
 
-    // Clear Content but Keep Toolbar (or re-render it)
-    // Actually, simpler to just clear and re-add for now to avoid state complexity, 
-    // or better: checking if toolbar exists inside element is tricky if we clear innerHTML.
-    // Strategy: The container for the list in HTML is just the list. The Add button was outside in HTML.
-    // We will HIDE the old "Add" button in HTML via CSS or logic and inject our own.
+        div.querySelector('input').addEventListener('change', () => renderTeachersList());
+    }
 
-    // Let's assume we empty it and rebuild.
-    l.innerHTML = '';
+    const showTheory = document.getElementById('toggle-theory-load')?.checked;
 
-    // Render Toolbar (Injected into list container? better in parent, but let's put it at top of list for now)
-    // NOTE: HTML structure has a parent with relative positioning. Let's put toolbar there?
-    // Current HTML: #subtab-teachers > div.relative > #teachers-list
-    // We'll stick to rendering cards inside #teachers-list.
+    l.innerHTML = ''; // Clear list
 
     state.teachers.sort((a, b) => a.name.localeCompare(b.name)).forEach(t => {
+        // 1. Calculate REAL Load (Assigned in Schedule)
         const classHours = state.schedule.filter(c => c.teacherId === t.id && c.type !== 'advisory').reduce((acc, c) => acc + c.duration, 0);
         const advisoryScheduled = state.schedule.filter(c => c.teacherId === t.id && c.type === 'advisory').reduce((acc, c) => acc + c.duration, 0);
-        const advisoryGoal = t.advisoryHours || 0;
         const totalScheduled = classHours + advisoryScheduled;
-        const pct = Math.min((totalScheduled / 40) * 100, 100);
 
-        let color = "bg-green-500";
-        if (totalScheduled > 20) color = "bg-yellow-500";
-        if (totalScheduled > 30) color = "bg-orange-500";
-        if (totalScheduled > 35) color = "bg-red-500";
+        // 2. Calculate THEORETICAL Load (Sum of defaults)
+        // Find all subjects where this teacher is default
+        const mySubjects = state.subjects.filter(s => s.defaultTeacherId === t.id);
+        const theoryLoad = mySubjects.reduce((acc, s) => acc + (s.weeklyHours || 4), 0);
+
+        // 3. Determine Display
+        let pct = 0;
+        let barColor = "bg-green-500";
+        let displayTotal = totalScheduled;
+        let suffix = "reales";
+
+        if (showTheory) {
+            // Logic: Compare Real vs Theory
+            // If Theory is 0, we can't divide. 
+            // If Real < Theory -> Yellow/Orange (Underloaded)
+            // If Real == Theory -> Green (Perfect)
+            // If Real > Theory -> Red (Overloaded)
+
+            // Percentage of THEORY fulfilled
+            const target = theoryLoad || 1; // Prevent div/0
+            pct = Math.min((totalScheduled / target) * 100, 100);
+
+            if (totalScheduled < theoryLoad) barColor = "bg-yellow-400"; // Missing classes
+            if (totalScheduled === theoryLoad) barColor = "bg-green-500"; // Exact
+            if (totalScheduled > theoryLoad) barColor = "bg-red-500"; // Over
+            if (theoryLoad === 0 && totalScheduled > 0) barColor = "bg-red-500"; // Has classes but no "official" subjects
+
+            displayTotal = `${totalScheduled} / ${theoryLoad}`;
+            suffix = "vs Teórica";
+        } else {
+            // Standard Logic (based on 40h generic cap)
+            const MAX_CAP = 40;
+            pct = Math.min((totalScheduled / MAX_CAP) * 100, 100);
+            if (totalScheduled > 20) barColor = "bg-yellow-500";
+            if (totalScheduled > 30) barColor = "bg-orange-500";
+            if (totalScheduled > 35) barColor = "bg-red-500";
+        }
 
         const card = document.createElement('div');
         card.className = "teacher-card bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group relative";
@@ -149,24 +185,30 @@ export function renderTeachersList() {
             
             <div class="space-y-2">
                 <div class="flex justify-between items-end text-xs">
-                    <span class="text-gray-500 font-bold">Carga Total</span>
-                    <span class="font-mono font-bold text-gray-700">${totalScheduled}h</span>
+                    <span class="text-gray-500 font-bold">Carga Total (${suffix})</span>
+                    <span class="font-mono font-bold text-gray-700">${displayTotal}h</span>
                 </div>
                 <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                    <div class="${color} h-full rounded-full" style="width: ${pct}%"></div>
+                    <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
                 </div>
                 
                 <div class="flex justify-between items-center pt-2 border-t border-dashed">
                     <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Asesorías</span>
                     <div class="flex items-center gap-1 text-xs">
-                        <span class="${advisoryScheduled >= advisoryGoal ? 'text-green-600' : 'text-orange-500'} font-bold">${advisoryScheduled}h</span>
+                        <span class="${advisoryScheduled >= (t.advisoryHours || 0) ? 'text-green-600' : 'text-orange-500'} font-bold">${advisoryScheduled}h</span>
                         <span class="text-gray-300">/</span>
-                        <span class="text-gray-400">${advisoryGoal}h</span>
+                        <span class="text-gray-400">${t.advisoryHours || 0}h</span>
                     </div>
                 </div>
+                
+                ${showTheory ? `
+                <div class="bg-purple-50 p-2 rounded text-[10px] text-purple-800 mt-2">
+                    <strong>Materias (${mySubjects.length}):</strong> ${mySubjects.map(s => s.name).join(', ') || 'Ninguna'}
+                </div>
+                ` : ''}
             </div>
 
-            <button class="absolute -top-2 -right-2 bg-white text-red-500 rounded-full w-6 h-6 shadow border opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-red-50 transition-all btn-del scale-75 hover:scale-100">×</button>
+            <button class="absolute -top-2 -right-2 bg-white text-red-500 rounded-full w-6 h-6 shadow border opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-red-50 transition-all btn-del scale-75 hover:scale-100" title="Eliminar Docente">×</button>
         `;
 
         card.querySelector('.btn-edit').onclick = () => showTeacherForm(t);

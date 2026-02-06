@@ -415,9 +415,49 @@ export function showTeacherForm(teacher = null) {
                 const { id: _, ...d } = teacher;
                 pushHistory({ type: 'update', col: 'teachers', id: teacher.id, data: d });
                 await updateDoc(doc(cols.teachers, teacher.id), data);
+
+                // SYNC: Update Subjects "defaultTeacherId"
+                // 1. Find subjects that were checked but didn't have this teacher before? 
+                //    Actually simpler: For ALL checked subjects, set defaultTeacherId = teacher.id
+                //    For subjects REMOVED (that had this teacher), set defaultTeacherId = null
+
+                // Helper to update without blocking UI too much (can be async background)
+                const updateSubjects = async () => {
+                    const batchPromises = [];
+
+                    // A. Set this teacher for all checked
+                    checkedSubjects.forEach(subId => {
+                        const s = state.subjects.find(x => x.id === subId);
+                        if (s && s.defaultTeacherId !== teacher.id) {
+                            batchPromises.push(updateDoc(doc(cols.subjects, subId), { defaultTeacherId: teacher.id }));
+                        }
+                    });
+
+                    // B. Remove this teacher from subjects that were UNCHECKED (but previously had this teacher)
+                    // We need to look at ALL subjects where defaultTeacherId == teacher.id, 
+                    // and if they are NOT in checkedSubjects, clear them.
+                    state.subjects.filter(s => s.defaultTeacherId === teacher.id).forEach(s => {
+                        if (!checkedSubjects.includes(s.id)) {
+                            batchPromises.push(updateDoc(doc(cols.subjects, s.id), { defaultTeacherId: null }));
+                        }
+                    });
+
+                    await Promise.all(batchPromises);
+                };
+                updateSubjects(); // Run in background/async
+
             } else {
                 const ref = await addDoc(cols.teachers, data);
                 pushHistory({ type: 'delete', col: 'teachers', id: ref.id });
+
+                // For new teacher, just set the checked ones
+                const updateSubjects = async () => {
+                    const batchPromises = checkedSubjects.map(subId =>
+                        updateDoc(doc(cols.subjects, subId), { defaultTeacherId: ref.id })
+                    );
+                    await Promise.all(batchPromises);
+                };
+                updateSubjects();
             }
             modal.classList.add('hidden');
         }
