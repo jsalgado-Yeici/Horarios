@@ -140,6 +140,12 @@ export function showClassForm(defs = {}) {
     modal.classList.remove('hidden');
     const content = document.getElementById('modal-content');
 
+    // Auto-select Group from Filter if creating new
+    if (!defs.groupId) {
+        const filterGroup = document.getElementById('filter-group')?.value;
+        if (filterGroup) defs.groupId = filterGroup;
+    }
+
     // Determinar tipo inicial
     const isAdvisory = defs.type === 'advisory';
     const currentType = isAdvisory ? 'advisory' : 'class';
