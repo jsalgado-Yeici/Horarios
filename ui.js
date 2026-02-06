@@ -452,6 +452,7 @@ export function renderSubjectsList() {
 
         sidebarC.innerHTML = '';
         const filterGroup = document.getElementById('filter-group')?.value;
+        const filterTeacher = document.getElementById('filter-teacher')?.value;
         const filterTerm = document.getElementById('sidebar-search')?.value.toLowerCase();
         const hideCompleted = document.getElementById('toggle-completed')?.checked;
 
@@ -476,6 +477,9 @@ export function renderSubjectsList() {
                     const groupObj = state.groups.find(g => g.id === filterGroup);
                     if (groupObj && s.trimester !== groupObj.trimester) return false;
                 }
+
+                // 1.2 Teacher Filter
+                if (filterTeacher && s.defaultTeacherId !== filterTeacher) return false;
 
                 // 2. Hour Calculation
                 const weeklyTarget = s.weeklyHours || 4; // Default to 4 if not set
