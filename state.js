@@ -5,7 +5,7 @@ export const timeSlots = Array.from({ length: 14 }, (_, i) => i + 7);
 
 export const state = {
     teachers: [], subjects: [], groups: [], schedule: [],
-    classrooms: [], external: [],
+    classrooms: [], external: [], students: [],
     // Configuración global (ej. corte de turnos)
     settings: { shiftCutoff: 4 }, // Valor por defecto
     history: [],
