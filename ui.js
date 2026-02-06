@@ -533,11 +533,18 @@ export function renderSubjectsList() {
                 // TEACHER VIEW: Explode by Group
                 const groupsInTrim = state.groups.filter(g => g.trimester === parseInt(t));
 
-                groupsInTrim.sort((a, b) => a.name.localeCompare(b.name)).forEach(grp => {
-                    visibleSubjects.forEach(s => {
-                        renderSubjectItem(s, grp, contentDiv);
+                if (groupsInTrim.length > 0) {
+                    groupsInTrim.sort((a, b) => a.name.localeCompare(b.name)).forEach(grp => {
+                        visibleSubjects.forEach(s => {
+                            renderSubjectItem(s, grp, contentDiv);
+                        });
                     });
-                });
+                } else {
+                    // Fallback: Show subjects even if no groups exist
+                    visibleSubjects.forEach(s => {
+                        renderSubjectItem(s, null, contentDiv);
+                    });
+                }
             } else {
                 // STANDARD VIEW
                 const groupObj = filterGroup ? state.groups.find(g => g.id === filterGroup) : null;
