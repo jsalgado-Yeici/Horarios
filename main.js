@@ -74,7 +74,10 @@ function setupListeners() {
     }
     ['teacher', 'group', 'classroom', 'trimester'].forEach(id => {
         const el = document.getElementById(`filter-${id}`);
-        if (el) el.onchange = () => renderScheduleGrid();
+        if (el) el.onchange = () => {
+            renderScheduleGrid();
+            if (id === 'group' || id === 'trimester') renderSubjectsList(); // Refresh sidebar to update hours/filters
+        };
     });
 
     const sabanaDay = document.getElementById('sabana-day-filter');

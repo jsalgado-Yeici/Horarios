@@ -430,19 +430,32 @@ export function showSubjectForm(sub = null) {
                     <input type="color" id="s-color" value="${sub && sub.color ? sub.color : '#6366f1'}" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] cursor-pointer p-0 border-0">
                  </div>
             </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Horas Semanales (Objetivo)</label>
+                <input type="number" id="s-hours" value="${sub && sub.weeklyHours ? sub.weeklyHours : 4}" class="w-full border p-2 rounded" min="1" max="20">
+                <p class="text-[10px] text-gray-400 mt-1">Horas que debe recibir cada grupo a la semana.</p>
+            </div>
             <select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select>
             <button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button>
         </div>`;
     document.getElementById('btn-s-save').onclick = async () => {
         const n = document.getElementById('s-name').value;
         const color = document.getElementById('s-color').value;
-        const data = { name: n, trimester: parseInt(document.getElementById('s-trim').value), defaultTeacherId: document.getElementById('s-def').value, color: color };
+        const hours = parseInt(document.getElementById('s-hours').value) || 4;
+        const data = {
+            name: n,
+            trimester: parseInt(document.getElementById('s-trim').value),
+            defaultTeacherId: document.getElementById('s-def').value,
+            color: color,
+            weeklyHours: hours
+        };
         if (n) {
             if (isEdit) { const { id: _, ...d } = sub; pushHistory({ type: 'update', col: 'subjects', id: sub.id, data: d }); await updateDoc(doc(cols.subjects, sub.id), data); }
             else { const ref = await addDoc(cols.subjects, data); pushHistory({ type: 'delete', col: 'subjects', id: ref.id }); }
             modal.classList.add('hidden');
         }
     };
+
 }
 
 export function showGroupForm(group = null) {

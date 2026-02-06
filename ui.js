@@ -430,21 +430,111 @@ export function createTooltip() { const tooltipEl = document.createElement('div'
 export function showTooltip(html) { const t = document.getElementById('custom-tooltip'); t.innerHTML = html; t.classList.add('visible'); }
 export function hideTooltip() { document.getElementById('custom-tooltip').classList.remove('visible'); }
 export function renderSubjectsList() {
-    // 1. Sidebar Link (Drag & Drop Mode) - unassigned-subjects-container
+    // 2. Sidebar Link (Drag & Drop Mode) - unassigned-subjects-container
     const sidebarC = document.getElementById('unassigned-subjects-container');
     if (sidebarC) {
+        // Ensure Header (Search + Toggle) exists
+        if (!document.getElementById('sidebar-controls')) {
+            sidebarC.parentElement.querySelector('.bg-gray-50').insertAdjacentHTML('afterend', `
+                <div id="sidebar-controls" class="px-2 py-2 border-b border-gray-100 bg-white">
+                    <input id="sidebar-search" placeholder="🔍 Filtrar materias..." class="w-full border p-1.5 rounded text-xs bg-gray-50 mb-2 focus:ring-1 focus:ring-indigo-200 outline-none">
+                    <label class="flex items-center gap-2 text-xs font-bold text-gray-500 cursor-pointer select-none">
+                        <input type="checkbox" id="toggle-completed" class="rounded text-indigo-600 focus:ring-0">
+                        Ocultar completas
+                    </label>
+                </div>
+            `);
+
+            // Bind events
+            document.getElementById('sidebar-search').addEventListener('input', () => renderSubjectsList());
+            document.getElementById('toggle-completed').addEventListener('change', () => renderSubjectsList());
+        }
+
         sidebarC.innerHTML = '';
+        const filterGroup = document.getElementById('filter-group')?.value;
+        const filterTerm = document.getElementById('sidebar-search')?.value.toLowerCase();
+        const hideCompleted = document.getElementById('toggle-completed')?.checked;
+
+        // Group Subjects by Trimester
         const grouped = {};
-        state.subjects.forEach(s => { const t = s.trimester || 0; if (!grouped[t]) grouped[t] = []; grouped[t].push(s); });
+        state.subjects.forEach(s => {
+            const t = s.trimester || 0;
+            if (!grouped[t]) grouped[t] = [];
+            grouped[t].push(s);
+        });
+
         Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => {
-            const details = document.createElement('details'); details.className = "trimester-group"; details.open = true;
-            details.innerHTML = `<summary>Cuatri ${t}</summary><div class="content"></div>`;
-            grouped[t].forEach(s => {
-                const el = document.createElement('div'); el.className = "draggable-subject"; el.draggable = true; el.textContent = s.name;
-                if (s.color) el.style.borderLeftColor = s.color;
+            const subjectsInTrim = grouped[t];
+
+            // Logic to check visibility based on search & completion
+            const visibleSubjects = subjectsInTrim.filter(s => {
+                // 1. Search Filter
+                if (filterTerm && !s.name.toLowerCase().includes(filterTerm)) return false;
+
+                // 2. Hour Calculation
+                const weeklyTarget = s.weeklyHours || 4; // Default to 4 if not set
+                let assignedHours = 0;
+
+                if (filterGroup) {
+                    // Count hours for this subject AND this specific group
+                    assignedHours = state.schedule
+                        .filter(c => c.subjectId === s.id && c.groupId === filterGroup && c.type === 'class')
+                        .reduce((acc, c) => acc + c.duration, 0);
+                } else {
+                    // If no group selected, maybe show total? Or just 0?
+                    // Decision: Show 0 or global total. Let's show global total for "general overview" 
+                    // but it might be confusing. Let's stick to 0 if no group is selected to encourage selecting a group.
+                    // ACTUALLY: The user usually selects a group to work.
+                    // Providing a "Generic" view:
+                    assignedHours = 0; // Reset
+                }
+
+                s._tempHours = assignedHours; // Store for rendering
+                s._tempTarget = weeklyTarget;
+                s._isComplete = assignedHours >= weeklyTarget;
+
+                // 3. Hide Completed Filter
+                if (hideCompleted && s._isComplete) return false;
+
+                return true;
+            });
+
+            if (visibleSubjects.length === 0) return; // Skip empty trimesters
+
+            const details = document.createElement('details');
+            details.className = "trimester-group";
+            details.open = true;
+            details.innerHTML = `<summary>Cuatri ${t} <span class="text-[10px] text-gray-400 font-normal ml-auto mr-2">${visibleSubjects.length} mat.</span></summary><div class="content"></div>`;
+
+            visibleSubjects.forEach(s => {
+                const el = document.createElement('div');
+                const isComplete = s._isComplete && filterGroup; // Only visually complete if we are in a group context
+
+                el.className = `draggable-subject ${isComplete ? 'completed' : ''}`;
+                el.draggable = true;
+                el.style.borderLeftColor = s.color || '#6366f1';
+
+                // Progress Bar Width
+                const pct = Math.min((s._tempHours / s._tempTarget) * 100, 100);
+                let barClass = "subject-progress-fill";
+                if (s._tempHours >= s._tempTarget) barClass += " complete";
+                if (s._tempHours > s._tempTarget) barClass += " over";
+
+                el.innerHTML = `
+                    <div class="font-bold relative z-10">${s.name}</div>
+                    ${filterGroup ? `
+                        <div class="subject-meta relative z-10">
+                            <span>${s._tempHours} / ${s._tempTarget} hrs</span>
+                            ${isComplete ? '<span>✅</span>' : ''}
+                        </div>
+                        <div class="subject-progress-bg">
+                            <div class="${barClass}" style="width: ${pct}%"></div>
+                        </div>
+                    ` : '<div class="text-[10px] text-gray-400 mt-1">Selecciona un grupo</div>'}
+                `;
+
                 el.addEventListener('dragstart', (e) => {
                     hideTooltip();
-                    // Populate global drag state for real-time validation in grid.js
                     window.currentDrag = { type: 'subject', id: s.id, duration: 2 };
                     e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id }));
                 });
