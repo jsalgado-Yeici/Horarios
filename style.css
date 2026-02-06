@@ -1,3 +1,44 @@
+/* === ESTILOS GENERALES Y ANIMACIONES === */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f8fafc;
+}
+
+.loader {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #4f46e5;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.tab-content {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* === BARRA LATERAL (MATERIAS) === */
 .trimester-group {
     border: 1px solid #e2e8f0;
@@ -123,4 +164,405 @@
     font-size: 0.65rem;
     color: #64748b;
     margin-top: 2px;
+}
+
+/* === HORARIO (GRID) === */
+.schedule-grid {
+    display: grid;
+    grid-template-columns: 60px repeat(5, 1fr);
+    gap: 1px;
+    background-color: #e2e8f0;
+    /* Color de líneas más suave */
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    user-select: none;
+}
+
+.grid-header {
+    background-color: #f8fafc;
+    text-align: center;
+    font-weight: 800;
+    font-size: 0.7rem;
+    color: #64748b;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.grid-time-slot {
+    background-color: white;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.grid-cell {
+    background-color: white;
+    height: 60px;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.grid-cell.droppable-hover {
+    background-color: #f0f9ff;
+    box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+.grid-cell.drag-allow {
+    background-color: #dcfce7 !important;
+    box-shadow: inset 0 0 0 2px #22c55e !important;
+}
+
+/* Green for allowed */
+.grid-cell.drag-conflict {
+    background-color: #fee2e2 !important;
+    box-shadow: inset 0 0 0 2px #ef4444 !important;
+}
+
+/* Red for conflict */
+
+/* TARJETAS DE CLASE (Minimalistas para reducir ruido) */
+.schedule-item {
+    position: absolute;
+    margin: 2px;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    color: #1e293b;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid;
+    /* Borde izquierdo más delgado */
+    background-color: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    /* Sombra muy sutil */
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.2;
+}
+
+.schedule-item:hover {
+    transform: scale(1.02);
+    z-index: 50 !important;
+    box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.15);
+}
+
+.schedule-item .subject-name {
+    font-weight: 700;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.schedule-item .item-details {
+    font-size: 0.65rem;
+    color: #64748b;
+}
+
+/* === MATERIAS EXTERNAS (Idiomas/STEM) - ESTILO "ZONA" === */
+/* En lugar de una tarjeta, esto parece parte del fondo (zona bloqueada) */
+.external-block {
+    position: absolute;
+    background-color: #f1f5f9;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #e2e8f0 10px, #e2e8f0 20px);
+    border: 1px dashed #cbd5e1;
+    z-index: 4;
+    /* Debajo de las clases normales si hubiera empalme visual */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-weight: 700;
+    font-size: 0.65rem;
+    pointer-events: none;
+    /* No interactuable en el grid principal */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+/* Tooltip */
+.custom-tooltip {
+    position: fixed;
+    background: #1e293b;
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    max-width: 220px;
+    border: 1px solid #334155;
+}
+
+.custom-tooltip.visible {
+    display: block;
+    animation: fadeIn 0.1s ease-out;
+}
+
+/* Mapa */
+/* Mapa - Architectural Style */
+#map-viewport {
+    background-color: #f0f4f8;
+    /* Soft blueprint blue-gray */
+    background-image:
+        linear-gradient(#e2e8f0 1px, transparent 1px),
+        linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
+    background-size: 20px 20px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+.map-room {
+    position: absolute;
+    border: 2px solid #475569;
+    /* Thicker "wall" borders */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #334155;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 2px 4px 6px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    padding: 4px;
+    line-height: 1.1;
+    background-color: white;
+    /* Default background */
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.map-room:hover {
+    transform: translateY(-2px) scale(1.02);
+    z-index: 50;
+    box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.15), 0 0 0 2px #6366f1;
+    cursor: pointer;
+    border-color: #6366f1;
+}
+
+/* Icon inside room */
+.room-icon {
+    font-size: 14px;
+    margin-bottom: 2px;
+    display: block;
+    opacity: 0.7;
+}
+
+/* Classroom - Desk Pattern removed to allow Gradient Heatmap clearly */
+.map-room.classroom {
+    /* background-color: #f8fafc;  <-- Removed to let gradient show */
+    border-color: #94a3b8;
+    color: #1e293b;
+    /* Simulate rows of desks */
+    background-image: radial-gradient(#cbd5e1 15%, transparent 16%), radial-gradient(#cbd5e1 15%, transparent 16%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+}
+
+/* Lab - Technical Grid */
+.map-room.lab {
+    /* background-color: #fff7ed; <-- Removed */
+    border-color: #fb923c;
+    color: #9a3412;
+    background-image: linear-gradient(0deg, transparent 24%, rgba(251, 146, 60, .1) 25%, rgba(251, 146, 60, .1) 26%, transparent 27%, transparent 74%, rgba(251, 146, 60, .1) 75%, rgba(251, 146, 60, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(251, 146, 60, .1) 25%, rgba(251, 146, 60, .1) 26%, transparent 27%, transparent 74%, rgba(251, 146, 60, .1) 75%, rgba(251, 146, 60, .1) 76%, transparent 77%, transparent);
+    background-size: 15px 15px;
+}
+
+/* Office - Clean & Professional */
+.map-room.office {
+    /* background-color: #f1f5f9; <-- Removed */
+    border-color: #cbd5e1;
+    color: #475569;
+    /* background-image: repeating-linear-gradient(0deg, transparent, transparent 19px, #e2e8f0 20px); <-- Removed to let heatmap show */
+}
+
+/* Warning for missing catalog sync */
+.map-room.not-in-catalog {
+    border-style: dashed !important;
+    opacity: 0.7;
+}
+
+/* Stairs - Stripped Steps */
+.map-room.stairs {
+    background-color: #e2e8f0;
+    border-color: #64748b;
+    color: #64748b;
+    background-image: repeating-linear-gradient(45deg,
+            #cbd5e1,
+            #cbd5e1 5px,
+            #f1f5f9 5px,
+            #f1f5f9 10px);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Corridor - Explicit Walkways */
+.map-room.corridor {
+    background-color: #ef4444;
+    /* Reddish base as requested */
+    background-image: repeating-linear-gradient(45deg, #ef4444, #ef4444 10px, #dc2626 10px, #dc2626 20px);
+    border: none;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+    /* Below rooms */
+    border-radius: 4px;
+    opacity: 0.8;
+    pointer-events: none;
+    /* Non-clickable */
+}
+
+.map-room.corridor:hover {
+    transform: none;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+/* Door Indicators */
+.door-indicator {
+    position: absolute;
+    background-color: #334155;
+    /* Dark door color */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    z-index: 60;
+}
+
+/* Door Positions */
+.door-top {
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.door-bottom {
+    bottom: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.door-left {
+    left: -3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.door-right {
+    right: -3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+/* In-Use Status Logic */
+.map-room.occupied {
+    background-color: #fee2e2 !important;
+    /* Light red background */
+    border-color: #ef4444 !important;
+    color: #b91c1c !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), inset 0 0 0 1px #ef4444;
+    animation: pulse-busy 2s infinite;
+}
+
+.map-room.free {
+    background-color: #dcfce7 !important;
+    /* Light green background */
+    border-color: #22c55e !important;
+    color: #15803d !important;
+    box-shadow: inset 0 0 0 1px #22c55e;
+}
+
+@keyframes pulse-busy {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+/* Export Templates (Legacy support for PDF/IMG) */
+#export-template {
+    font-family: 'Arial', sans-serif;
+    background: white;
+    width: 1500px;
+    height: 1200px;
+    padding: 20px;
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+}
+
+#export-template * {
+    box-sizing: border-box !important;
+}
+
+#export-template .official-header {
+    width: 100%;
+    height: 120px;
+    border-bottom: 4px solid #3b82f6;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+}
+
+#export-grid-container {
+    position: absolute;
+    top: 160px;
+    left: 20px;
+    width: 1000px;
+}
+
+#export-table-container {
+    position: absolute;
+    top: 160px;
+    left: 1040px;
+    width: 400px;
+    background: white;
+}
+
+#export-footer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 1460px;
+    text-align: center;
+    font-size: 10px;
+    color: #666;
+    border-top: 1px solid #ccc;
+    padding-top: 5px;
 }
