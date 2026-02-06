@@ -471,6 +471,12 @@ export function renderSubjectsList() {
                 // 1. Search Filter
                 if (filterTerm && !s.name.toLowerCase().includes(filterTerm)) return false;
 
+                // 1.1 Group Trimester Filter
+                if (filterGroup) {
+                    const groupObj = state.groups.find(g => g.id === filterGroup);
+                    if (groupObj && s.trimester !== groupObj.trimester) return false;
+                }
+
                 // 2. Hour Calculation
                 const weeklyTarget = s.weeklyHours || 4; // Default to 4 if not set
                 let assignedHours = 0;
