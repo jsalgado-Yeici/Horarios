@@ -50,6 +50,9 @@ export async function handleDrop(e, day, hour) {
 
             // DUPLICACIÓN (CTRL + DROP)
             if (e.ctrlKey) {
+                // Debug to verify detection
+                console.log("Ctrl+Drop detected. Duplicating...");
+
                 const newClass = {
                     ...sourceClass,
                     day,
