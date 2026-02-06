@@ -885,3 +885,36 @@ export function renderCommandPalette() {
 
 export function addGroup() { const n = document.getElementById('group-number-input').value; if (n) addDoc(collections.groups, { name: `IAEV-${n}`, trimester: 1 }); }
 export function addClassroom() { const n = document.getElementById('classroom-name-input').value; if (n) addDoc(collections.classrooms, { name: n }); }
+
+export function showConfirmModal(title, message, onConfirm) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-content');
+    modal.classList.remove('hidden');
+
+    content.innerHTML = `
+        <div class="p-6 bg-white rounded-lg max-w-sm mx-auto">
+            <h2 class="text-xl font-bold text-gray-800 mb-2">${title}</h2>
+            <p class="text-gray-600 text-sm mb-6">${message}</p>
+            <div class="flex justify-end gap-3">
+                <button id="btn-conf-cancel" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded font-bold">Cancelar</button>
+                <button id="btn-conf-ok" class="px-4 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 shadow">Confirmar</button>
+            </div>
+        </div>
+    `;
+
+    // Attaching directly to these new elements.
+    // NOTE: If modal logic re-renders, these listeners are lost, but showConfirmModal re-renders content every time it's called, so it's fine.
+    // We just need to ensure we don't break existing modal logic if it expects to be hidden in a specific way.
+
+    setTimeout(() => {
+        const btnCancel = document.getElementById('btn-conf-cancel');
+        const btnOk = document.getElementById('btn-conf-ok');
+
+        if (btnCancel) btnCancel.onclick = () => modal.classList.add('hidden');
+        if (btnOk) btnOk.onclick = async () => {
+            await onConfirm();
+            modal.classList.add('hidden');
+        };
+    }, 0);
+}
+
