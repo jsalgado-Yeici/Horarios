@@ -599,7 +599,14 @@ function renderManagerSubjects(container, filterText) {
         grouped[t].forEach(s => {
             const row = document.createElement('div');
             row.className = "flex justify-between items-center text-xs border-b p-1 hover:bg-white transition-colors group";
-            row.innerHTML = `<span class="truncate pr-1" title="${s.name}">${s.name}</span><button class="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity font-bold px-1" onclick="window.editSub('${s.id}')">✎</button>`;
+            row.innerHTML = `
+                <div class="flex items-center gap-2 overflow-hidden flex-1">
+                    <span class="truncate font-medium text-gray-700" title="${s.name}">${s.name}</span>
+                    <span class="text-[10px] text-gray-400 bg-gray-100 px-1.5 rounded-full whitespace-nowrap">${s.weeklyHours || 4}h / sem</span>
+                    ${s.totalHours ? `<span class="text-[9px] text-gray-300">(${s.totalHours}T)</span>` : ''}
+                </div>
+                <button class="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity font-bold px-2 py-1 hover:bg-blue-50 rounded" onclick="window.editSub('${s.id}')">✎</button>
+            `;
             div.appendChild(row);
         });
         container.appendChild(div);
