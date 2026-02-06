@@ -76,7 +76,8 @@ function setupListeners() {
         const el = document.getElementById(`filter-${id}`);
         if (el) el.onchange = () => {
             renderScheduleGrid();
-            if (id === 'group' || id === 'trimester') renderSubjectsList(); // Refresh sidebar to update hours/filters
+            // Refresh sidebar to update hours/filters for Group AND Teacher
+            if (id === 'group' || id === 'trimester' || id === 'teacher') renderSubjectsList();
         };
     });
 
