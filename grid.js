@@ -169,21 +169,32 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
 
     const el = document.createElement('div'); el.className = 'schedule-item';
 
-    // CORRECCIÓN ALINEACIÓN EXPORTACIÓN:
-    // Antes se usaba rowH=55 y leftOffset=80 en exportación, lo que causaba desviación acumulativa.
-    // Ahora mantenemos las proporciones estándar del grid (60px altura) para garantizar alineación perfecta.
-    const rowH = 60;
-
-    // El offset izquierdo debe coincidir con el ancho de la columna de horas (que es variable o fija).
-    // En CSS .schedule-grid define columns: 60px repeat(5, 1fr).
-    // Por tanto, el offset debe ser siempre 60px.
+    // CORRECCIÓN ALINEACIÓN (Final):
+    // .schedule-grid tiene padding-left: 0. 
+    // Grid columns: 60px ...
+    // Border is 1px on container.
+    // Absolute position left=0 is inside the border.
+    // Col 1 is 60px wide. Ends at 60px.
+    // Col 2 starts at 60px.
     const leftOffset = 60;
 
+    // Use calc for precise sub-pixel rendering allowed by CSS
     const colW = `((100% - ${leftOffset}px)/5)`;
 
     el.style.top = `${(tIdx * rowH) + rowH}px`;
+    // Height: Full rowH (60) minus internal borders/margins. 
+    // If we want it to look like it fits IN the cell:
+    // Cell is 60px. Border bottom 1px. Content 59px.
+    // We want 2px margin top/bottom. 60 - 4 = 56px.
     el.style.height = `${(c.duration * rowH) - (isExporting ? 1 : 4)}px`;
+
+    // Left: offset + (width * day) + sub-index offset
     el.style.left = `calc(${leftOffset}px + (${colW} * ${dayIdx}) + (${colW} / ${totalOverlaps} * ${overlapIdx}))`;
+
+    // Width: colW / overlaps - margins
+    // If overlaps, share space.
+    // Margin: 2px each side? Or just total reduction?
+    // Let's subtract 4px total for margins (2px left, 2px right)
     el.style.width = `calc((${colW} / ${totalOverlaps}) - ${isExporting ? 1 : 4}px)`;
 
     // === RENDERIZADO ASESORÍA ===

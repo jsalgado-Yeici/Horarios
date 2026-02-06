@@ -509,92 +509,110 @@ export function renderSubjectsList() {
         Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach(t => {
             const subjectsInTrim = grouped[t];
 
-            // Logic to check visibility based on search & completion
+            // 1. Filter Logic
             const visibleSubjects = subjectsInTrim.filter(s => {
-                // 1. Search Filter
                 if (filterTerm && !s.name.toLowerCase().includes(filterTerm)) return false;
-
-                // 1.1 Group Trimester Filter
                 if (filterGroup) {
                     const groupObj = state.groups.find(g => g.id === filterGroup);
                     if (groupObj && s.trimester !== groupObj.trimester) return false;
                 }
-
-                // 1.2 Teacher Filter
                 if (filterTeacher && s.defaultTeacherId !== filterTeacher) return false;
-
-                // 2. Hour Calculation
-                const weeklyTarget = s.weeklyHours || 4; // Default to 4 if not set
-                let assignedHours = 0;
-
-                if (filterGroup) {
-                    // Count hours for this subject AND this specific group
-                    assignedHours = state.schedule
-                        .filter(c => c.subjectId === s.id && c.groupId === filterGroup && c.type === 'class')
-                        .reduce((acc, c) => acc + c.duration, 0);
-                } else {
-                    // If no group selected, maybe show total? Or just 0?
-                    // Decision: Show 0 or global total. Let's show global total for "general overview" 
-                    // but it might be confusing. Let's stick to 0 if no group is selected to encourage selecting a group.
-                    // ACTUALLY: The user usually selects a group to work.
-                    // Providing a "Generic" view:
-                    assignedHours = 0; // Reset
-                }
-
-                s._tempHours = assignedHours; // Store for rendering
-                s._tempTarget = weeklyTarget;
-                s._isComplete = assignedHours >= weeklyTarget;
-
-                // 3. Hide Completed Filter
-                if (hideCompleted && s._isComplete) return false;
-
                 return true;
             });
 
-            if (visibleSubjects.length === 0) return; // Skip empty trimesters
+            if (visibleSubjects.length === 0) return;
 
             const details = document.createElement('details');
             details.className = "trimester-group";
             details.open = true;
             details.innerHTML = `<summary>Cuatri ${t} <span class="text-[10px] text-gray-400 font-normal ml-auto mr-2">${visibleSubjects.length} mat.</span></summary><div class="content"></div>`;
+            const contentDiv = details.querySelector('.content');
 
-            visibleSubjects.forEach(s => {
-                const el = document.createElement('div');
-                const isComplete = s._isComplete && filterGroup; // Only visually complete if we are in a group context
+            // 2. Render Logic
+            if (filterTeacher) {
+                // TEACHER VIEW: Explode by Group
+                const groupsInTrim = state.groups.filter(g => g.trimester === parseInt(t));
 
-                el.className = `draggable-subject ${isComplete ? 'completed' : ''}`;
-                el.draggable = true;
-                el.style.borderLeftColor = s.color || '#6366f1';
-
-                // Progress Bar Width
-                const pct = Math.min((s._tempHours / s._tempTarget) * 100, 100);
-                let barClass = "subject-progress-fill";
-                if (s._tempHours >= s._tempTarget) barClass += " complete";
-                if (s._tempHours > s._tempTarget) barClass += " over";
-
-                el.innerHTML = `
-                    <div class="font-bold relative z-10">${s.name}</div>
-                    ${filterGroup ? `
-                        <div class="subject-meta relative z-10">
-                            <span>${s._tempHours} / ${s._tempTarget} hrs</span>
-                            ${isComplete ? '<span>✅</span>' : ''}
-                        </div>
-                        <div class="subject-progress-bg">
-                            <div class="${barClass}" style="width: ${pct}%"></div>
-                        </div>
-                    ` : '<div class="text-[10px] text-gray-400 mt-1">Selecciona un grupo</div>'}
-                `;
-
-                el.addEventListener('dragstart', (e) => {
-                    hideTooltip();
-                    window.currentDrag = { type: 'subject', id: s.id, duration: 2 };
-                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'subject', id: s.id }));
+                groupsInTrim.sort((a, b) => a.name.localeCompare(b.name)).forEach(grp => {
+                    visibleSubjects.forEach(s => {
+                        renderSubjectItem(s, grp, contentDiv);
+                    });
                 });
-                el.addEventListener('dragend', () => { window.currentDrag = null; });
-                details.querySelector('.content').appendChild(el);
-            });
+            } else {
+                // STANDARD VIEW
+                const groupObj = filterGroup ? state.groups.find(g => g.id === filterGroup) : null;
+                visibleSubjects.sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+                    renderSubjectItem(s, groupObj, contentDiv);
+                });
+            }
+
             sidebarC.appendChild(details);
         });
+
+        // Helper function to render items
+        function renderSubjectItem(s, groupObj, container) {
+            const weeklyTarget = s.weeklyHours || 4;
+            let assignedHours = 0;
+
+            if (groupObj) {
+                assignedHours = state.schedule
+                    .filter(c => c.subjectId === s.id && c.groupId === groupObj.id && c.type !== 'advisory')
+                    .reduce((acc, c) => acc + c.duration, 0);
+            }
+
+            const isComplete = groupObj && assignedHours >= weeklyTarget;
+            const isOver = groupObj && assignedHours > weeklyTarget;
+
+            if (hideCompleted && isComplete) return;
+
+            const el = document.createElement('div');
+            el.className = `p-2 border-b border-gray-100 hover:bg-indigo-50 cursor-grab active:cursor-grabbing transition-all select-none draggable-subject ${isComplete ? 'completed' : ''}`;
+            el.draggable = true;
+            el.style.borderLeftColor = s.color || '#6366f1';
+
+            // Progress Bar
+            let progressHTML = '';
+            if (groupObj) {
+                const pct = Math.min((assignedHours / weeklyTarget) * 100, 100);
+                let barClass = "subject-progress-fill";
+                if (assignedHours >= weeklyTarget) barClass += " complete";
+                if (assignedHours > weeklyTarget) barClass += " over";
+                progressHTML = `
+                    <div class="subject-progress-bg">
+                        <div class="${barClass}" style="width: ${pct}%"></div>
+                    </div>
+                `;
+            }
+
+            // Display Name
+            const displayName = (filterTeacher && groupObj) ? `${s.name} <span class='text-gray-500 text-[10px]'>(${groupObj.name})</span>` : s.name;
+
+            el.innerHTML = `
+                ${progressHTML}
+                <div class="font-bold text-xs text-gray-700 pointer-events-none relative z-10 flex justify-between">
+                    <span class="truncate pr-1" title="${s.name}">${displayName}</span>
+                    ${groupObj ? `<span class="${isOver ? 'text-red-500' : (isComplete ? 'text-green-600' : 'text-gray-400')} ml-1 font-mono">${assignedHours}/${weeklyTarget}</span>` : ''}
+                </div>
+                <div class="subject-meta relative z-10">
+                    <span>${state.teachers.find(t => t.id === s.defaultTeacherId)?.name || 'Sin Docente'}</span> 
+                    <span class="bg-gray-100 px-1 rounded text-[10px] text-gray-500">${weeklyTarget}h/sem</span>
+                </div>
+            `;
+
+            el.ondragstart = (e) => {
+                hideTooltip();
+                const dragData = { type: 'subject', id: s.id, duration: 2 };
+                if (groupObj) dragData.groupId = groupObj.id; // Specific group context
+                window.currentDrag = dragData;
+                e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                e.dataTransfer.effectAllowed = 'copyMove';
+                el.classList.add('opacity-50');
+            };
+            el.ondragend = () => { el.classList.remove('opacity-50'); window.currentDrag = null; };
+            el.ondblclick = () => window.editSub(s.id);
+
+            container.appendChild(el);
+        }
     }
 
     // 2. Management List (Edit Mode) - subjects-by-trimester
