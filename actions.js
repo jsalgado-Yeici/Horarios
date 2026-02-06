@@ -430,24 +430,56 @@ export function showSubjectForm(sub = null) {
                     <input type="color" id="s-color" value="${sub && sub.color ? sub.color : '#6366f1'}" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] cursor-pointer p-0 border-0">
                  </div>
             </div>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Horas Semanales (Objetivo)</label>
-                <input type="number" id="s-hours" value="${sub && sub.weeklyHours ? sub.weeklyHours : 4}" class="w-full border p-2 rounded" min="1" max="20">
-                <p class="text-[10px] text-gray-400 mt-1">Horas que debe recibir cada grupo a la semana.</p>
+            
+            <!-- Hours Calculation Section -->
+            <div class="bg-indigo-50 p-3 rounded-lg mb-4 border border-indigo-100">
+                <label class="block text-xs font-bold text-indigo-800 uppercase mb-2">Calculadora de Horas</label>
+                <div class="flex gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-500 font-bold block mb-1">Total Horas Cuatri</label>
+                        <input type="number" id="s-total-hours" value="${sub && sub.totalHours ? sub.totalHours : 60}" class="w-full border p-2 rounded text-sm font-bold text-gray-700">
+                    </div>
+                    <div class="w-20">
+                        <label class="text-[10px] text-gray-500 font-bold block mb-1">Semanas</label>
+                        <input type="number" id="s-weeks" value="${sub && sub.weeks ? sub.weeks : 15}" class="w-full border p-2 rounded text-sm text-center">
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400">Resultante:</span>
+                    <input type="number" id="s-hours" value="${sub && sub.weeklyHours ? sub.weeklyHours : 4}" class="flex-1 border-2 border-indigo-200 p-2 rounded text-sm font-bold text-indigo-700 bg-white" min="1" max="20" readonly>
+                    <span class="text-xs font-bold text-indigo-800">Hrs/Semana</span>
+                </div>
             </div>
+
             <select id="s-def" class="w-full border p-2 mb-4"><option value="">-- Profe Default --</option>${genOpts(state.teachers)}</select>
-            <button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded">Guardar</button>
+            <button id="btn-s-save" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 font-bold w-full">Guardar Materia</button>
         </div>`;
+
+    // Calculation Logic
+    const calc = () => {
+        const total = parseInt(document.getElementById('s-total-hours').value) || 0;
+        const weeks = parseInt(document.getElementById('s-weeks').value) || 15;
+        const weekly = weeks > 0 ? Math.ceil(total / weeks) : 0;
+        document.getElementById('s-hours').value = weekly;
+    };
+    document.getElementById('s-total-hours').addEventListener('input', calc);
+    document.getElementById('s-weeks').addEventListener('input', calc);
+
     document.getElementById('btn-s-save').onclick = async () => {
         const n = document.getElementById('s-name').value;
         const color = document.getElementById('s-color').value;
         const hours = parseInt(document.getElementById('s-hours').value) || 4;
+        const total = parseInt(document.getElementById('s-total-hours').value) || 0;
+        const weeks = parseInt(document.getElementById('s-weeks').value) || 15;
+
         const data = {
             name: n,
             trimester: parseInt(document.getElementById('s-trim').value),
             defaultTeacherId: document.getElementById('s-def').value,
             color: color,
-            weeklyHours: hours
+            weeklyHours: hours,
+            totalHours: total,
+            weeks: weeks
         };
         if (n) {
             if (isEdit) { const { id: _, ...d } = sub; pushHistory({ type: 'update', col: 'subjects', id: sub.id, data: d }); await updateDoc(doc(cols.subjects, sub.id), data); }
