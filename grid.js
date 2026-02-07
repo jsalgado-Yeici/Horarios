@@ -113,8 +113,15 @@ export function renderScheduleGrid(targetElement = document.getElementById('sche
         if (fTch && c.teacherId !== fTch) return false;
         if (fGrp && c.groupId !== fGrp) return false;
         if (fTrim && g.trimester != fTrim) return false;
+        if (fTrim && g.trimester != fTrim) return false;
+
+        // DEBUG: Track visible items
+        // console.log("Render item:", c);
         return true;
     });
+
+    console.log("Total visible classes:", visible.length); // DEBUG LOG
+    console.log("Filters:", { fGrp, fTch, fTrim, fShift }); // DEBUG LOG
 
     // EXTERNAS (Sin cambios)
     if (!customFilters) {
@@ -288,7 +295,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
             tooltipHTML = `
                 <div class="font-bold text-sm mb-2 text-white border-b border-gray-600 pb-1 text-amber-400">ASESORÍA / ADM</div>
                 <div class="text-xs text-gray-200 space-y-1">
-                    <div><span class="text-gray-400 font-bold">Docente:</span> ${teach.fullName || teach.name}</div>
+                    <div><span class="text-gray-400 font-bold">Docente:</span> ${teacherName}</div>
                     <div><span class="text-gray-400 font-bold">Aula:</span> ${roomName}</div>
                     <div><span class="text-gray-400 font-bold">Horario:</span> ${c.startTime}:00 - ${c.startTime + c.duration}:00</div>
                 </div>`;
