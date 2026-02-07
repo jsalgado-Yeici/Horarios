@@ -133,6 +133,13 @@ export function generateScheduleForGroup(groupId) {
 
                 if (currentDailyLoad + duration > 6) continue; // Skip this day if full
 
+                // Check Max Hours PER SUBJECT per day (e.g., Max 2 hours of Math per day)
+                const currentSubjectDailyLoad = proposedSchedule
+                    .filter(c => c.groupId === groupId && c.day === d && c.subjectId === sub.id)
+                    .reduce((acc, c) => acc + c.duration, 0);
+
+                if (currentSubjectDailyLoad >= 2) continue; // Skip if subject already has 2 hours today
+
                 for (const h of validHours) {
                     if (assigned) break;
 
