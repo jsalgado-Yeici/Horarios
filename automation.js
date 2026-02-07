@@ -43,29 +43,40 @@ export function generateScheduleForGroup(groupId) {
     if (!group) return { success: false, message: "Grupo no encontrado" };
 
     // 1. Identify Needed Subjects
-    // Filter subjects for this trimester
-    const subjects = state.subjects.filter(s => s.trimester === group.trimester);
+    // Filter subjects for this trimester (Loose equality for string/number tolerance)
+    const subjects = state.subjects.filter(s => s.trimester == group.trimester);
 
     // Calculate remaining hours for each subject
     const needed = subjects.map(s => {
-        const target = s.weeklyHours || 4;
+        // Default to 4 hours if not defined (common case)
+        const target = s.weeklyHours ? parseInt(s.weeklyHours) : 4;
+
         const current = state.schedule
             .filter(c => c.groupId === groupId && c.subjectId === s.id)
             .reduce((acc, c) => acc + c.duration, 0);
+
         return {
             ...s,
             remaining: Math.max(0, target - current)
         };
     }).filter(s => s.remaining > 0);
 
-    if (needed.length === 0) return { success: true, message: "El grupo ya tiene carga completa.", newClasses: [] };
+    if (needed.length === 0) {
+        return {
+            success: true,
+            message: `No hay materias pendientes para el cuatri ${group.trimester} (o no coinciden con este grupo).`,
+            newClasses: []
+        };
+    }
 
     // 2. Sorting Heuristic: Hardest First?
     // Sort by: Has Default Teacher (Harder) > Remaining Hours (Larger blocks)
+    // If NO default teacher, it's "Easier" to place (no teacher constraint), so put at end?
+    // User wants it to work WITHOUT teachers. So treating them as "Easy" is correct.
     needed.sort((a, b) => {
         if (a.defaultTeacherId && !b.defaultTeacherId) return -1;
         if (!a.defaultTeacherId && b.defaultTeacherId) return 1;
-        return b.remaining - a.remaining;
+        return b.remaining - a.remaining; // Longest blocks first
     });
 
     const newClasses = [];
