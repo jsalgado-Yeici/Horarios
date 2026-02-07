@@ -114,8 +114,25 @@ export function generateScheduleForGroup(groupId) {
                 validHours = timeSlots.filter(h => h < 14);
             }
 
-            for (const d of days) {
+            // 3.2 Load Balancing Strategy
+            // Instead of iterating generic [M, T, W...], sort days by "Least Busy for Group"
+            const daysSorted = [...days].sort((dayA, dayB) => {
+                const load = (d) => proposedSchedule
+                    .filter(c => c.groupId === groupId && c.day === d)
+                    .reduce((acc, c) => acc + c.duration, 0);
+                return load(dayA) - load(dayB);
+            });
+
+            for (const d of daysSorted) {
                 if (assigned) break;
+
+                // Check Max Daily Hours (e.g., 6 hours max to avoid burnout)
+                const currentDailyLoad = proposedSchedule
+                    .filter(c => c.groupId === groupId && c.day === d)
+                    .reduce((acc, c) => acc + c.duration, 0);
+
+                if (currentDailyLoad + duration > 6) continue; // Skip this day if full
+
                 for (const h of validHours) {
                     if (assigned) break;
 
@@ -132,7 +149,7 @@ export function generateScheduleForGroup(groupId) {
                         const newClass = {
                             groupId: groupId,
                             subjectId: sub.id,
-                            teacherId: sub.defaultTeacherId || null, // Logic for 'No Teacher' later
+                            teacherId: sub.defaultTeacherId || null,
                             day: d,
                             startTime: h,
                             duration: duration,
