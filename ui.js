@@ -479,7 +479,12 @@ export function renderSubjectsList() {
         if (!document.getElementById('sidebar-controls')) {
             sidebarC.parentElement.querySelector('.bg-gray-50').insertAdjacentHTML('afterend', `
                 <div id="sidebar-controls" class="px-2 py-2 border-b border-gray-100 bg-white">
-                    <input id="sidebar-search" placeholder="🔍 Filtrar materias..." class="w-full border p-1.5 rounded text-xs bg-gray-50 mb-2 focus:ring-1 focus:ring-indigo-200 outline-none">
+                    <div class="flex gap-2 mb-2">
+                         <input id="sidebar-search" placeholder="🔍 Filtrar materias..." class="w-full border p-1.5 rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-200 outline-none">
+                         <button id="btn-auto-schedule" class="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700 transition shadow" title="Autocompletar Horario (Beta)">
+                            ✨
+                         </button>
+                    </div>
                     <label class="flex items-center gap-2 text-xs font-bold text-gray-500 cursor-pointer select-none">
                         <input type="checkbox" id="toggle-completed" class="rounded text-indigo-600 focus:ring-0">
                         Ocultar completas
@@ -490,6 +495,34 @@ export function renderSubjectsList() {
             // Bind events
             document.getElementById('sidebar-search').addEventListener('input', () => renderSubjectsList());
             document.getElementById('toggle-completed').addEventListener('change', () => renderSubjectsList());
+            document.getElementById('btn-auto-schedule').addEventListener('click', async () => {
+                const group = document.getElementById('filter-group')?.value;
+                if (!group) { alert("Por favor selecciona un grupo primero."); return; }
+
+                if (!confirm("¿CONFIRMAR AUTO-LLENADO?\n\nEl sistema intentará asignar materias en huecos libres para este grupo.\n\n⚠️ Esto es una función BETA.")) return;
+
+                // Dynamic Import to save bundle size
+                const { generateScheduleForGroup } = await import('./automation.js');
+                const result = generateScheduleForGroup(group);
+
+                if (result.success) {
+                    const { addDoc, collection } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js"); // Or reuse from config? 
+                    // Better to use actions.js helper or import collections from state.js
+                    // But automation.js returns objects. We need to save them.
+
+                    const { cols } = await import('./state.js');
+
+                    // Bulk Save (Sequential for now, or batch)
+                    let count = 0;
+                    for (const cls of result.newClasses) {
+                        await addDoc(cols.schedule, cls);
+                        count++;
+                    }
+                    alert(`¡Éxito! Se agendaron ${count} clases.`);
+                } else {
+                    alert(result.message);
+                }
+            });
         }
 
         sidebarC.innerHTML = '';
