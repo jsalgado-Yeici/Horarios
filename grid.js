@@ -153,7 +153,8 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     const teach = state.teachers.find(t => t.id === c.teacherId);
 
     // Validar datos básicos
-    if (!teach) return null;
+    // Validar datos básicos
+    // if (!teach) return null; // ALLOW NULL TEACHERS
 
     // Si es clase, requerimos materia y grupo
     let subj = null, grp = null;
@@ -164,7 +165,12 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
     }
 
     const room = state.classrooms.find(r => r.id === c.classroomId);
-    const teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
+
+    let teacherName = "Sin Asignar";
+    if (teach) {
+        teacherName = (isExporting && teach.fullName) ? teach.fullName : teach.name;
+    }
+
     const roomName = room ? room.name : "Sin Aula";
 
     const el = document.createElement('div'); el.className = 'schedule-item';
@@ -224,7 +230,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
         }
 
         // Teacher Color Override (Border)
-        if (teach.color) {
+        if (teach && teach.color) {
             borderColor = teach.color;
         }
 
@@ -237,7 +243,7 @@ function createItem(c, dayIdx, totalOverlaps, overlapIdx, isExporting) {
             el.style.borderLeftColor = borderColor;
 
             // If teacher color is used, make border thicker for visibility
-            if (teach.color) {
+            if (teach && teach.color) {
                 el.style.borderLeftWidth = "5px";
             }
         }
