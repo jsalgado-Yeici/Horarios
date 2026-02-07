@@ -484,6 +484,9 @@ export function renderSubjectsList() {
                          <button id="btn-auto-schedule" class="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700 transition shadow" title="Autocompletar Horario (Beta)">
                             ✨
                          </button>
+                         <button id="btn-clear-schedule" class="bg-red-50 text-red-600 border border-red-200 p-1.5 rounded hover:bg-red-100 transition shadow" title="Borrar Horario del Grupo">
+                            🗑️
+                         </button>
                     </div>
                     <label class="flex items-center gap-2 text-xs font-bold text-gray-500 cursor-pointer select-none">
                         <input type="checkbox" id="toggle-completed" class="rounded text-indigo-600 focus:ring-0">
@@ -522,6 +525,26 @@ export function renderSubjectsList() {
                 } else {
                     alert(result.message);
                 }
+            });
+
+            document.getElementById('btn-clear-schedule').addEventListener('click', async () => {
+                const group = document.getElementById('filter-group')?.value;
+                if (!group) { alert("Selecciona un grupo para limpiar."); return; }
+                const gObj = state.groups.find(g => g.id === group);
+
+                if (!confirm(`¿ESTÁS SEGURO?\n\nSe eliminarán TODAS las clases del grupo "${gObj?.name || group}".\n\nEsta acción no se puede deshacer fácilmente.`)) return;
+
+                const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+                const { cols } = await import('./state.js');
+
+                // Find classes to delete
+                const toDelete = state.schedule.filter(c => c.groupId === group);
+                let count = 0;
+                for (const c of toDelete) {
+                    await deleteDoc(doc(cols.schedule, c.id));
+                    count++;
+                }
+                alert(`Se eliminaron ${count} clases.`);
             });
         }
 
