@@ -247,16 +247,23 @@ function checkLoading() { if (!Object.values(state.loading).some(v => v)) { cons
 auth.onAuthStateChanged(u => { if (u) initApp(); else signInAnonymously(auth).catch(console.error); });
 
 // === TÉRMINOS Y CONDICIONES MODAL ===
-document.addEventListener('DOMContentLoaded', () => {
+// === TÉRMINOS Y CONDICIONES MODAL ===
+// Since main.js is a module, it runs deferred. DOMContentLoaded might have already fired.
+// We can run this directly or check readyState.
+function setupTermsModal() {
     const termLink = document.getElementById('open-terms');
     const termModal = document.getElementById('terms-modal');
     const closeTermBtn = document.getElementById('close-terms');
     const agreeBtn = document.getElementById('btn-agree-terms');
 
+    console.log("Setting up Terms Modal...", { termLink, termModal }); // DEBUG
+
     function openTerms(e) {
         if (e) e.preventDefault();
+        console.log("Opening Terms Modal"); // DEBUG
+        if (!termModal) return;
+
         termModal.classList.remove('hidden');
-        // Small delay to allow display:block to apply before opacity transition
         setTimeout(() => {
             termModal.classList.remove('opacity-0');
             termModal.children[0].classList.remove('scale-95');
@@ -265,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function closeTerms() {
+        if (!termModal) return;
         termModal.classList.add('opacity-0');
         termModal.children[0].classList.remove('scale-100');
         termModal.children[0].classList.add('scale-95');
@@ -273,12 +281,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
 
-    if (termLink) termLink.addEventListener('click', openTerms);
+    if (termLink) {
+        termLink.removeEventListener('click', openTerms); // Prevent duplicates if re-run
+        termLink.addEventListener('click', openTerms);
+    }
     if (closeTermBtn) closeTermBtn.addEventListener('click', closeTerms);
     if (agreeBtn) agreeBtn.addEventListener('click', closeTerms);
 
-    // Close on background click
     if (termModal) termModal.addEventListener('click', (e) => {
         if (e.target === termModal) closeTerms();
     });
-});
+}
+
+// Run immediately if ready, or wait
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupTermsModal);
+} else {
+    setupTermsModal();
+}
