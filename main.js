@@ -263,8 +263,8 @@ window.openTermsModal = function () {
 };
 
 // Setup internal listeners (close, etc.)
+// Setup internal listeners (close, etc.)
 function setupTermsListeners() {
-    const termLink = document.getElementById('open-terms'); // Get the link element here
     const termModal = document.getElementById('terms-modal');
     const closeTermBtn = document.getElementById('close-terms');
     const agreeBtn = document.getElementById('btn-agree-terms');
@@ -279,15 +279,10 @@ function setupTermsListeners() {
         }, 300);
     }
 
-    if (termLink) {
-        termLink.removeEventListener('click', window.openTermsModal); // Prevent duplicates if re-run
-        termLink.addEventListener('click', (e) => {
-            if (e) e.preventDefault();
-            window.openTermsModal();
-        });
-    }
     if (closeTermBtn) closeTermBtn.onclick = closeTerms;
     if (agreeBtn) agreeBtn.onclick = closeTerms;
+
+    // Close on background click
     if (termModal) termModal.onclick = (e) => {
         if (e.target === termModal) closeTerms();
     };
