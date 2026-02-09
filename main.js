@@ -245,3 +245,40 @@ function setupRealtimeListeners() {
 
 function checkLoading() { if (!Object.values(state.loading).some(v => v)) { const o = document.getElementById('loading-overlay'); if (o) { o.style.opacity = '0'; setTimeout(() => o.remove(), 500); } } }
 auth.onAuthStateChanged(u => { if (u) initApp(); else signInAnonymously(auth).catch(console.error); });
+
+// === TÉRMINOS Y CONDICIONES MODAL ===
+document.addEventListener('DOMContentLoaded', () => {
+    const termLink = document.getElementById('open-terms');
+    const termModal = document.getElementById('terms-modal');
+    const closeTermBtn = document.getElementById('close-terms');
+    const agreeBtn = document.getElementById('btn-agree-terms');
+
+    function openTerms(e) {
+        if (e) e.preventDefault();
+        termModal.classList.remove('hidden');
+        // Small delay to allow display:block to apply before opacity transition
+        setTimeout(() => {
+            termModal.classList.remove('opacity-0');
+            termModal.children[0].classList.remove('scale-95');
+            termModal.children[0].classList.add('scale-100');
+        }, 10);
+    }
+
+    function closeTerms() {
+        termModal.classList.add('opacity-0');
+        termModal.children[0].classList.remove('scale-100');
+        termModal.children[0].classList.add('scale-95');
+        setTimeout(() => {
+            termModal.classList.add('hidden');
+        }, 300);
+    }
+
+    if (termLink) termLink.addEventListener('click', openTerms);
+    if (closeTermBtn) closeTermBtn.addEventListener('click', closeTerms);
+    if (agreeBtn) agreeBtn.addEventListener('click', closeTerms);
+
+    // Close on background click
+    if (termModal) termModal.addEventListener('click', (e) => {
+        if (e.target === termModal) closeTerms();
+    });
+});

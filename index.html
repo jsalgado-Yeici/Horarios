@@ -36,12 +36,17 @@
 
     <div class="h-screen flex flex-col">
         <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-30">
-            <div class="flex items-center">
+            <div class="flex items-center gap-2">
                 <img src="logo_iaev.png" alt="Planificador IAEV"
                     class="h-12 w-auto object-contain hover:opacity-90 transition-opacity"
                     onerror="this.style.display='none'; document.getElementById('fallback-title').classList.remove('hidden');">
-                <h1 id="fallback-title" class="hidden text-2xl font-bold text-indigo-700 tracking-tight ml-2">
-                    Planificador IAEV</h1>
+                <div>
+                    <h1 id="fallback-title" class="hidden text-2xl font-bold text-indigo-700 tracking-tight ml-2">
+                        Planificador IAEV</h1>
+                    <a href="#" id="open-terms"
+                        class="text-[10px] text-gray-400 hover:text-indigo-600 hover:underline block -mt-1 ml-1 transition-colors">Términos
+                        y Condiciones</a>
+                </div>
             </div>
             <nav class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                 <button data-tab="horario"
